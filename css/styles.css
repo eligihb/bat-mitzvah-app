@@ -3,16 +3,31 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  min-height: 100%;
+  background: #07070a;
+}
+
 body {
-  margin: 0 auto;
+  margin: 0;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: white;
+  overflow-x: hidden;
+}
+
+/* מעטפת ממורכזת — מובייל ודסקטופ */
+#appShell {
+  width: 100%;
   max-width: 430px;
+  min-height: 100vh;
+  margin: 0 auto;
+  position: relative;
   background:
     radial-gradient(circle at top right, rgba(168, 85, 247, 0.22), transparent 35%),
     radial-gradient(circle at bottom left, rgba(236, 72, 153, 0.18), transparent 35%),
     #07070a;
-  font-family: sans-serif;
-  color: white;
-  overflow-x: hidden;
+  box-shadow: 0 0 80px rgba(0, 0, 0, 0.45);
 }
 
 .glass {
@@ -22,7 +37,7 @@ body {
 }
 
 .login-bg {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   overflow: hidden;
@@ -35,7 +50,7 @@ body {
   top: 48%;
   left: 50%;
   transform: translate(-50%, -50%) rotate(-8deg);
-  font-size: 430px;
+  font-size: min(430px, 100vw);
   font-weight: 900;
   background: linear-gradient(
     180deg,
@@ -46,9 +61,6 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   opacity: 0.22;
-  text-shadow:
-    0 0 40px rgba(168, 85, 247, 0.18),
-    0 0 90px rgba(236, 72, 153, 0.08);
 }
 
 .phoneCell {
@@ -89,13 +101,52 @@ body {
 }
 
 .tab {
-  display: none;
+  display: none !important;
 }
 
 .tab.active {
-  display: block;
+  display: block !important;
 }
 
 .calendar-day {
-  min-height: 88px;
+  min-height: 72px;
+}
+
+/* ניווט תחתון וכפתור + — מיושרים למעטפת הממורכזת */
+#bottomNav {
+  position: fixed;
+  bottom: 0;
+  left: max(0px, calc(50% - 215px));
+  width: min(430px, 100%);
+  right: auto;
+  transform: none;
+}
+
+#addBtn {
+  position: fixed;
+  bottom: 5.5rem;
+  right: max(1.25rem, calc(50vw - 215px + 1.25rem));
+  left: auto;
+}
+
+#eventModal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+#eventModal.flex {
+  display: flex !important;
+}
+
+.nav-tab-active {
+  color: #f9a8d4 !important;
+}
+
+.nav-tab-idle {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.app-main {
+  padding-bottom: 6.5rem;
 }

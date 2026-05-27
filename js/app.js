@@ -4,10 +4,13 @@
 
 // ─── מצב ───────────────────────────────────────────────────
 let currentUser = loadJson(APP_CONFIG.storage.user);
-let events = loadJson(APP_CONFIG.storage.events) || [];
-let messages = loadJson(APP_CONFIG.storage.messages) || [];
+let events = [];
+let messages = [];
 let selectedRole = APP_CONFIG.defaultRole;
 let hideGuests = false;
+let syncTimer = null;
+let isSyncing = false;
+let activeTab = sessionStorage.getItem("bm_active_tab") || "events";
 
 // ─── הפעלה ─────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -20,13 +23,14 @@ document.addEventListener("DOMContentLoaded", () => {
   bindNavigation();
   bindMessages();
   bindFloatingAdd();
+  bindLogout();
 
   if (currentUser) {
     showApp();
   }
 });
 
-// ─── אחסון ─────────────────────────────────────────────────
+// ─── אחסון (משתמש בלבד) ────────────────────────────────────
 function loadJson(key) {
   const raw = localStorage.getItem(key);
   return raw ? JSON.parse(raw) : null;
@@ -36,10 +40,65 @@ function saveJson(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+// ─── סנכרון עם Google Sheets ───────────────────────────────
+function setSyncStatus(text, isError = false) {
+  const el = document.getElementById("syncStatus");
+  if (!text) {
+    el.classList.add("hidden");
+    el.textContent = "";
+    return;
+  }
+  el.textContent = text;
+  el.className = isError
+    ? "mx-4 mt-3 text-center text-xs text-red-300"
+    : "mx-4 mt-3 text-center text-xs text-purple-200/80";
+  el.classList.remove("hidden");
+}
+
+async function syncFromServer() {
+  if (isSyncing) return;
+  isSyncing = true;
+  setSyncStatus("מסנכרן נתונים...");
+
+  try {
+    const data = await Api.fetchAll();
+    const normalized = Api.normalizePayload(data.events, data.rsvps, data.messages);
+    events = normalized.events;
+    messages = normalized.messages;
+    renderAll();
+    setSyncStatus("");
+  } catch (err) {
+    console.error(err);
+    setSyncStatus("לא הצלחנו לטעון מהשרת — נסו שוב", true);
+  } finally {
+    isSyncing = false;
+  }
+}
+
+function startAutoSync() {
+  stopAutoSync();
+  syncTimer = setInterval(syncFromServer, APP_CONFIG.syncIntervalMs);
+}
+
+function stopAutoSync() {
+  if (syncTimer) {
+    clearInterval(syncTimer);
+    syncTimer = null;
+  }
+}
+
+function renderAll() {
+  renderHeader();
+  renderUpcoming();
+  renderEvents();
+  renderCalendar();
+  renderMessages();
+  updateAddButton();
+}
+
 // ─── התחברות ───────────────────────────────────────────────
 function bindLogin() {
-  const form = document.getElementById("loginForm");
-  form.addEventListener("submit", (e) => {
+  document.getElementById("loginForm").addEventListener("submit", (e) => {
     e.preventDefault();
 
     const parentName = document.getElementById("parentName").value.trim();
@@ -56,12 +115,17 @@ function bindLogin() {
 
     let phone = "";
     if (digits.length === 7) {
-      const prefix = document.getElementById("phonePrefix").value;
-      phone = `${prefix}-${digits}`;
+      phone = `${document.getElementById("phonePrefix").value}-${digits}`;
     }
 
+    const saved = loadJson(APP_CONFIG.storage.user);
+    const sameUser =
+      saved &&
+      saved.parentName === parentName &&
+      saved.girlName === girlName;
+
     currentUser = {
-      id: crypto.randomUUID(),
+      id: sameUser ? saved.id : crypto.randomUUID(),
       role: selectedRole,
       parentName,
       girlName,
@@ -92,25 +156,58 @@ function bindPhoneCells() {
     cell.addEventListener("input", (e) => {
       e.target.value = e.target.value.replace(/[^0-9]/g, "");
       if (e.target.value.length === 1) {
-        const cells = document.querySelectorAll(".phoneCell");
-        cells[index + 1]?.focus();
+        document.querySelectorAll(".phoneCell")[index + 1]?.focus();
       }
     });
   });
 }
 
 // ─── מסכים ──────────────────────────────────────────────────
-function showApp() {
+async function showApp() {
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("appScreen").classList.remove("hidden");
   document.getElementById("bottomNav").classList.remove("hidden");
 
-  renderHeader();
-  renderUpcoming();
-  renderEvents();
-  renderCalendar();
-  renderMessages();
-  updateAddButton();
+  switchTab(activeTab, false);
+  await syncFromServer();
+  startAutoSync();
+}
+
+function bindLogout() {
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    if (!confirm("להתנתק מהישומון?")) return;
+    logout();
+  });
+}
+
+function logout() {
+  stopAutoSync();
+  localStorage.removeItem(APP_CONFIG.storage.user);
+  sessionStorage.removeItem("bm_active_tab");
+  currentUser = null;
+  events = [];
+  messages = [];
+  activeTab = "events";
+  closeModal();
+  setSyncStatus("");
+
+  document.getElementById("appScreen").classList.add("hidden");
+  document.getElementById("bottomNav").classList.add("hidden");
+  document.getElementById("loginScreen").classList.remove("hidden");
+  document.getElementById("loginForm").reset();
+  selectedRole = APP_CONFIG.defaultRole;
+
+  document.querySelectorAll(".roleBtn").forEach((b) => {
+    b.classList.remove("bg-purple-600");
+    b.classList.add("bg-white/10");
+  });
+  const defaultBtn = document.querySelector('.roleBtn[data-role="אמא"]');
+  if (defaultBtn) {
+    defaultBtn.classList.remove("bg-white/10");
+    defaultBtn.classList.add("bg-purple-600");
+  }
+
+  switchTab("events", false);
 }
 
 // ─── כותרת ─────────────────────────────────────────────────
@@ -165,6 +262,10 @@ function closeModal() {
   const modal = document.getElementById("eventModal");
   modal.classList.add("hidden");
   modal.classList.remove("flex");
+  document.getElementById("eventForm").reset();
+  hideGuests = false;
+  document.getElementById("privacyText").classList.add("hidden");
+  document.getElementById("privacyBtn").classList.remove("bg-purple-600");
 }
 
 function bindPrivacy() {
@@ -206,26 +307,33 @@ function bindEventForm() {
       image = await toBase64(file);
     }
 
-    events.push({
-      id: crypto.randomUUID(),
-      ownerId: currentUser.id,
-      girlName: currentUser.girlName,
-      date,
-      time,
-      location,
-      address,
-      menu,
-      image,
-      hideGuests,
-      rsvp: {},
-    });
+    const eventId = crypto.randomUUID();
 
-    saveJson(APP_CONFIG.storage.events, events);
-    renderEvents();
-    renderUpcoming();
-    renderCalendar();
-    updateAddButton();
-    closeModal();
+    try {
+      setSyncStatus("שומר אירוע...");
+      await Api.createEvent({
+        id: eventId,
+        ownerId: currentUser.id,
+        ownerName: currentUser.parentName,
+        girlName: currentUser.girlName,
+        date,
+        time,
+        location,
+        address,
+        menu,
+        hideAttendees: hideGuests,
+        image,
+        phone: currentUser.phone || "",
+        role: currentUser.role,
+      });
+
+      closeModal();
+      await syncFromServer();
+    } catch (err) {
+      console.error(err);
+      alert("לא הצלחנו לשמור את האירוע. נסו שוב.");
+      setSyncStatus("");
+    }
   });
 }
 
@@ -233,6 +341,12 @@ function bindEventForm() {
 function renderEvents() {
   const container = document.getElementById("eventsTab");
   container.innerHTML = "";
+
+  if (!events.length) {
+    container.innerHTML =
+      '<div class="glass rounded-[28px] p-6 text-center text-white/50 text-sm">עדיין אין אירועים — הוסיפו את הראשון 🎉</div>';
+    return;
+  }
 
   events.forEach((event) => {
     const isMine = event.ownerId === currentUser.id;
@@ -301,12 +415,27 @@ function rsvpClass(myVote, status) {
   return myVote === status ? map[status].active : map[status].idle;
 }
 
-function vote(eventId, status) {
+async function vote(eventId, status) {
   const event = events.find((e) => e.id === eventId);
   if (!event) return;
+
   event.rsvp[currentUser.id] = status;
-  saveJson(APP_CONFIG.storage.events, events);
   renderEvents();
+
+  try {
+    await Api.vote({
+      eventId,
+      userId: currentUser.id,
+      userName: currentUser.parentName,
+      status,
+    });
+    await syncFromServer();
+  } catch (err) {
+    console.error(err);
+    delete event.rsvp[currentUser.id];
+    renderEvents();
+    alert("לא הצלחנו לשמור את התשובה. נסו שוב.");
+  }
 }
 
 // ─── לוח שנה ───────────────────────────────────────────────
@@ -320,11 +449,11 @@ function renderCalendar() {
   const cells = Array.from({ length: days }, (_, i) => {
     const day = i + 1;
     const currentDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const event = events.find((e) => e.date === currentDate);
+    const dayEvents = events.filter((e) => e.date === currentDate);
     return `
       <div class="calendar-day glass rounded-2xl p-2 text-xs">
         <div class="font-bold mb-1">${day}</div>
-        ${event ? `<div class="bg-pink-500 rounded-xl p-1 text-[10px]">${event.girlName}</div>` : ""}
+        ${dayEvents.map((e) => `<div class="bg-pink-500 rounded-xl p-1 text-[10px] mb-1">${e.girlName}</div>`).join("")}
       </div>`;
   }).join("");
 
@@ -340,28 +469,35 @@ function bindMessages() {
   document.getElementById("publishMessageBtn").addEventListener("click", publishMessage);
 }
 
-function publishMessage() {
+async function publishMessage() {
   const input = document.getElementById("messageInput");
   const text = input.value.trim();
   if (!text) return;
 
-  messages.unshift({
-    id: crypto.randomUUID(),
-    name: currentUser.parentName,
-    text,
-    date: new Date().toLocaleString("he-IL"),
-  });
+  const msgId = crypto.randomUUID();
 
-  saveJson(APP_CONFIG.storage.messages, messages);
-  input.value = "";
-  renderMessages();
+  try {
+    setSyncStatus("שולח הודעה...");
+    await Api.createMessage({
+      id: msgId,
+      userName: currentUser.parentName,
+      messageText: text,
+    });
+    input.value = "";
+    await syncFromServer();
+  } catch (err) {
+    console.error(err);
+    alert("לא הצלחנו לפרסם את ההודעה. נסו שוב.");
+    setSyncStatus("");
+  }
 }
 
 function renderMessages() {
   const container = document.getElementById("messagesContainer");
-  container.innerHTML = messages
-    .map(
-      (msg) => `
+  container.innerHTML = messages.length
+    ? messages
+        .map(
+          (msg) => `
     <div class="glass rounded-[28px] p-4">
       <div class="flex justify-between items-center mb-2">
         <div class="font-black">${msg.name}</div>
@@ -369,8 +505,9 @@ function renderMessages() {
       </div>
       <div class="text-sm leading-7">${msg.text}</div>
     </div>`
-    )
-    .join("");
+        )
+        .join("")
+    : '<div class="text-center text-white/40 text-sm">עדיין אין הודעות</div>';
 }
 
 // ─── ניווט ─────────────────────────────────────────────────
@@ -387,16 +524,31 @@ function bindNavigation() {
   });
 }
 
-function switchTab(tab) {
-  document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
-
+function switchTab(tab, shouldSync = true) {
   const map = {
     events: "eventsTab",
     calendar: "calendarTab",
     messages: "messagesTab",
   };
 
-  document.getElementById(map[tab])?.classList.add("active");
+  if (!map[tab]) return;
+
+  activeTab = tab;
+  sessionStorage.setItem("bm_active_tab", tab);
+
+  document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+  document.getElementById(map[tab]).classList.add("active");
+
+  document.querySelectorAll(".nav-tab[data-tab]").forEach((btn) => {
+    btn.classList.toggle("nav-tab-active", btn.dataset.tab === tab);
+    btn.classList.toggle("nav-tab-idle", btn.dataset.tab !== tab);
+  });
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
+  if (shouldSync && (tab === "events" || tab === "messages")) {
+    syncFromServer();
+  }
 }
 
 // ─── עזר ───────────────────────────────────────────────────
