@@ -7,15 +7,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* חסימת רוחב מקסימלי למובייל ומרכז מסך */
         body {
             max-width: 430px;
             margin: 0 auto;
-            background-color: #f3f4f6;
+            background-color: #f9fafb;
             font-size: 16px;
         }
         input, select, button {
-            font-size: 16px !important; /* מניעת זום אוטומטי באייפון */
+            font-size: 16px !important;
         }
         .sticky-alert {
             position: sticky;
@@ -24,17 +23,17 @@
         }
     </style>
 </head>
-<body class="font-sans text-gray-800 min-h-screen flex flex-col pb-20">
+<body class="font-sans text-gray-800 min-h-screen flex flex-col pb-20 relative">
 
     <div id="authModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
-            <h2 class="text-xl font-bold text-center text-purple-700 mb-4">ברוכים הבאים לכנפי רוח ו'-4! 👋</h2>
+            <h2 class="text-xl font-bold text-center text-purple-700 mb-6">ברוכים הבאים לכנפי רוח ו'-4! 👋</h2>
             
             <form id="authForm" onsubmit="handleAuth(event)" class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium mb-2">אני ה- :</label>
                     <div class="flex gap-4">
-                        <label class="flex items-center gap-2 bg-gray-50 border p-3 rounded-xl flex-1 justify-center cursor-pointer checked-parent">
+                        <label class="flex items-center gap-2 bg-gray-50 border p-3 rounded-xl flex-1 justify-center cursor-pointer">
                             <input type="radio" name="parentRole" value="אמא" checked class="accent-purple-600">
                             <span>אמא 👩‍🦰</span>
                         </label>
@@ -74,7 +73,7 @@
                             <span class="absolute left-3 top-3.5 text-gray-400 text-xs" id="lockIcon2"><i class="fa-solid fa-lock"></i></span>
                         </div>
                     </div>
-                    <p class="text-[11px] text-gray-400 mt-1"><i class="fa-solid fa-circle-info"></i> השדות נעולים למניעת טעויות. לחצו עליהם כדי לערוך.</p>
+                    <p class="text-[11px] text-gray-400 mt-1"><i class="fa-solid fa-circle-info"></i> לחצו על שדה השם כדי לערוך אותו.</p>
                 </div>
 
                 <div>
@@ -101,30 +100,32 @@
         </div>
     </div>
 
-    <div id="stickyAlert" class="sticky-alert bg-gradient-to-r align-middle from-pink-500 to-purple-600 text-white text-xs py-2.5 px-4 text-center font-bold shadow-md flex justify-between items-center hidden">
+    <div id="stickyAlert" class="sticky-alert bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs py-2.5 px-4 text-center font-bold shadow-md flex justify-between items-center hidden">
         <span class="w-full text-center" id="stickyAlertText">טוען את האירוע הקרוב ביותר... ⏳</span>
     </div>
 
     <header class="bg-white p-4 shadow-sm border-b border-gray-100 flex justify-between items-center">
         <div>
-            <div class="flex items-center gap-1.5">
-                <span id="headerEmoji" class="text-xl">👩‍🦰</span>
-                <h1 id="headerParentName" class="font-bold text-gray-900 leading-tight">שלום, הורה</h1>
+            <div class="flex items-center gap-2">
+                <h1 id="headerParentName" class="font-extrabold text-lg text-gray-900 leading-tight">שלום, הורה</h1>
+                <button onclick="logout()" class="text-xs text-red-500 font-bold hover:underline flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded-md" title="החלף משתמש">
+                    <i class="fa-solid fa-door-open"></i> התנתקות
+                </button>
             </div>
-            <p id="headerGirlName" class="text-xs text-purple-600 font-medium mt-0.5">הבת: טוען...</p>
+            <p id="headerSubDetails" class="text-xs text-gray-500 font-medium mt-1 italic">(טוען פרטים...)</p>
         </div>
-        <div class="flex items-center gap-2">
-            <div id="phoneActions" class="hidden flex gap-1">
-                <button onclick="callParent()" class="p-2 bg-green-50 rounded-lg text-green-600 text-sm hover:bg-green-100" title="חיוג מהיר"><i class="fa-solid fa-phone"></i></button>
-                <button onclick="copyPhone()" class="p-2 bg-blue-50 rounded-lg text-blue-600 text-sm hover:bg-blue-100" title="העתק מספר"><i class="fa-solid fa-copy"></i></button>
-            </div>
-            <button onclick="logout()" class="p-2 bg-red-50 text-red-500 rounded-lg text-xs font-bold hover:bg-red-100" title="החלף משתמש">
-                <i class="fa-solid fa-door-open"></i>
+        
+        <div id="phoneActions" class="flex gap-1.5">
+            <button onclick="callParent()" id="btnCall" class="p-2.5 bg-gray-100 text-gray-400 rounded-xl text-sm transition-all" title="חיוג מהיר">
+                <i class="fa-solid fa-phone"></i>
+            </button>
+            <button onclick="whatsappParent()" id="btnWhatsapp" class="p-2.5 bg-gray-100 text-gray-400 rounded-xl text-sm transition-all" title="שלח וואטסאפ">
+                <i class="fa-brands fa-whatsapp text-base"></i>
             </button>
         </div>
     </header>
 
-    <main class="flex-1 p-4 overflow-y-auto">
+    <main class="flex-1 p-4 overflow-y-auto relative">
         
         <div id="tabFeed" class="space-y-4 tab-content">
             <div class="text-center text-gray-400 py-10">
@@ -133,9 +134,9 @@
             </div>
         </div>
 
-        <div id="tabGantt" class="space-y-6 tab-content hidden">
+        <div id="tabGantt" class="space-y-4 tab-content hidden">
             <h3 class="font-bold text-gray-700 text-sm border-b pb-2"><i class="fa-solid fa-calendar-days text-purple-500 mr-1"></i> מפת תאריכים כיתתית</h3>
-            <div id="ganttContainer" class="space-y-4">
+            <div id="ganttContainer" class="grid grid-cols-1 gap-4">
                 </div>
         </div>
 
@@ -145,8 +146,7 @@
             <form id="addEventForm" onsubmit="createNewEvent(event)" class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-gray-600 mb-1">שם ילדת בת המצווה</label>
-                    <div id="girlNameSelectionContainer">
-                        </div>
+                    <div id="girlNameSelectionContainer"></div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
@@ -162,7 +162,7 @@
 
                 <div>
                     <label class="block text-xs font-bold text-gray-600 mb-1">שם המועדון / אולם</label>
-                    <input type="text" id="eventLocation" list="locationsDatalist" required oninput="handleLocationInput(); validateForm();" class="w-full border p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-purple-500" placeholder="לדוגמה: מועדון הקצב">
+                    <input type="text" id="eventLocation" list="locationsDatalist" required oninput="handleLocationInput(); validateForm();" class="w-full border p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-purple-500" placeholder="לדוגמה: אולם השמחות">
                     <datalist id="locationsDatalist"></datalist>
                 </div>
 
@@ -185,15 +185,19 @@
                 </button>
             </form>
         </div>
+
+        <button id="floatingAddBtn" onclick="switchTab('add')" class="fixed bottom-20 left-6 bg-purple-600 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-xl font-bold transition-all hover:bg-purple-700 active:scale-95 z-40 hidden">
+            <i class="fa-solid fa-plus"></i>
+        </button>
     </main>
 
     <nav class="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white border-t border-gray-200 h-16 flex shadow-lg z-40">
         <button onclick="switchTab('feed')" id="nav-feed" class="flex-1 flex flex-col items-center justify-center text-purple-600 font-bold gap-0.5">
-            <i class="fa-solid fa-house-chimney text-lg"></i>
-            <span class="text-[11px]">האירועים</span>
+            <i class="fa-solid fa-list-ul text-lg"></i>
+            <span class="text-[11px]">לוח אירועים</span>
         </button>
         <button onclick="switchTab('gantt')" id="nav-gantt" class="flex-1 flex flex-col items-center justify-center text-gray-400 gap-0.5">
-            <i class="fa-solid fa-calendar-week text-lg"></i>
+            <i class="fa-solid fa-calendar-grid text-lg"></i>
             <span class="text-[11px]">ריכוז חודשי</span>
         </button>
         <button onclick="switchTab('add')" id="nav-add" class="flex-1 flex flex-col items-center justify-center text-gray-400 gap-0.5">
@@ -203,32 +207,26 @@
     </nav>
 
     <script type="module">
-        // ייבוא Firebase Realtime Database
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // TODO: החלף את הקונפיגורציה הזו בפרטי ה-Firebase שלך!
+        // TODO: הדבק כאן את כתובת ה-Firebase Realtime Database שלך
         const firebaseConfig = {
             databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com/"
         };
 
-        // אתחול האפליקציה והדאטהבייס
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // משתנים גלובליים פנימיים
         let currentUser = null;
         let allEvents = [];
 
-        // הפעלה ראשונית של המערכת בטעינת הדף
         window.addEventListener('DOMContentLoaded', () => {
             checkAuth();
             listenToEvents();
         });
 
-        // -------------------------
-        // מנגנון זיהוי, רישום ותאומות
-        // -------------------------
+        // זיהוי ותאומות
         window.toggleTwinField = function() {
             const container = document.getElementById('twinContainer');
             const btn = document.getElementById('twinBtn');
@@ -237,7 +235,7 @@
             if(container.classList.contains('hidden')) {
                 container.classList.remove('hidden');
                 input2.required = true;
-                unlockField('girlName2'); // לפתוח מיד להקלדה ראשונית
+                unlockField('girlName2');
                 btn.innerHTML = `<i class="fa-solid fa-minus mr-1"></i> בטל תאומה`;
             } else {
                 container.classList.add('hidden');
@@ -271,7 +269,7 @@
             const mainNum = document.getElementById('phoneMain').value;
             const phone = `${prefix}-${mainNum}`;
 
-            if(!g1) return alert("חובה להזין לפחות שם של ילדה אחת");
+            if(!g1) return alert("חובה להזין שם ילדה");
 
             const girlNames = [g1];
             if(g2 && !document.getElementById('twinContainer').classList.contains('hidden')) {
@@ -285,6 +283,7 @@
             renderHeader();
             renderAddEventFormFields();
             renderFeed();
+            renderGantt();
         }
 
         function checkAuth() {
@@ -295,36 +294,49 @@
                 renderAddEventFormFields();
             } else {
                 document.getElementById('authModal').classList.remove('hidden');
-                // אתחול שדה השם הראשון כנעול כברירת מחדל לאפיון, אך ריק
-                const g1 = document.getElementById('girlName1');
-                g1.setAttribute('readonly', 'true');
+                document.getElementById('girlName1').setAttribute('readonly', 'true');
             }
         }
 
         window.logout = function() {
-            if(confirm("האם ברצונך להתנתק ולמחוק את נתוני המשתמש מהמכשיר הנוכחי?")) {
+            if(confirm("האם ברצונך להתנתק מהמערכת?")) {
                 localStorage.removeItem('batMitzvahUser');
                 currentUser = null;
                 location.reload();
             }
         }
 
-        // -------------------------
-        // רינדור רכיבי ממשק
-        // -------------------------
+        // רינדור Header וכפתורי תקשורת מודגשים
         function renderHeader() {
             if(!currentUser) return;
-            document.getElementById('headerEmoji').innerText = currentUser.parentRole === 'אמא' ? '👩‍🦰' : '👨';
             document.getElementById('headerParentName').innerText = `שלום, ${currentUser.parentName}`;
-            document.getElementById('headerGirlName').innerText = `הבנות: ${currentUser.girlNames.join(' ו-')}`;
-            document.getElementById('phoneActions').classList.remove('hidden');
+            
+            // עיצוב תת-כותרת בסוגריים (למניעת עומס)
+            const girlsText = currentUser.girlNames.join(' ושל ');
+            document.getElementById('headerSubDetails').innerText = `(${currentUser.parentRole} של ${girlsText})`;
+
+            // הדגשת כפתורי טלפון ו-WhatsApp בצבעים אקטיביים אם הוגדר טלפון
+            const callBtn = document.getElementById('btnCall');
+            const waBtn = document.getElementById('btnSkipped'); 
+            const whatsappBtn = document.getElementById('btnAuthorization'); 
+            
+            if(currentUser.phone) {
+                // כפתור חיוג ירוק
+                document.getElementById('btnCall').className = "p-2.5 bg-green-100 text-green-600 rounded-xl text-sm hover:bg-green-200 transition-all";
+                // כפתור וואטסאפ ירוק
+                document.getElementById('btnWhatsapp').className = "p-2.5 bg-emerald-100 text-emerald-600 rounded-xl text-sm hover:bg-emerald-200 transition-all";
+            } else {
+                // אפור אם לא הוגדר
+                document.getElementById('btnCall').className = "p-2.5 bg-gray-100 text-gray-400 rounded-xl text-sm cursor-not-allowed";
+                document.getElementById('btnWhatsapp').className = "p-2.5 bg-gray-100 text-gray-400 rounded-xl text-sm cursor-not-allowed";
+            }
         }
 
-        window.callParent = function() { if(currentUser) window.location.href = `tel:${currentUser.phone}`; }
-        window.copyPhone = function() { 
-            if(currentUser) {
-                navigator.clipboard.writeText(currentUser.phone);
-                alert("מספר הטלפון הועתק לקליפבורד! 📋");
+        window.callParent = function() { if(currentUser && currentUser.phone) window.location.href = `tel:${currentUser.phone}`; }
+        window.whatsappParent = function() {
+            if(currentUser && currentUser.phone) {
+                const clearPhone = currentUser.phone.replace('-', '');
+                window.open(`https://wa.me/972${clearPhone.substring(1)}`, '_blank');
             }
         }
 
@@ -333,27 +345,18 @@
             if(!currentUser) return;
 
             if(currentUser.girlNames.length === 1) {
-                // רק ילדה אחת - שדה readonly רגיל
                 container.innerHTML = `<input type="text" id="eventGirlName" value="${currentUser.girlNames[0]}" readonly class="w-full border p-2.5 rounded-xl bg-gray-100 text-gray-500 font-bold outline-none">`;
             } else {
-                // תאומות - תפריט בחירה (Select) כפי שמכתיב האפיון החדש
                 let options = currentUser.girlNames.map(name => `<option value="${name}">${name}</option>`).join('');
-                container.innerHTML = `
-                    <select id="eventGirlName" class="w-full border p-2.5 rounded-xl bg-white font-bold outline-none focus:ring-2 focus:ring-purple-500">
-                        ${options}
-                    </select>
-                `;
+                container.innerHTML = `<select id="eventGirlName" class="w-full border p-2.5 rounded-xl bg-white font-bold outline-none focus:ring-2 focus:ring-purple-500">${options}</select>`;
             }
         }
 
-        // -------------------------
-        // טאבים וניווט
-        // -------------------------
+        // מעבר בין טאבים + ניהול תצוגת כפתור הפלוס הצף
         window.switchTab = function(tabName) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.remove('hidden');
             
-            // עדכון עיצוב כפתורי הניווט התחתון
             ['feed', 'gantt', 'add'].forEach(t => {
                 const btn = document.getElementById(`nav-${t}`);
                 if(t === tabName) {
@@ -364,11 +367,25 @@
                     btn.classList.add('text-gray-400');
                 }
             });
+
+            manageFloatingButtonVisibility(tabName);
         }
 
-        // -------------------------
-        // סנכרון מול ענן (Firebase)
-        // -------------------------
+        function manageFloatingButtonVisibility(currentTab) {
+            const floatBtn = document.getElementById('floatingAddBtn');
+            if(!currentUser) return;
+
+            // בודק אם המשתמש כבר פרסם עבור אחת מהבנות שלו
+            const hasPublished = allEvents.some(e => currentUser.girlNames.includes(e.girlName));
+            
+            // מציג את כפתור הפלוס רק בטאב הפיד, ורק אם המשתמש עדיין לא פרסם
+            if(currentTab === 'feed' && !hasPublished) {
+                floatBtn.classList.remove('hidden');
+            } else {
+                floatBtn.classList.add('hidden');
+            }
+        }
+
         function listenToEvents() {
             const eventsRef = ref(db, 'events');
             onValue(eventsRef, (snapshot) => {
@@ -379,13 +396,16 @@
                         allEvents.push({ id, ...data[id] });
                     }
                 }
-                // מיון כרונולוגי של האירועים
                 allEvents.sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
                 
                 updateStickyAlert();
                 renderFeed();
                 renderGantt();
                 updateDatalist();
+                
+                // עדכון נראות כפתור הפלוס מיד עם קבלת הנתונים מהענן
+                const activeTab = document.getElementById('tabFeed').classList.contains('hidden') ? (document.getElementById('tabGantt').classList.contains('hidden') ? 'add' : 'gantt') : 'feed';
+                manageFloatingButtonVisibility(activeTab);
             });
         }
 
@@ -403,9 +423,7 @@
             }
         }
 
-        // -------------------------
-        // מסך א': פיד כרטיסים
-        // -------------------------
+        // מסך א': לוח אירועים (פיד)
         function renderFeed() {
             const container = document.getElementById('tabFeed');
             if(!currentUser) return;
@@ -422,19 +440,17 @@
                 const isPast = eventDateTime < now;
                 const isOwnEvent = currentUser.girlNames.includes(event.girlName);
                 
-                // חישוב אישורי הגעה
                 const totalAttendees = event.attendees ? Object.keys(event.attendees).length : 0;
-                const userKey = `${currentUser.parentName}_${currentUser.girlNames[0]}`; // מפתח משתמש ייחודי להצבעה
+                // מפתח הצבעה ייחודי קבוע להורה ללא תלות בבת הנבחרת
+                const userKey = `${currentUser.parentName.replace(/[\.\#\$\[\]]/g, "_")}`;
                 const userResponse = event.attendees && event.attendees[userKey] ? event.attendees[userKey].status : null;
 
-                // יצירת כרטיס ב-HTML
                 const card = document.createElement('div');
                 card.id = `card-${event.id}`;
                 card.className = `bg-white rounded-2xl p-5 shadow-sm border border-gray-100 relative transition-all ${isPast ? 'opacity-60 bg-gray-50' : ''}`;
                 
                 let [year, month, day] = event.date.split('-');
                 
-                // כותרת ופרטי בסיס
                 let html = `
                     <div class="flex justify-between items-start mb-3">
                         <div>
@@ -456,11 +472,9 @@
                     </div>
                 `;
 
-                // לוגיקת כפתורים / ניהול בהתאם לחוקי האפיון
                 if(isPast) {
                     html += `<div class="text-center bg-gray-200 text-gray-500 font-bold p-2.5 rounded-xl text-xs">האירוע כבר התקיים</div>`;
                 } else if(isOwnEvent) {
-                    // חוק אירוע אישי - כפתור ניהול בלעדי להסתרת מאשרים
                     const isHidden = event.hideAttendees || false;
                     html += `
                         <div class="border-t pt-3 mt-2">
@@ -471,11 +485,8 @@
                         </div>
                     `;
                 } else {
-                    // כרטיס של ילדה אחרת - הצבעת הגעה
                     html += `<div class="border-t pt-3" id="voting-zone-${event.id}">`;
-                    
                     if(userResponse) {
-                        // חוק נעילת אישור ועריכה
                         let statusText = userResponse === 'yes' ? '🟩 הגבת שתגיעו' : (userResponse === 'maybe' ? '🟨 הגבת שאולי תגיעו' : '🟥 הגבת שלא תגיעו');
                         html += `
                             <div class="flex justify-between items-center bg-gray-50 p-2 rounded-xl">
@@ -484,7 +495,6 @@
                             </div>
                         `;
                     } else {
-                        // 3 כפתורים בולטים לאישור
                         html += `
                             <p class="text-xs font-bold text-gray-500 mb-2">האם תגיעו?</p>
                             <div class="grid grid-cols-3 gap-2">
@@ -497,20 +507,11 @@
                     html += `</div>`;
                 }
 
-                // תצוגת מונים ורשימת מאשרים (חוק מניעת מבוכה)
                 const showListToClass = !event.hideAttendees;
                 if(isOwnEvent || showListToClass) {
-                    html += `
-                        <div class="mt-4 pt-3 border-t text-xs text-gray-500">
-                            <span class="font-bold text-gray-700">אישרו הגעה עד כה: ${totalAttendees}</span>
-                        </div>
-                    `;
+                    html += `<div class="mt-4 pt-3 border-t text-xs text-gray-500"><span class="font-bold text-gray-700">אישרו הגעה עד כה: ${totalAttendees}</span></div>`;
                 } else {
-                    html += `
-                        <div class="mt-4 pt-3 border-t text-xs text-gray-400 italic text-center">
-                            🔒 פרטי המאשרים חסויים לבקשת המשפחה
-                        </div>
-                    `;
+                    html += `<div class="mt-4 pt-3 border-t text-xs text-gray-400 italic text-center">🔒 פרטי המאשרים חסויים לבקשת המשפחה</div>`;
                 }
 
                 card.innerHTML = html;
@@ -523,7 +524,7 @@
         }
 
         window.submitAttendance = function(eventId, status) {
-            const userKey = `${currentUser.parentName}_${currentUser.girlNames[0]}`;
+            const userKey = `${currentUser.parentName.replace(/[\.\#\$\[\]]/g, "_")}`;
             const attendanceRef = ref(db, `events/${eventId}/attendees/${userKey}`);
             set(attendanceRef, {
                 parentName: currentUser.parentName,
@@ -532,8 +533,7 @@
         }
 
         window.enableVoteChange = function(eventId) {
-            // זמנית מוחקים את הבחירה כדי שהממשק ירנדר שוב את 3 הכפתורים
-            const userKey = `${currentUser.parentName}_${currentUser.girlNames[0]}`;
+            const userKey = `${currentUser.parentName.replace(/[\.\#\$\[\]]/g, "_")}`;
             set(ref(db, `events/${eventId}/attendees/${userKey}`), null);
         }
 
@@ -541,14 +541,11 @@
             update(ref(db, `events/${eventId}`), { hideAttendees: !currentStatus });
         }
 
-        // -------------------------
-        // מסך ב': גאנט (ריכוז חודשי)
-        // -------------------------
+        // מסך ב': ריכוז חודשי משופר עם קוביות וגלישת טקסט מלאה
         function renderGantt() {
             const container = document.getElementById('ganttContainer');
             if(!currentUser || allEvents.length === 0) return;
 
-            // קיבוץ לפי חודש ושנה
             const groups = {};
             const monthsNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
             
@@ -564,30 +561,39 @@
 
             for (let monthYear in groups) {
                 const monthSection = document.createElement('div');
-                monthSection.className = "space-y-2";
-                monthSection.innerHTML = `<h4 class="text-xs font-extrabold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-md inline-block">${monthYear}</h4>`;
+                monthSection.className = "bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-2";
+                monthSection.innerHTML = `<h4 class="text-xs font-extrabold text-purple-700 bg-purple-50 px-3 py-1 rounded-lg inline-block mb-1">${monthYear}</h4>`;
                 
                 groups[monthYear].forEach(event => {
                     const eventDateTime = new Date(`${event.date}T${event.time}`);
                     const isPast = eventDateTime < now;
-                    const userKey = `${currentUser.parentName}_${currentUser.girlNames[0]}`;
+                    const isOwnEvent = currentUser.girlNames.includes(event.girlName);
+                    
+                    const userKey = `${currentUser.parentName.replace(/[\.\#\$\[\]]/g, "_")}`;
                     const hasConfirmed = event.attendees && event.attendees[userKey] && event.attendees[userKey].status === 'yes';
 
                     const [y, m, day] = event.date.split('-');
                     
                     const row = document.createElement('button');
                     row.onclick = () => scrollToCard(event.id);
-                    row.className = `w-full text-right flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-all text-xs active:scale-[0.99]`;
+                    
+                    // שימוש ב-break-words לגלישת טקסט מושלמת, וצביעה ייחודית אם זה אירוע של הבת שלו
+                    let bgStyle = isOwnEvent ? 'bg-purple-50 border-purple-200 ring-1 ring-purple-300' : 'bg-gray-50 border-gray-100';
+                    row.className = `w-full text-right flex items-center justify-between p-3 border rounded-xl hover:bg-gray-100 transition-all text-xs active:scale-[0.99] gap-2 ${bgStyle}`;
                     
                     let innerHTML = `
-                        <div class="flex items-center gap-3">
-                            <span class="font-bold text-gray-400 w-6">${day}</span>
-                            <span class="${isPast ? 'line-through text-gray-400' : 'font-medium text-gray-800'}">בת מצווה ל${event.girlName}</span>
+                        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                            <span class="font-black text-purple-600 bg-white shadow-xs w-7 h-7 flex items-center justify-center rounded-lg border border-gray-100 shrink-0">${day}</span>
+                            <span class="break-words font-medium text-gray-800 leading-normal flex-1 min-w-0 ${isPast ? 'line-through text-gray-400' : ''}">
+                                ${isOwnEvent ? '⭐ ' : '' }בת מצווה ל${event.girlName} <span class="text-gray-400 font-normal text-[11px] block">${event.location}</span>
+                            </span>
                         </div>
                     `;
 
-                    if(hasConfirmed && !isPast) {
-                        innerHTML += `<span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-md font-bold">אישרת ✔️</span>`;
+                    if(isOwnEvent) {
+                        innerHTML += `<span class="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded-md font-bold shrink-0">שלנו! 🎉</span>`;
+                    } else if(hasConfirmed && !isPast) {
+                        innerHTML += `<span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded-md font-bold shrink-0">אישרת ✔️</span>`;
                     }
 
                     row.innerHTML = innerHTML;
@@ -610,12 +616,9 @@
             }, 150);
         }
 
-        // -------------------------
-        // מסך ג': טופס הוספה חכם ומניעת התנגשויות
-        // -------------------------
+        // מסך ג': טופס הוספה חכם
         window.handleLocationInput = function() {
             const currentVal = document.getElementById('eventLocation').value;
-            // מציאת אירוע עבר עם אותו השם כדי לבצע השלמה אוטומטית של כתובת
             const match = allEvents.find(e => e.location === currentVal);
             if(match) {
                 document.getElementById('eventAddress').value = match.address;
@@ -657,21 +660,18 @@
             const address = document.getElementById('eventAddress').value;
             const menu = document.getElementById('eventMenu').value;
 
-            // 1. חסימת מניעת כפל אירועים לאותה ילדה
             const alreadyHasEvent = allEvents.some(e => e.girlName === girlName);
             if(alreadyHasEvent) {
                 alert(`⚠️ שים לב: כבר קיים בלוח אירוע רשום על שם ${girlName}. לא ניתן לפרסם אירוע נוסף.`);
                 return;
             }
 
-            // 2. התרעת התנגשות תאריכים (ילדה אחרת באותו יום)
             const dateCollision = allEvents.find(e => e.date === date);
             if(dateCollision) {
                 const proceed = confirm(`🚨 התרעת התנגשות! בתאריך שנבחר כבר מתקיים אירוע של ${dateCollision.girlName}.\nהאם אתה בטוח שברצונך להמשיך ולרשום אירוע נוסף באותו היום?`);
-                if(!proceed) return; // עצירת השליחה במידה וההורה מתחרט
+                if(!proceed) return;
             }
 
-            // שליחה לענן
             const newEventRef = push(ref(db, 'events'));
             set(newEventRef, {
                 girlName, date, time, location, address, menu,
