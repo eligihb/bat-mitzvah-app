@@ -146,15 +146,19 @@ function bindLogin() {
 function bindRoleButtons() {
   document.querySelectorAll(".roleBtn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".roleBtn").forEach((b) => {
-        b.classList.remove("role-btn-active");
-        b.classList.add("role-btn-idle");
-      });
-      btn.classList.remove("role-btn-idle");
-      btn.classList.add("role-btn-active");
       selectedRole = btn.dataset.role;
+      updateRoleButtonStyles(selectedRole);
     });
   });
+}
+
+function updateRoleButtonStyles(role) {
+  const mom = document.querySelector('.roleBtn[data-role="אמא"]');
+  const dad = document.querySelector('.roleBtn[data-role="אבא"]');
+  if (!mom || !dad) return;
+
+  mom.className = `roleBtn rounded-2xl p-3 font-bold ${role === "אמא" ? "role-mom-active" : "role-mom-idle"}`;
+  dad.className = `roleBtn rounded-2xl p-3 font-bold ${role === "אבא" ? "role-dad-active" : "role-dad-idle"}`;
 }
 
 function bindTwinToggle() {
@@ -232,19 +236,12 @@ function logout() {
   document.getElementById("loginScreen").classList.remove("hidden");
   document.getElementById("loginForm").reset();
   selectedRole = APP_CONFIG.defaultRole;
-
-  document.querySelectorAll(".roleBtn").forEach((b) => {
-    b.classList.remove("role-btn-active");
-    b.classList.add("role-btn-idle");
-  });
-  const defaultBtn = document.querySelector('.roleBtn[data-role="אמא"]');
-  if (defaultBtn) {
-    defaultBtn.classList.remove("role-btn-idle");
-    defaultBtn.classList.add("role-btn-active");
-  }
+  updateRoleButtonStyles(selectedRole);
 
   document.getElementById("twinName").value = "";
   setTwinFieldOpen(false);
+
+  document.getElementById("addBtn").classList.add("hidden");
 
   switchTab("events", false);
 }

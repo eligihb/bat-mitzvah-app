@@ -38,6 +38,11 @@ body {
   box-shadow: 0 0 80px rgba(0, 0, 0, 0.45);
 }
 
+#appShell:has(#loginScreen:not(.hidden)) #addBtn,
+#appShell:has(#loginScreen:not(.hidden)) #bottomNav {
+  display: none !important;
+}
+
 .glass {
   background: rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(16px);
@@ -108,6 +113,27 @@ body {
   animation-delay: 3s;
 }
 
+.login-bg-sparkle-4 {
+  top: 44%;
+  left: 46%;
+  animation-delay: 0.8s;
+  font-size: 1.5rem;
+}
+
+.login-bg-sparkle-5 {
+  top: 38%;
+  right: 28%;
+  animation-delay: 2.2s;
+  font-size: 1.4rem;
+}
+
+.login-bg-sparkle-6 {
+  top: 52%;
+  left: 22%;
+  animation-delay: 3.8s;
+  font-size: 1.35rem;
+}
+
 @keyframes floatSparkle {
   0%,
   100% {
@@ -119,112 +145,182 @@ body {
 }
 
 .login-card {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(18px);
-  border: 1px solid rgba(255, 255, 255, 0.95);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 240, 248, 0.92) 0%,
+    rgba(252, 231, 243, 0.88) 45%,
+    rgba(245, 225, 255, 0.9) 100%
+  );
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(236, 72, 153, 0.22);
   box-shadow:
-    0 24px 60px rgba(168, 85, 247, 0.14),
-    0 4px 16px rgba(236, 72, 153, 0.08);
+    0 24px 60px rgba(236, 72, 153, 0.16),
+    0 4px 20px rgba(168, 85, 247, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
-.login-badge {
+.login-card-deco {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.login-card-number {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  font-size: 11rem;
+  font-weight: 900;
+  line-height: 1;
+  background: linear-gradient(
+    160deg,
+    rgba(236, 72, 153, 0.18),
+    rgba(168, 85, 247, 0.22),
+    rgba(244, 114, 182, 0.15)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  opacity: 0.7;
+  user-select: none;
+}
+
+.login-class-badge {
   display: inline-block;
-  margin-bottom: 0.75rem;
-  padding: 0.35rem 0.85rem;
+  padding: 0.4rem 1rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(236, 72, 153, 0.12), rgba(168, 85, 247, 0.12));
-  border: 1px solid rgba(168, 85, 247, 0.2);
+  background: linear-gradient(90deg, rgba(236, 72, 153, 0.14), rgba(168, 85, 247, 0.14));
+  border: 1px solid rgba(168, 85, 247, 0.25);
   color: #7c3aed;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 800;
+}
+
+.req {
+  color: #ef4444;
+  font-weight: 900;
 }
 
 .login-label {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   margin-bottom: 0.25rem;
-  color: #4c1d95;
+  color: #6b21a8;
 }
 
 .login-input {
   width: 100%;
   border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(168, 85, 247, 0.18);
-  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1.5px solid rgba(236, 72, 153, 0.28);
+  padding: 0.7rem 0.75rem;
   outline: none;
-  color: #2d1b4e;
+  color: #312e81;
+  font-weight: 600;
 }
 
 .login-input:focus {
-  border-color: #a855f7;
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
+  border-color: #ec4899;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.18);
 }
 
 .login-input::placeholder {
-  color: #9ca3af;
+  color: #a78bfa;
+  font-weight: 500;
 }
 
-.role-btn-active {
-  background: linear-gradient(135deg, #ec4899, #a855f7);
+.login-select {
+  color: #312e81;
+  font-weight: 700;
+}
+
+.login-select option {
+  color: #312e81;
+  background: #fff;
+}
+
+.role-mom-active {
+  background: linear-gradient(135deg, #f472b6, #ec4899);
   color: white;
-  box-shadow: 0 8px 20px rgba(168, 85, 247, 0.25);
+  box-shadow: 0 6px 16px rgba(236, 72, 153, 0.35);
+  border: 2px solid #ec4899;
 }
 
-.role-btn-idle {
-  background: rgba(168, 85, 247, 0.08);
-  color: #6b21a8;
-  border: 1px solid rgba(168, 85, 247, 0.15);
+.role-mom-idle {
+  background: rgba(252, 231, 243, 0.9);
+  color: #be185d;
+  border: 2px solid rgba(236, 72, 153, 0.35);
+}
+
+.role-dad-active {
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+  color: white;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  border: 2px solid #2563eb;
+}
+
+.role-dad-idle {
+  background: rgba(219, 234, 254, 0.95);
+  color: #1d4ed8;
+  border: 2px solid rgba(37, 99, 235, 0.35);
 }
 
 .phoneCell-light {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(168, 85, 247, 0.18);
-  color: #2d1b4e;
+  background: #fff;
+  border: 1.5px solid rgba(236, 72, 153, 0.35);
+  color: #1e1b4b;
+  font-size: 1.125rem;
+  font-weight: 800;
 }
 
 .phoneCell-light:focus {
-  border-color: #a855f7;
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
+  border-color: #ec4899;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.2);
 }
 
 .twin-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  justify-content: flex-start;
+  gap: 0.5rem;
   margin-top: 0.25rem;
 }
 
 .twin-row-label {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #6b21a8;
+  color: #7c3aed;
 }
 
 .twin-add-btn {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 1.75rem;
+  height: 1.75rem;
   border-radius: 999px;
-  border: none;
+  border: 2px solid rgba(236, 72, 153, 0.45);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
-  color: white;
-  background: linear-gradient(135deg, #ec4899, #a855f7);
-  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.35);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  color: #ec4899;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.2);
+  transition: transform 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
 }
 
 .twin-add-btn:active {
-  transform: scale(0.94);
+  transform: scale(0.92);
 }
 
 .twin-add-btn.is-active {
-  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  background: #ec4899;
+  color: #fff;
+  border-color: #ec4899;
 }
 
 .twin-add-btn.is-active i {
@@ -233,6 +329,28 @@ body {
 
 .twin-add-btn i {
   transition: transform 0.2s ease;
+}
+
+.login-submit {
+  background: linear-gradient(90deg, #ec4899, #a855f7);
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.35);
+}
+
+.login-footer {
+  text-align: center;
+  padding: 0.75rem 1rem 1.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(107, 33, 168, 0.55);
+  border-top: 1px solid rgba(236, 72, 153, 0.12);
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.35));
+}
+
+.login-footer-brand {
+  font-weight: 900;
+  color: #a855f7;
+  letter-spacing: 0.08em;
 }
 
 .twin-field-wrap.is-hidden {

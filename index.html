@@ -7,90 +7,104 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=3" />
+  <link rel="stylesheet" href="css/styles.css?v=4" />
 </head>
 <body>
 
   <div id="appShell">
 
     <!-- התחברות -->
-    <div id="loginScreen" class="login-screen min-h-screen flex items-start justify-center pt-10 pb-8 px-4 relative overflow-hidden">
+    <div id="loginScreen" class="login-screen min-h-screen flex flex-col relative overflow-hidden">
       <div class="login-bg" aria-hidden="true">
         <span class="login-bg-number">12</span>
         <span class="login-bg-sparkle login-bg-sparkle-1">✨</span>
         <span class="login-bg-sparkle login-bg-sparkle-2">🎀</span>
         <span class="login-bg-sparkle login-bg-sparkle-3">💜</span>
+        <span class="login-bg-sparkle login-bg-sparkle-4">💖</span>
+        <span class="login-bg-sparkle login-bg-sparkle-5">⭐</span>
+        <span class="login-bg-sparkle login-bg-sparkle-6">🌸</span>
       </div>
 
-      <div class="login-card rounded-[34px] p-5 w-full max-w-sm relative z-10">
-        <div class="text-center mb-6">
-          <div class="login-badge">בת מצווה • כיתה ו׳</div>
-          <h1 class="text-2xl font-black mb-2 leading-tight text-[#2d1b4e]">ברוכים הבאים לישומון האירועים</h1>
-          <div class="text-purple-600/80 text-sm font-bold">כנפי רוח ו׳-4 • תשפ״ו</div>
-        </div>
-
-        <form id="loginForm" class="space-y-3">
-          <div class="grid grid-cols-2 gap-3">
-            <button type="button" class="roleBtn role-btn-active rounded-2xl p-3 font-bold" data-role="אמא">אמא 👩</button>
-            <button type="button" class="roleBtn role-btn-idle rounded-2xl p-3 font-bold" data-role="אבא">אבא 👨</button>
+      <div class="flex-1 flex items-start justify-center pt-8 px-4 pb-4 w-full relative z-10">
+        <div class="login-card rounded-[34px] p-5 w-full max-w-sm relative overflow-hidden">
+          <div class="login-card-deco" aria-hidden="true">
+            <span class="login-card-number">12</span>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="login-label" for="parentName">שם ההורה *</label>
-              <input id="parentName" class="login-input" placeholder="שם מלא" />
+          <div class="relative z-10">
+            <div class="text-center mb-5">
+              <h1 class="text-xl font-black mb-3 leading-snug text-[#4a1d6a]">ברוכים הבאים לישומון אירועי בת מצווה</h1>
+              <div class="login-class-badge">כנפי רוח בנות ו׳-4 • תשפ״ו</div>
             </div>
-            <div>
-              <label class="login-label" for="girlName">שם הילדה *</label>
-              <input id="girlName" class="login-input" placeholder="שם פרטי" />
-            </div>
-          </div>
 
-          <div class="twin-row">
-            <span class="twin-row-label">תאומה נוספת</span>
-            <button type="button" id="toggleTwin" class="twin-add-btn" aria-label="הוספת תאומה" aria-expanded="false">
-              <i class="fa-solid fa-plus"></i>
-            </button>
-          </div>
-          <div id="twinFieldWrap" class="twin-field-wrap is-hidden">
-            <label class="login-label" for="twinName">שם התאומה</label>
-            <input id="twinName" class="login-input" placeholder="שם פרטי של התאומה" />
-          </div>
-
-          <div>
-            <label class="login-label">
-              טלפון <span class="text-gray-400 text-xs font-normal">(לא חובה)</span>
-            </label>
-            <div class="flex items-center gap-2" dir="ltr">
-              <select id="phonePrefix" class="login-input h-12 px-2 w-auto shrink-0">
-                <option>051</option>
-                <option>052</option>
-                <option>053</option>
-                <option>054</option>
-                <option>055</option>
-                <option>056</option>
-                <option>057</option>
-                <option>058</option>
-                <option>059</option>
-              </select>
-              <span class="text-purple-300 font-black">-</span>
-              <div class="flex gap-1">
-                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+            <form id="loginForm" class="space-y-3">
+              <div class="grid grid-cols-2 gap-3">
+                <button type="button" class="roleBtn role-mom-active rounded-2xl p-3 font-bold" data-role="אמא">אמא 👩</button>
+                <button type="button" class="roleBtn role-dad-idle rounded-2xl p-3 font-bold" data-role="אבא">אבא 👨</button>
               </div>
-            </div>
-          </div>
 
-          <button type="submit" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black shadow-lg shadow-purple-300/40 text-white">
-            כניסה לישומון
-          </button>
-        </form>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="login-label" for="parentName">שם ההורה <span class="req">*</span></label>
+                  <input id="parentName" class="login-input" placeholder="שם מלא" />
+                </div>
+                <div>
+                  <label class="login-label" for="girlName">שם הילדה <span class="req">*</span></label>
+                  <input id="girlName" class="login-input" placeholder="שם פרטי" />
+                </div>
+              </div>
+
+              <div class="twin-row">
+                <span class="twin-row-label">תאומה נוספת</span>
+                <button type="button" id="toggleTwin" class="twin-add-btn" aria-label="הוספת תאומה" aria-expanded="false">
+                  <i class="fa-solid fa-plus text-xs"></i>
+                </button>
+              </div>
+              <div id="twinFieldWrap" class="twin-field-wrap is-hidden">
+                <label class="login-label" for="twinName">שם התאומה</label>
+                <input id="twinName" class="login-input" placeholder="שם פרטי של התאומה" />
+              </div>
+
+              <div>
+                <label class="login-label">
+                  טלפון <span class="text-gray-500 text-xs font-normal">(לא חובה)</span>
+                </label>
+                <div class="flex items-center gap-2" dir="ltr">
+                  <select id="phonePrefix" class="login-input login-select h-12 px-2 w-auto shrink-0">
+                    <option>051</option>
+                    <option>052</option>
+                    <option>053</option>
+                    <option>054</option>
+                    <option>055</option>
+                    <option>056</option>
+                    <option>057</option>
+                    <option>058</option>
+                    <option>059</option>
+                  </select>
+                  <span class="text-pink-400 font-black">-</span>
+                  <div class="flex gap-1">
+                    <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                    <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                    <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                    <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                    <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                    <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                    <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" class="login-submit w-full rounded-2xl p-3 font-black text-white">
+                כניסה לישומון
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
+
+      <footer class="login-footer relative z-10">
+        בונה היישומון <span class="login-footer-brand">YE</span>
+      </footer>
     </div>
 
     <!-- אפליקציה -->
@@ -229,8 +243,8 @@
 
   </div>
 
-  <script src="js/config.js?v=3"></script>
-  <script src="js/api.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
+  <script src="js/config.js?v=4"></script>
+  <script src="js/api.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>
