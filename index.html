@@ -1,1002 +1,476 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
+<!-- =========================
+החלף את אזור הטלפון הקיים בזה
+========================= -->
 
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<div>
+    <label class="text-sm font-bold mb-1 block">
+        טלפון
+        <span class="text-gray-400 text-xs">(לא חובה)</span>
+    </label>
 
-    <title>ישומון אירועי בת מצווה</title>
+    <div class="flex items-center gap-2" dir="ltr">
 
-    <script src="https://cdn.tailwindcss.com"></script>
+        <!-- PREFIX -->
 
-    <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+        <select id="phonePrefix"
+            class="h-14 px-3 rounded-2xl bg-white/10 border border-white/10 text-white outline-none">
 
-    <style>
-        * {
-            -webkit-tap-highlight-color: transparent;
-        }
+            <option value="051">051</option>
+            <option value="052">052</option>
+            <option value="053">053</option>
+            <option value="054">054</option>
+            <option value="055">055</option>
+            <option value="056">056</option>
+            <option value="057">057</option>
+            <option value="058">058</option>
+            <option value="059">059</option>
 
-        body {
-            max-width: 430px;
-            margin: 0 auto;
-            overflow-x: hidden;
-            background: #07070a;
-            font-family: sans-serif;
-        }
+        </select>
 
-        .bg-main {
-            background:
-                radial-gradient(circle at top right, rgba(168, 85, 247, 0.25), transparent 35%),
-                radial-gradient(circle at bottom left, rgba(236, 72, 153, 0.18), transparent 35%),
-                #07070a;
-        }
+        <span class="text-white/40 font-black">-</span>
 
-        .glass {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(18px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
+        <!-- CELLS -->
 
-        .glow {
-            box-shadow:
-                0 0 0 1px rgba(168, 85, 247, 0.25),
-                0 10px 30px rgba(168, 85, 247, 0.2);
-        }
+        <div class="flex gap-1 flex-1 justify-between">
 
-        .hidden-soft {
-            opacity: 0;
-            pointer-events: none;
-        }
+            <input maxlength="1" class="phoneCell phoneStyle">
+            <input maxlength="1" class="phoneCell phoneStyle">
+            <input maxlength="1" class="phoneCell phoneStyle">
+            <input maxlength="1" class="phoneCell phoneStyle">
+            <input maxlength="1" class="phoneCell phoneStyle">
+            <input maxlength="1" class="phoneCell phoneStyle">
+            <input maxlength="1" class="phoneCell phoneStyle">
 
-        .floating-btn {
-            position: fixed;
-            bottom: 85px;
-            left: 24px;
-            z-index: 50;
-        }
+        </div>
 
-        .active-rsvp {
-            transform: scale(1.02);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
-        }
-
-        .twelve-bg {
-            position: fixed;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
-            z-index: 0;
-            overflow: hidden;
-        }
-
-        .twelve-bg span {
-            font-size: 320px;
-            font-weight: 900;
-            color: rgba(255, 255, 255, 0.03);
-            text-shadow: 0 0 30px rgba(168, 85, 247, 0.15);
-        }
-
-        .page {
-            position: relative;
-            z-index: 2;
-        }
-
-        input,
-        select,
-        button,
-        textarea {
-            font-size: 16px !important;
-        }
-
-        .event-card {
-            animation: fadeUp .35s ease;
-        }
-
-        @keyframes fadeUp {
-            from {
-                opacity: 0;
-                transform: translateY(12px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-    </style>
-</head>
-
-<body class="bg-main min-h-screen text-white">
-
-    <div class="twelve-bg">
-        <span>12</span>
     </div>
+</div>
 
-    <!-- AUTH -->
+<style>
 
-    <div id="authModal"
-        class="page fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+.phoneStyle{
+    width:42px;
+    height:56px;
+    border-radius:18px;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.08);
+    text-align:center;
+    font-weight:900;
+    color:white;
+    outline:none;
+    transition:.2s;
+}
 
-        <div class="glass glow rounded-[32px] p-6 w-full max-w-sm">
+.phoneStyle:focus{
+    border-color:#a855f7;
+    box-shadow:0 0 0 3px rgba(168,85,247,.2);
+    background:rgba(255,255,255,.14);
+}
 
-            <div class="text-center mb-8">
-                <h1 class="text-2xl font-black mb-2">
-                    ברוכים הבאים לישומון אירועי בת מצווה
-                </h1>
+</style>
 
-                <p class="text-purple-200 text-sm">
-                    כנפי רוח ו׳-4 • תשפ״ו
-                </p>
+<script>
+
+document.querySelectorAll(".phoneCell").forEach((cell,index)=>{
+
+    cell.addEventListener("input",(e)=>{
+
+        e.target.value=e.target.value.replace(/[^0-9]/g,'');
+
+        if(e.target.value.length===1){
+
+            const next=document.querySelectorAll(".phoneCell")[index+1];
+
+            if(next) next.focus();
+
+        }
+
+    });
+
+    cell.addEventListener("keydown",(e)=>{
+
+        if(e.key==="Backspace" && !cell.value){
+
+            const prev=document.querySelectorAll(".phoneCell")[index-1];
+
+            if(prev) prev.focus();
+
+        }
+
+    });
+
+});
+
+</script>
+
+<!-- =========================
+החלף HEADER בחדש
+========================= -->
+
+<header class="sticky top-0 z-40 backdrop-blur-xl bg-black/30 border-b border-white/5">
+
+    <div class="p-4">
+
+        <div class="flex justify-between items-start">
+
+            <div>
+
+                <div class="flex items-center gap-2 flex-wrap">
+
+                    <h2 id="headerName"
+                        class="font-black text-lg">
+                    </h2>
+
+                    <!-- PHONE -->
+
+                    <button id="callBtn"
+                        class="w-8 h-8 rounded-full bg-white/10 text-white/40 flex items-center justify-center">
+
+                        <i class="fa-solid fa-phone"></i>
+
+                    </button>
+
+                    <!-- WHATSAPP -->
+
+                    <button id="waBtn"
+                        class="w-8 h-8 rounded-full bg-white/10 text-white/40 flex items-center justify-center">
+
+                        <i class="fa-brands fa-whatsapp"></i>
+
+                    </button>
+
+                    <!-- LOGOUT -->
+
+                    <button id="logoutBtn"
+                        class="text-xs text-red-300 mr-1">
+                        התנתקות
+                    </button>
+
+                </div>
+
+                <div class="flex items-center gap-2 mt-1">
+
+                    <p id="headerRole"
+                        class="text-sm text-purple-200">
+                    </p>
+
+                    <button id="switchRoleBtn"
+                        class="text-[11px] text-white/60">
+
+                        <i class="fa-solid fa-pen"></i>
+
+                    </button>
+
+                </div>
+
             </div>
-
-            <form id="authForm" class="space-y-4">
-
-                <!-- אבא אמא -->
-
-                <div class="grid grid-cols-2 gap-3">
-
-                    <button type="button"
-                        class="roleBtn activeRole rounded-2xl p-3 font-bold bg-purple-600 text-white transition-all"
-                        data-role="אמא">
-                        אמא 👩
-                    </button>
-
-                    <button type="button"
-                        class="roleBtn rounded-2xl p-3 font-bold bg-white/10 text-white transition-all"
-                        data-role="אבא">
-                        אבא 👨
-                    </button>
-
-                </div>
-
-                <div>
-                    <label class="text-sm font-bold mb-1 block">
-                        שם ההורה *
-                    </label>
-
-                    <input id="parentName"
-                        class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none"
-                        placeholder="שם מלא" />
-                </div>
-
-                <div>
-                    <label class="text-sm font-bold mb-1 block">
-                        שם הילדה *
-                    </label>
-
-                    <input id="girlName"
-                        class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none"
-                        placeholder="שם פרטי" />
-                </div>
-
-                <div>
-                    <button type="button"
-                        id="toggleTwin"
-                        class="text-purple-300 text-sm font-bold">
-                        + תאומה נוספת
-                    </button>
-
-                    <input id="twinName"
-                        class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none mt-3 hidden"
-                        placeholder="שם התאומה" />
-                </div>
-
-                <div>
-                    <label class="text-sm font-bold mb-1 block">
-                        טלפון
-                        <span class="text-gray-400 text-xs">(לא חובה)</span>
-                    </label>
-
-                    <input id="phone"
-                        class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none"
-                        placeholder="050-0000000" />
-                </div>
-
-                <button
-                    class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black shadow-xl mt-4">
-                    כניסה לישומון
-                </button>
-
-            </form>
 
         </div>
 
     </div>
 
-    <!-- APP -->
+</header>
 
-    <div class="page pb-28">
+<script>
 
-        <!-- HEADER -->
+function updateContactButtons(){
 
-        <header class="sticky top-0 z-40 backdrop-blur-xl bg-black/30 border-b border-white/5">
+    const callBtn=document.getElementById("callBtn");
+    const waBtn=document.getElementById("waBtn");
 
-            <div class="p-4">
+    if(!currentUser.phone){
 
-                <div class="flex justify-between items-start">
+        callBtn.classList.add("opacity-40");
+        waBtn.classList.add("opacity-40");
 
-                    <div>
+        return;
 
-                        <div class="flex items-center gap-2">
+    }
 
-                            <h2 id="headerName" class="font-black text-lg"></h2>
+    callBtn.onclick=()=>{
 
-                            <button id="logoutBtn"
-                                class="text-xs text-red-300">
-                                התנתקות
-                            </button>
+        location.href=`tel:${currentUser.phone}`;
 
-                        </div>
+    };
 
-                        <div class="flex items-center gap-2 mt-1">
+    waBtn.onclick=()=>{
 
-                            <p id="headerRole"
-                                class="text-sm text-purple-200"></p>
+        const clean=currentUser.phone.replace("-","");
 
-                            <button id="switchRoleBtn"
-                                class="text-[11px] px-2 py-1 rounded-full bg-white/10">
-                                עריכה
-                            </button>
+        window.open(
+            `https://wa.me/972${clean.substring(1)}`,
+            "_blank"
+        );
 
-                        </div>
+    };
 
-                    </div>
+}
 
-                </div>
+</script>
 
-            </div>
+<!-- =========================
+החלף RSVP SECTION
+========================= -->
 
-        </header>
+<div class="mt-5">
 
-        <!-- EVENTS -->
+    <div class="grid grid-cols-3 gap-2">
 
-        <main class="p-4 space-y-4" id="eventsContainer">
+        <button
+            onclick="vote('${event.id}','yes')"
+            class="rounded-2xl p-3 font-bold transition-all
+            ${myVote === "yes"
+        ? "bg-green-500 text-white active-rsvp"
+        : "bg-green-500/15 text-green-300"}">
 
-        </main>
+            מגיע 👍
+        </button>
+
+        <button
+            onclick="vote('${event.id}','maybe')"
+            class="rounded-2xl p-3 font-bold transition-all
+            ${myVote === "maybe"
+        ? "bg-yellow-500 text-black active-rsvp"
+        : "bg-yellow-500/15 text-yellow-300"}">
+
+            אולי 🤔
+        </button>
+
+        <button
+            onclick="vote('${event.id}','no')"
+            class="rounded-2xl p-3 font-bold transition-all
+            ${myVote === "no"
+        ? "bg-red-500 text-white active-rsvp"
+        : "bg-red-500/15 text-red-300"}">
+
+            לא מגיע 👎
+        </button>
 
     </div>
 
-    <!-- FLOATING ADD -->
+    ${myVote ? `
+    
+    <button
+        onclick="editVote('${event.id}')"
+        class="mt-2 text-xs text-purple-300">
+        עריכה
+    </button>
+    
+    ` : ""}
 
-    <button id="floatingAdd"
-        class="floating-btn w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 shadow-2xl text-2xl font-black hidden">
-        +
+</div>
+
+<!-- =========================
+כפתור פרטיות חדש
+========================= -->
+
+<button onclick="togglePrivacy('${event.id}')"
+    class="flex items-center gap-2 bg-white/10 rounded-2xl px-4 py-3 text-sm">
+
+    <i class="fa-solid fa-eye-slash"></i>
+
+    ${event.hideGuests ? "הסתרה פעילה" : "הסתר"}
+
+</button>
+
+<!-- =========================
+פס אירועים קרובים
+שים מתחת לHEADER
+========================= -->
+
+<div id="upcomingBar"
+    class="sticky top-[82px] z-30 mx-4 mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 text-sm font-bold shadow-xl">
+
+    🚨 טוען אירועים קרובים...
+
+</div>
+
+<script>
+
+function renderUpcomingBar(){
+
+    const bar=document.getElementById("upcomingBar");
+
+    const now=new Date();
+
+    const nextEvents=events.filter(e=>{
+
+        return new Date(`${e.date}T${e.time}`)>=now;
+
+    }).slice(0,3);
+
+    if(!nextEvents.length){
+
+        bar.innerHTML="אין אירועים קרובים השבוע";
+
+        return;
+
+    }
+
+    const first=nextEvents[0];
+
+    bar.innerHTML=
+    `🚨 האירוע הקרוב: בת מצווה ל${first.girlName} • ${first.date} • ${first.time}`;
+
+}
+
+</script>
+
+<!-- =========================
+BOTTOM NAV חדש
+========================= -->
+
+<nav
+class="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto h-20 bg-black/70 backdrop-blur-2xl border-t border-white/10 flex z-50">
+
+    <button class="flex-1 flex flex-col items-center justify-center gap-1 text-pink-300">
+
+        <i class="fa-solid fa-list"></i>
+
+        <span class="text-[11px]">
+            אירועים
+        </span>
+
     </button>
 
-    <!-- ADD EVENT MODAL -->
+    <button class="flex-1 flex flex-col items-center justify-center gap-1 text-white/50">
 
-    <div id="eventModal"
-        class="fixed inset-0 bg-black/70 z-50 hidden items-center justify-center p-4">
+        <i class="fa-solid fa-calendar-days"></i>
 
-        <div class="glass rounded-[30px] p-5 w-full max-w-sm">
+        <span class="text-[11px]">
+            לוח שנה
+        </span>
 
-            <div class="flex justify-between items-center mb-5">
-                <h3 class="font-black text-lg">
-                    יצירת אירוע
-                </h3>
+    </button>
 
-                <button id="closeEventModal">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
+    <button class="flex-1 flex flex-col items-center justify-center gap-1 text-white/50">
 
-            <form id="eventForm" class="space-y-4">
+        <i class="fa-solid fa-bell"></i>
 
-                <div>
-                    <label class="text-sm font-bold block mb-1">
-                        תאריך *
-                    </label>
+        <span class="text-[11px]">
+            הודעות
+        </span>
 
-                    <input type="date"
-                        id="eventDate"
-                        class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
-                </div>
+    </button>
 
-                <div>
-                    <label class="text-sm font-bold block mb-1">
-                        שעה *
-                    </label>
+    <button class="flex-1 flex flex-col items-center justify-center gap-1 text-white/50">
 
-                    <input type="time"
-                        id="eventTime"
-                        class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
-                </div>
+        <i class="fa-solid fa-plus"></i>
 
-                <div>
-                    <label class="text-sm font-bold block mb-1">
-                        אולם / מועדון *
-                    </label>
+        <span class="text-[11px]">
+            הוסף
+        </span>
 
-                    <input type="text"
-                        id="eventLocation"
-                        class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
-                </div>
+    </button>
 
-                <div>
-                    <label class="text-sm font-bold block mb-1">
-                        כתובת *
-                    </label>
+</nav>
 
-                    <input type="text"
-                        id="eventAddress"
-                        class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
-                </div>
+<!-- =========================
+מסך הודעות
+========================= -->
 
-                <div>
-                    <label class="text-sm font-bold block mb-1">
-                        תפריט *
-                    </label>
+<div id="messagesScreen"
+    class="hidden p-4 space-y-4">
 
-                    <select id="eventMenu"
-                        class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
+    <div class="glass rounded-[30px] p-5">
 
-                        <option value="">בחר</option>
-                        <option value="חלבי 🥛">חלבי 🥛</option>
-                        <option value="בשרי 🥩">בשרי 🥩</option>
+        <div class="flex justify-between items-center mb-4">
 
-                    </select>
-                </div>
-
-                <div>
-                    <label class="text-sm font-bold block mb-1">
-                        תמונת הילדה
-                    </label>
-
-                    <input type="file"
-                        id="girlImage"
-                        accept="image/*"
-                        class="w-full text-sm">
-                </div>
-
-                <div id="shabbatWarning"
-                    class="hidden text-red-300 text-sm bg-red-500/10 border border-red-500/30 rounded-2xl p-3">
-                    לא ניתן לקבוע אירוע בזמן שבת ✨
-                </div>
-
-                <button
-                    class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black">
-                    פרסום אירוע 🚀
-                </button>
-
-            </form>
+            <h3 class="font-black text-lg">
+                הודעות חשובות
+            </h3>
 
         </div>
 
+        <textarea
+            id="messageInput"
+            class="w-full rounded-2xl bg-white/10 border border-white/10 p-4 min-h-[120px] outline-none"
+            placeholder="כתוב הודעה לכל ההורים..."></textarea>
+
+        <button
+            onclick="publishMessage()"
+            class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">
+
+            פרסם הודעה
+
+        </button>
+
     </div>
 
-    <script>
+    <div id="messagesContainer"
+        class="space-y-3"></div>
 
-        // =========================
-        // LOCAL STORAGE DB
-        // =========================
+</div>
 
-        let currentUser = JSON.parse(localStorage.getItem("bm_user")) || null;
+<script>
 
-        let events = JSON.parse(localStorage.getItem("bm_events")) || [];
+let messages=
+JSON.parse(localStorage.getItem("bm_messages")) || [];
 
-        // =========================
-        // ELEMENTS
-        // =========================
+function publishMessage(){
 
-        const authModal = document.getElementById("authModal");
-        const eventsContainer = document.getElementById("eventsContainer");
-        const floatingAdd = document.getElementById("floatingAdd");
+    const input=document.getElementById("messageInput");
 
-        // =========================
-        // AUTH
-        // =========================
+    if(!input.value.trim()) return;
 
-        let selectedRole = "אמא";
+    messages.unshift({
 
-        document.querySelectorAll(".roleBtn").forEach(btn => {
+        id:crypto.randomUUID(),
 
-            btn.addEventListener("click", () => {
+        name:currentUser.parentName,
 
-                document.querySelectorAll(".roleBtn").forEach(b => {
-                    b.classList.remove("activeRole", "bg-purple-600");
-                    b.classList.add("bg-white/10");
-                });
+        text:input.value,
 
-                btn.classList.add("activeRole", "bg-purple-600");
+        createdAt:new Date().toLocaleString("he-IL")
 
-                selectedRole = btn.dataset.role;
+    });
 
-            });
+    localStorage.setItem(
+        "bm_messages",
+        JSON.stringify(messages)
+    );
 
-        });
+    input.value="";
 
-        document.getElementById("toggleTwin").onclick = () => {
+    renderMessages();
 
-            document.getElementById("twinName").classList.toggle("hidden");
+}
 
-        };
+function renderMessages(){
 
-        document.getElementById("authForm").onsubmit = (e) => {
+    const container=
+    document.getElementById("messagesContainer");
 
-            e.preventDefault();
+    container.innerHTML="";
 
-            const parentName = document.getElementById("parentName").value.trim();
+    messages.forEach(msg=>{
 
-            const girlName = document.getElementById("girlName").value.trim();
+        container.innerHTML+=`
 
-            const twinName = document.getElementById("twinName").value.trim();
+        <div class="glass rounded-[28px] p-4">
 
-            const phone = document.getElementById("phone").value.trim();
+            <div class="flex justify-between items-center mb-2">
 
-            if (!parentName || !girlName) {
-
-                alert("יש למלא את כל שדות החובה");
-
-                return;
-            }
-
-            currentUser = {
-
-                id: crypto.randomUUID(),
-
-                role: selectedRole,
-
-                parentName,
-
-                girlName,
-
-                twinName,
-
-                phone
-
-            };
-
-            localStorage.setItem("bm_user", JSON.stringify(currentUser));
-
-            authModal.style.display = "none";
-
-            init();
-
-        };
-
-        // =========================
-        // INIT
-        // =========================
-
-        function init() {
-
-            if (!currentUser) return;
-
-            renderHeader();
-
-            renderEvents();
-
-            updateFloatingButton();
-
-        }
-
-        if (currentUser) {
-
-            authModal.style.display = "none";
-
-            init();
-
-        }
-
-        // =========================
-        // HEADER
-        // =========================
-
-        function renderHeader() {
-
-            document.getElementById("headerName").innerText =
-                currentUser.parentName;
-
-            document.getElementById("headerRole").innerText =
-                `${currentUser.role} של ${currentUser.girlName}${currentUser.twinName ? " ו" + currentUser.twinName : ""}`;
-
-        }
-
-        document.getElementById("logoutBtn").onclick = () => {
-
-            localStorage.removeItem("bm_user");
-
-            location.reload();
-
-        };
-
-        document.getElementById("switchRoleBtn").onclick = () => {
-
-            currentUser.role =
-                currentUser.role === "אמא" ? "אבא" : "אמא";
-
-            localStorage.setItem("bm_user", JSON.stringify(currentUser));
-
-            renderHeader();
-
-        };
-
-        // =========================
-        // ADD EVENT BUTTON
-        // =========================
-
-        function updateFloatingButton() {
-
-            const exists = events.find(e =>
-                e.girlName === currentUser.girlName
-            );
-
-            if (!exists) {
-
-                floatingAdd.classList.remove("hidden");
-
-            } else {
-
-                floatingAdd.classList.add("hidden");
-
-            }
-
-        }
-
-        // =========================
-        // MODAL
-        // =========================
-
-        const eventModal = document.getElementById("eventModal");
-
-        floatingAdd.onclick = () => {
-
-            eventModal.classList.remove("hidden");
-            eventModal.classList.add("flex");
-
-        };
-
-        document.getElementById("closeEventModal").onclick = () => {
-
-            eventModal.classList.add("hidden");
-            eventModal.classList.remove("flex");
-
-        };
-
-        // =========================
-        // SHABBAT CHECK
-        // =========================
-
-        function isShabbat(dateStr, timeStr) {
-
-            if (!dateStr || !timeStr) return false;
-
-            const d = new Date(`${dateStr}T${timeStr}`);
-
-            const day = d.getDay();
-
-            const hour = d.getHours();
-
-            if (day === 5 && hour >= 17) return true;
-
-            if (day === 6 && hour < 19) return true;
-
-            return false;
-
-        }
-
-        // =========================
-        // EVENT CREATE
-        // =========================
-
-        document.getElementById("eventForm").onsubmit = async (e) => {
-
-            e.preventDefault();
-
-            const date = eventDate.value;
-            const time = eventTime.value;
-            const location = eventLocation.value.trim();
-            const address = eventAddress.value.trim();
-            const menu = eventMenu.value;
-
-            if (!date || !time || !location || !address || !menu) {
-
-                alert("יש למלא את כל השדות");
-
-                return;
-            }
-
-            if (isShabbat(date, time)) {
-
-                shabbatWarning.classList.remove("hidden");
-
-                return;
-            }
-
-            const exists = events.find(e =>
-                e.girlName === currentUser.girlName
-            );
-
-            if (exists) {
-
-                alert("האירוע של בתכם כבר פורסם בלוח האירועים ✨");
-
-                return;
-            }
-
-            const collision = events.find(e =>
-                e.date === date
-            );
-
-            if (collision) {
-
-                const ok = confirm(
-                    `קיים אירוע נוסף באותו יום של ${collision.girlName}`
-                );
-
-                if (!ok) return;
-
-            }
-
-            let image = "";
-
-            const file = girlImage.files[0];
-
-            if (file) {
-
-                image = await toBase64(file);
-
-            }
-
-            const eventObj = {
-
-                id: crypto.randomUUID(),
-
-                ownerId: currentUser.id,
-
-                girlName: currentUser.girlName,
-
-                role: currentUser.role,
-
-                parentName: currentUser.parentName,
-
-                date,
-                time,
-                location,
-                address,
-                menu,
-                image,
-
-                hideGuests: false,
-
-                rsvp: {}
-
-            };
-
-            events.push(eventObj);
-
-            saveEvents();
-
-            renderEvents();
-
-            updateFloatingButton();
-
-            eventModal.classList.add("hidden");
-            eventModal.classList.remove("flex");
-
-            e.target.reset();
-
-        };
-
-        // =========================
-        // RENDER EVENTS
-        // =========================
-
-        function renderEvents() {
-
-            eventsContainer.innerHTML = "";
-
-            if (events.length === 0) {
-
-                eventsContainer.innerHTML = `
-                
-                <div class="text-center py-20 text-white/50">
-                    עדיין אין אירועים
-                </div>
-                
-                `;
-
-                return;
-            }
-
-            events.sort((a, b) =>
-                new Date(`${a.date}T${a.time}`) -
-                new Date(`${b.date}T${b.time}`)
-            );
-
-            events.forEach(event => {
-
-                const isMine =
-                    event.ownerId === currentUser.id;
-
-                const yesCount =
-                    Object.values(event.rsvp).filter(x => x === "yes").length;
-
-                const noCount =
-                    Object.values(event.rsvp).filter(x => x === "no").length;
-
-                const maybeCount =
-                    Object.values(event.rsvp).filter(x => x === "maybe").length;
-
-                const myVote =
-                    event.rsvp[currentUser.id];
-
-                const card = document.createElement("div");
-
-                card.className =
-                    "event-card glass rounded-[30px] p-5 border border-white/5";
-
-                card.innerHTML = `
-
-                <div class="flex gap-4">
-
-                    <img src="${event.image || 'https://placehold.co/200x200'}"
-                        class="w-20 h-20 rounded-full object-cover border-4 border-white/10 shadow-xl">
-
-                    <div class="flex-1">
-
-                        <div class="flex justify-between items-start gap-3">
-
-                            <div>
-
-                                <h3 class="font-black text-lg">
-                                    בת מצווה ל${event.girlName} ✨
-                                </h3>
-
-                                <div class="text-white/60 text-sm mt-1">
-                                    ${event.date} • ${event.time}
-                                </div>
-
-                            </div>
-
-                            <div class="bg-white/10 px-3 py-1 rounded-full text-xs">
-                                ${event.menu}
-                            </div>
-
-                        </div>
-
-                    </div>
-
+                <div class="font-black">
+                    ${msg.name}
                 </div>
 
-                <div class="mt-4 bg-white/5 rounded-2xl p-4 text-sm space-y-2">
-
-                    <div>
-                        📍 ${event.location}
-                    </div>
-
-                    <div>
-                        🗺️ ${event.address}
-                    </div>
-
-                    <button onclick="openWaze('${event.address}')"
-                        class="text-blue-300 text-sm">
-                        Waze ניווט
-                    </button>
-
+                <div class="text-xs text-white/40">
+                    ${msg.createdAt}
                 </div>
-
-                ${!isMine ? renderRSVP(event, myVote) : ""}
-
-                <div class="mt-4 pt-4 border-t border-white/10 text-sm">
-
-                    ${event.hideGuests
-                        ? `
-                        <div class="text-white/50">
-                            רשימת המשתתפים מוסתרת לבקשת המשפחה 🔒
-                        </div>
-                        `
-                        :
-                        `
-                        <div class="flex gap-4 flex-wrap">
-
-                            <div class="text-green-300">
-                                מגיעים: ${yesCount}
-                            </div>
-
-                            <div class="text-yellow-300">
-                                אולי: ${maybeCount}
-                            </div>
-
-                            <div class="text-red-300">
-                                לא מגיעים: ${noCount}
-                            </div>
-
-                        </div>
-                        `
-                    }
-
-                </div>
-
-                ${isMine ? `
-                
-                <div class="mt-4 flex gap-2">
-
-                    <button onclick="togglePrivacy('${event.id}')"
-                        class="flex-1 bg-white/10 rounded-2xl p-3 text-sm">
-                        ${event.hideGuests ? "בטל פרטיות" : "מצב פרטיות"}
-                    </button>
-
-                    <button onclick="deleteEvent('${event.id}')"
-                        class="bg-red-500/20 text-red-300 rounded-2xl px-4">
-                        מחק
-                    </button>
-
-                </div>
-                
-                ` : ""}
-
-                `;
-
-                eventsContainer.appendChild(card);
-
-            });
-
-        }
-
-        function renderRSVP(event, myVote) {
-
-            return `
-
-            <div class="mt-5">
-
-                <div class="grid grid-cols-3 gap-2">
-
-                    <button
-                        onclick="vote('${event.id}','yes')"
-                        class="rounded-2xl p-3 font-bold transition-all
-                        ${myVote === "yes"
-                    ? "bg-green-500 text-white active-rsvp"
-                    : "bg-green-500/15 text-green-300"}">
-
-                        מגיע 👍
-                    </button>
-
-                    <button
-                        onclick="vote('${event.id}','maybe')"
-                        class="rounded-2xl p-3 font-bold transition-all
-                        ${myVote === "maybe"
-                    ? "bg-yellow-500 text-black active-rsvp"
-                    : "bg-yellow-500/15 text-yellow-300"}">
-
-                        אולי 🤔
-                    </button>
-
-                    <button
-                        onclick="vote('${event.id}','no')"
-                        class="rounded-2xl p-3 font-bold transition-all
-                        ${myVote === "no"
-                    ? "bg-red-500 text-white active-rsvp"
-                    : "bg-red-500/15 text-red-300"}">
-
-                        לא מגיע 👎
-                    </button>
-
-                </div>
-
-                ${myVote ? `
-                
-                <button
-                    onclick="editVote('${event.id}')"
-                    class="mt-2 text-xs text-purple-300">
-                    עריכה
-                </button>
-                
-                ` : ""}
 
             </div>
 
-            `;
-        }
+            <div class="text-sm leading-7 text-white/90">
+                ${msg.text}
+            </div>
 
-        // =========================
-        // RSVP
-        // =========================
+        </div>
 
-        function vote(eventId, status) {
+        `;
 
-            const event = events.find(e => e.id === eventId);
+    });
 
-            event.rsvp[currentUser.id] = status;
+}
 
-            saveEvents();
-
-            renderEvents();
-
-        }
-
-        function editVote(eventId) {
-
-            const event = events.find(e => e.id === eventId);
-
-            delete event.rsvp[currentUser.id];
-
-            saveEvents();
-
-            renderEvents();
-
-        }
-
-        // =========================
-        // PRIVACY
-        // =========================
-
-        function togglePrivacy(eventId) {
-
-            const event = events.find(e => e.id === eventId);
-
-            event.hideGuests = !event.hideGuests;
-
-            saveEvents();
-
-            renderEvents();
-
-        }
-
-        // =========================
-        // DELETE
-        // =========================
-
-        function deleteEvent(eventId) {
-
-            const ok = confirm("למחוק את האירוע?");
-
-            if (!ok) return;
-
-            events =
-                events.filter(e => e.id !== eventId);
-
-            saveEvents();
-
-            renderEvents();
-
-            updateFloatingButton();
-
-        }
-
-        // =========================
-        // HELPERS
-        // =========================
-
-        function saveEvents() {
-
-            localStorage.setItem("bm_events",
-                JSON.stringify(events)
-            );
-
-        }
-
-        function openWaze(address) {
-
-            window.open(
-                `https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`,
-                "_blank"
-            );
-
-        }
-
-        function toBase64(file) {
-
-            return new Promise((resolve, reject) => {
-
-                const reader = new FileReader();
-
-                reader.readAsDataURL(file);
-
-                reader.onload = () => resolve(reader.result);
-
-                reader.onerror = error => reject(error);
-
-            });
-
-        }
-
-    </script>
-
-</body>
-
-</html>
+</script>
