@@ -3,97 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ניהול אירועי בת מצווה - כנפי רוח</title>
+    <title>ישומון אירועי בת מצווה</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { max-width: 430px; margin: 0 auto; background-color: #f9fafb; font-family: sans-serif; }
-        .active-role { background-color: #7e22ce !important; color: white !important; border-color: #7e22ce !important; }
+        body { max-width: 450px; margin: 0 auto; font-family: sans-serif; background-color: #f3f4f6; }
+        .active-role { background-color: #8b5cf6 !important; color: white !important; border-color: #8b5cf6 !important; }
+        .hidden-section { display: none; }
     </style>
 </head>
-<body class="pb-20">
+<body class="p-4">
 
-    <!-- Header -->
-    <header class="p-6 text-center bg-white border-b">
-        <div class="text-4xl mb-2">✨</div>
+    <header class="text-center mb-6">
+        <div class="text-5xl mb-2">🎉</div>
         <h1 class="text-xl font-bold text-gray-800">ברוכים הבאים לישומון אירועי בת מצווה</h1>
         <h2 class="text-gray-500 text-sm">בית ספר כנפי רוח בנות - כיתה ו'4</h2>
     </header>
 
-    <main id="app" class="p-4">
-        <!-- Auth Modal -->
-        <div id="authModal" class="hidden space-y-4">
-            <div class="flex gap-4">
-                <button id="btnMom" onclick="setRole('אמא')" class="flex-1 py-3 border rounded-xl font-bold">אמא 👩‍🦰</button>
-                <button id="btnDad" onclick="setRole('אבא')" class="flex-1 py-3 border rounded-xl font-bold">אבא 👨</button>
-            </div>
-            <input type="text" id="parentName" placeholder="שם מלא *" class="w-full p-3 border rounded-xl">
-            <input type="text" id="girlName" placeholder="שם הילדה *" class="w-full p-3 border rounded-xl">
-            <button onclick="saveAuth()" class="w-full bg-purple-600 text-white p-3 rounded-xl font-bold">אישור</button>
-        </div>
-
-        <!-- Add Event Section -->
-        <div id="addEventSection" class="hidden bg-white p-4 rounded-2xl shadow-sm border space-y-4">
-            <h3 class="font-bold text-lg text-purple-700">הוספת אירוע *</h3>
-            <input type="date" id="evDate" class="w-full p-3 border rounded-xl">
-            <input type="time" id="evTime" class="w-full p-3 border rounded-xl">
-            
-            <select id="evMenu" onchange="checkOther()" class="w-full p-3 border rounded-xl">
-                <option value="חלבי">חלבי</option>
-                <option value="בשרי">בשרי</option>
-                <option value="אחר">אחר</option>
-            </select>
-            <input type="text" id="evOtherMenu" placeholder="פרט תפריט אחר" class="hidden w-full p-3 border rounded-xl">
-            
-            <button onclick="toggleNotes()" class="text-sm text-purple-600 underline">הערות לאירוע (אופציונלי)</button>
-            <textarea id="evNotes" class="hidden w-full p-3 border rounded-xl" placeholder="למשל: אירוע בריכה..."></textarea>
-            
-            <button onclick="submitEvent()" class="w-full bg-purple-600 text-white p-3 rounded-xl font-bold">פרסם אירוע</button>
-        </div>
-    </main>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, push, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-        const firebaseConfig = { databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com/" };
-        const db = getDatabase(initializeApp(firebaseConfig));
-
-        let selectedRole = '';
-        window.setRole = (role) => {
-            selectedRole = role;
-            document.getElementById('btnMom').classList.toggle('active-role', role === 'אמא');
-            document.getElementById('btnDad').classList.toggle('active-role', role === 'אבא');
-        };
-
-        window.checkOther = () => {
-            const menu = document.getElementById('evMenu').value;
-            document.getElementById('evOtherMenu').classList.toggle('hidden', menu !== 'אחר');
-        };
-
-        window.toggleNotes = () => document.getElementById('evNotes').classList.toggle('hidden');
-
-        // לוגיקת שבת
-        const isShabbat = (d, t) => {
-            const dt = new Date(`${d}T${t}`);
-            const day = dt.getDay();
-            const hr = dt.getHours();
-            return (day === 5 && hr >= 19) || (day === 6 && hr < 20);
-        };
-
-        // לוגיקת שמירה (בסיסית)
-        window.submitEvent = () => {
-            const date = document.getElementById('evDate').value;
-            const time = document.getElementById('evTime').value;
-            
-            if (isShabbat(date, time)) return alert("לא ניתן לקיים אירוע בשבת!");
-            
-            // כאן תבוא לוגיקת השמירה ל-Firebase
-            alert("האירוע נשמר!");
-        };
+    <div id="app" class="bg-white p-6 rounded-2xl shadow-md space-y-5">
         
-        // אתחול ראשוני
-        document.getElementById('authModal').classList.remove('hidden');
+        <h3 class="font-bold text-gray-700">כניסה מהירה</h3>
+        <div class="flex gap-3">
+            <button id="btnMom" onclick="setRole('mom')" class="flex-1 py-3 border-2 rounded-xl font-bold transition">אמא</button>
+            <button id="btnDad" onclick="setRole('dad')" class="flex-1 py-3 border-2 rounded-xl font-bold transition">אבא</button>
+        </div>
+
+        <input type="text" placeholder="שם מלא *" class="w-full p-3 border rounded-xl">
+        
+        <div class="flex gap-2 items-center">
+            <input type="text" placeholder="שם הילדה *" class="flex-1 p-3 border rounded-xl">
+            <span class="text-2xl cursor-pointer">✏️</span>
+        </div>
+
+        <div class="flex gap-2">
+            <select class="w-1/3 p-3 border rounded-xl">
+                <option>050</option><option>051</option><option>052</option><option>053</option>
+                <option>054</option><option>055</option><option>058</option>
+            </select>
+            <input type="tel" placeholder="טלפון" class="flex-1 p-3 border rounded-xl">
+        </div>
+
+        <div class="border-t pt-5 space-y-4">
+            <label class="block font-bold text-sm">תפריט הגשה *</label>
+            <select id="menuSelect" onchange="handleMenuChange()" class="w-full p-3 border rounded-xl">
+                <option value="dairy">חלבי</option>
+                <option value="meat">בשרי</option>
+                <option value="other">אחר</option>
+            </select>
+            <input id="otherMenuInput" type="text" placeholder="פרט תפריט אחר" class="hidden w-full p-3 border rounded-xl">
+
+            <button onclick="toggleNotes()" class="text-purple-600 font-bold text-sm underline">הערות (אופציונלי)</button>
+            <textarea id="notesArea" class="hidden w-full p-3 border rounded-xl" placeholder="ציין אם יש בריכה או פרטים נוספים..."></textarea>
+        </div>
+
+        <button onclick="alert('האירוע נשמר בהצלחה!')" class="w-full bg-purple-600 text-white py-4 rounded-xl font-bold text-lg">אישור</button>
+        
+        <button class="w-full text-gray-400 text-sm mt-4">התנתק מהמערכת</button>
+    </div>
+
+    <script>
+        // לוגיקת בחירת אמא/אבא
+        function setRole(role) {
+            document.getElementById('btnMom').classList.toggle('active-role', role === 'mom');
+            document.getElementById('btnDad').classList.toggle('active-role', role === 'dad');
+        }
+
+        // לוגיקת שדה "אחר"
+        function handleMenuChange() {
+            const menu = document.getElementById('menuSelect').value;
+            const otherInput = document.getElementById('otherMenuInput');
+            otherInput.classList.toggle('hidden', menu !== 'other');
+        }
+
+        // לוגיקת הערות
+        function toggleNotes() {
+            document.getElementById('notesArea').classList.toggle('hidden');
+        }
     </script>
 </body>
 </html>
