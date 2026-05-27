@@ -1,518 +1,689 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>כנפי רוח בנות ו'-4 | לוח בת מצווה</title>
-  
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700&display=swap" rel="stylesheet">
-  
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
-  <style>
-    body { font-family: 'Assistant', sans-serif; background-color: #f1f5f9; }
-    .mobile-container {
-      max-w: 430px;
-      margin: 0 auto;
-      min-h: 100vh;
-      background-color: #ffffff;
-      box-shadow: 0 0 20px rgba(0,0,0,0.05);
-    }
-    .sticky-header { position: sticky; top: 0; z-index: 40; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ניהול בת מצווה כיתתית - ו'4</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* חסימת רוחב מקסימלי למובייל ומרכז מסך */
+        body {
+            max-width: 430px;
+            margin: 0 auto;
+            background-color: #f3f4f6;
+            font-size: 16px;
+        }
+        input, select, button {
+            font-size: 16px !important; /* מניעת זום אוטומטי באייפון */
+        }
+        .sticky-alert {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+    </style>
 </head>
-<body class="bg-slate-100">
+<body class="font-sans text-gray-800 min-h-screen flex flex-col pb-20">
 
-  <div class="mobile-container min-h-screen flex flex-col pb-20 relative select-none">
+    <div id="authModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 class="text-xl font-bold text-center text-purple-700 mb-4">ברוכים הבאים לכנפי רוח ו'-4! 👋</h2>
+            <p class="text-xs text-gray-500 text-center mb-6">הזדהות קלה ללא סיסמה לניהול אירועי בת המצווה</p>
+            
+            <form id="authForm" onsubmit="handleAuth(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">אני ה- :</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 bg-gray-50 border p-3 rounded-xl flex-1 justify-center cursor-pointer checked-parent">
+                            <input type="radio" name="parentRole" value="אמא" checked class="accent-purple-600">
+                            <span>אמא 👩‍🦰</span>
+                        </label>
+                        <label class="flex items-center gap-2 bg-gray-50 border p-3 rounded-xl flex-1 justify-center cursor-pointer">
+                            <input type="radio" name="parentRole" value="אבא" class="accent-purple-600">
+                            <span>אבא 👨</span>
+                        </label>
+                    </div>
+                </div>
 
-    <script>
-      const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_AUTH_DOMAIN",
-        databaseURL: "YOUR_DATABASE_URL", 
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_STORAGE_BUCKET",
-        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-        appId: "YOUR_APP_ID"
-      };
-      
-      let isFirebaseReady = false;
-      let db;
-      
-      if (firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("YOUR_")) {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.database();
-        isFirebaseReady = true;
-      }
-    </script>
+                <div>
+                    <label class="block text-sm font-medium mb-1">שם מלא של ההורה</label>
+                    <input type="text" id="parentName" required class="w-full border p-3 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="שם פרטי ומשפחה">
+                </div>
 
-    <div id="authModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-      <div class="bg-white w-full max-w-xs rounded-2xl shadow-xl p-5 border border-slate-100 text-right">
-        <div class="text-center mb-4">
-          <span class="text-xs font-bold text-pink-600 bg-pink-50 px-3 py-1 rounded-full">כנפי רוח בנות | ו'-4</span>
-          <h3 class="text-lg font-bold text-indigo-950 mt-2">ברוכים הבאים! 👋</h3>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-sm font-medium">שם הילדה החוגגת</label>
+                        <button type="button" id="twinBtn" onclick="toggleTwinField()" class="text-xs text-purple-600 font-bold hover:underline">
+                            <i class="fa-solid fa-plus mr-1"></i> יש לך תאומות בכיתה?
+                        </button>
+                    </div>
+                    
+                    <div class="relative mb-2">
+                        <input type="text" id="girlName1" required readonly onclick="unlockField('girlName1')"
+                            class="w-full border p-3 rounded-xl bg-gray-100 text-gray-500 cursor-pointer pr-10 focus:bg-white focus:text-gray-800 outline-none transition-all" 
+                            placeholder="שם פרטי בלבד">
+                        <span class="absolute left-3 top-3.5 text-gray-400 text-xs" id="lockIcon1"><i class="fa-solid fa-lock"></i></span>
+                    </div>
+
+                    <div id="twinContainer" class="relative hidden">
+                        <label class="block text-xs font-medium text-gray-500 mb-1">שם התאומה השנייה</label>
+                        <div class="relative">
+                            <input type="text" id="girlName2" readonly onclick="unlockField('girlName2')"
+                                class="w-full border p-3 rounded-xl bg-gray-100 text-gray-500 cursor-pointer pr-10 focus:bg-white focus:text-gray-800 outline-none transition-all" 
+                                placeholder="שם פרטי בלבד">
+                            <span class="absolute left-3 top-3.5 text-gray-400 text-xs" id="lockIcon2"><i class="fa-solid fa-lock"></i></span>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-gray-400 mt-1"><i class="fa-solid fa-circle-info"></i> השדות נעולים למניעת טעויות. לחצו עליהם כדי לערוך.</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">מספר טלפון נייד</label>
+                    <div class="flex gap-1" dir="ltr">
+                        <select id="phonePrefix" class="border p-3 rounded-xl bg-gray-50 outline-none">
+                            <option value="050">050</option>
+                            <option value="052">052</option>
+                            <option value="053">053</option>
+                            <option value="054">054</option>
+                            <option value="055">055</option>
+                            <option value="058">058</option>
+                        </select>
+                        <span class="flex items-center text-gray-400 font-bold">-</span>
+                        <input type="tel" id="phoneMain" required pattern="[0-9]{7}" maxlength="7" 
+                               class="w-full border p-3 rounded-xl text-center outline-none focus:ring-2 focus:ring-purple-500" placeholder="1234567">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-xl transition-all shadow-md mt-2">
+                    אישור וכניסה למערכת 🎉
+                </button>
+            </form>
         </div>
-        
-        <div class="space-y-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">אני הנייד של: *</label>
-            <div class="flex gap-4 p-1 bg-slate-50 rounded-xl border border-slate-100 justify-around">
-              <label class="flex items-center gap-1.5 text-xs font-semibold p-1 cursor-pointer">
-                <input type="radio" name="parentRole" value="אמא" checked class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"> אמא 👩‍🦰
-              </label>
-              <label class="flex items-center gap-1.5 text-xs font-semibold p-1 cursor-pointer">
-                <input type="radio" name="parentRole" value="אבא" class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"> אבא 👨
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">שם מלא של ההורה *</label>
-            <input type="text" id="authParentName" placeholder="שם פרטי + שם משפחה" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">שם הילדה *</label>
-            <input type="text" id="authDaughterName" placeholder="שם הילדה בלבד" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">מספר טלפון (אופציונלי)</label>
-            <input type="tel" id="authPhone" placeholder="ליצירת קשר במידת הצורך" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-        </div>
-
-        <button onclick="saveUserIdentity()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md mt-5 transition-all">אישור וכניסה</button>
-      </div>
     </div>
 
-    <div class="sticky-header shadow-sm bg-white">
-      <header class="border-b border-slate-100 px-4 py-3 flex justify-between items-center">
+    <div id="stickyAlert" class="sticky-alert bg-gradient-to-r align-middle from-pink-500 to-purple-600 text-white text-xs py-2.5 px-4 text-center font-bold shadow-md flex justify-between items-center hidden">
+        <span class="w-full text-center" id="stickyAlertText">טוען את האירוע הקרוב ביותר... ⏳</span>
+    </div>
+
+    <header class="bg-white p-4 shadow-sm border-b border-gray-100 flex justify-between items-center">
         <div>
-          <span class="text-[10px] font-bold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full">כנפי רוח בנות • ו'-4</span>
-          <h1 class="text-base font-bold text-indigo-950 mt-0.5">לוח אירועי בת מצווה 👑</h1>
-          <div class="flex items-center gap-1.5 mt-0.5">
-            <p class="text-[11px] text-slate-400" id="welcomeUserTxt">שלום, אורח</p>
-            <button onclick="logoutUser()" title="התנתקות ושינוי פרטים" class="text-slate-400 hover:text-rose-600 text-xs transition-colors">
-              🚪 <span class="text-[9px] underline">החלף משתמש</span>
-            </button>
-          </div>
+            <div class="flex items-center gap-1.5">
+                <span id="headerEmoji" class="text-xl">👩‍🦰</span>
+                <h1 id="headerParentName" class="font-bold text-gray-900 leading-tight">שלום, הורה</h1>
+            </div>
+            <p id="headerGirlName" class="text-xs text-purple-600 font-medium mt-0.5">הבת: טוען...</p>
         </div>
-        <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1">
-          <span>+</span> הוספת אירוע
-        </button>
-      </header>
+        <div class="flex items-center gap-2">
+            <div id="phoneActions" class="hidden flex gap-1">
+                <button onclick="callParent()" class="p-2 bg-green-50 rounded-lg text-green-600 text-sm hover:bg-green-100" title="חיוג מהיר"><i class="fa-solid fa-phone"></i></button>
+                <button onclick="copyPhone()" class="p-2 bg-blue-50 rounded-lg text-blue-600 text-sm hover:bg-blue-100" title="העתק מספר"><i class="fa-solid fa-copy"></i></button>
+            </div>
+            <button onclick="logout()" class="p-2 bg-red-50 text-red-500 rounded-lg text-xs font-bold hover:bg-red-100" title="החלף משתמש">
+                <i class="fa-solid fa-door-open"></i>
+            </button>
+        </div>
+    </header>
 
-      <div id="nextEventAlert" class="bg-gradient-to-r from-pink-500 to-indigo-600 text-white px-4 py-2 text-center text-xs font-semibold hidden">
-        📢 <span class="font-bold">האירוע הקרוב:</span> בת מצווה ל<span id="nextGirl"></span> | <span id="nextDetails"></span>
-      </div>
+    <main class="flex-1 p-4 overflow-y-auto">
+        
+        <div id="tabFeed" class="space-y-4 tab-content">
+            <div class="text-center text-gray-400 py-10">
+                <i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2 text-purple-500"></i>
+                <p class="text-sm">טוען אירועים מהענן...</p>
+            </div>
+        </div>
 
-      <nav class="border-b border-slate-200 flex justify-around text-xs font-bold">
-        <button id="tabFeedBtn" onclick="switchTab('feed')" class="w-1/2 py-3 text-center border-b-2 border-indigo-600 text-indigo-600 transition-all">🎬 האירועים הקרובים</button>
-        <button id="tabGanttBtn" onclick="switchTab('gantt')" class="w-1/2 py-3 text-center border-b-2 border-transparent text-slate-400 transition-all">📅 ריכוז חודשי (גאנט)</button>
-      </nav>
-    </div>
+        <div id="tabGantt" class="space-y-6 tab-content hidden">
+            <h3 class="font-bold text-gray-700 text-sm border-b pb-2"><i class="fa-solid fa-calendar-days text-purple-500 mr-1"></i> מפת תאריכים כיתתית</h3>
+            <div id="ganttContainer" class="space-y-4">
+                </div>
+        </div>
 
-    <main class="px-4 mt-3 flex-grow">
-      <div id="tabFeed" class="space-y-3">
-        <div id="feedContainer" class="space-y-3"></div>
-      </div>
+        <div id="tabAdd" class="tab-content hidden bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <h3 class="font-bold text-lg text-purple-700 mb-4"><i class="fa-solid fa-calendar-plus mr-1"></i> פרסום אירוע חדש בלוח</h3>
+            
+            <form id="addEventForm" onsubmit="createNewEvent(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">שם ילדת בת המצווה</label>
+                    <div id="girlNameSelectionContainer">
+                        </div>
+                </div>
 
-      <div id="tabGantt" class="hidden space-y-4">
-        <div id="ganttContainer" class="space-y-4"></div>
-      </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1">תאריך האירוע</label>
+                        <input type="date" id="eventDate" required oninput="validateForm()" class="w-full border p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1">שעה</label>
+                        <input type="time" id="eventTime" required oninput="validateForm()" class="w-full border p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">שם המועדון / אולם</label>
+                    <input type="text" id="eventLocation" list="locationsDatalist" required oninput="handleLocationInput(); validateForm();" class="w-full border p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-purple-500" placeholder="לדוגמה: מועדון הקצב">
+                    <datalist id="locationsDatalist"></datalist>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">כתובת מלאה (לניווט ב-Waze)</label>
+                    <input type="text" id="eventAddress" required oninput="validateForm()" class="w-full border p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-purple-500" placeholder="רחוב, עיר">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">תפריט הגשה</label>
+                    <select id="eventMenu" required onchange="validateForm()" class="w-full border p-2.5 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-purple-500">
+                        <option value="">בחר תפריט...</option>
+                        <option value="חלבי 🥛">חלבי 🥛</option>
+                        <option value="בשרי 🥩">בשרי 🥩</option>
+                    </select>
+                </div>
+
+                <button type="submit" id="submitEventBtn" disabled class="w-full bg-gray-300 text-gray-500 font-bold p-3 rounded-xl transition-all cursor-not-allowed shadow-sm">
+                    מלאו את כל שדות החובה לפרסום
+                </button>
+            </form>
+        </div>
     </main>
 
-    <div id="addModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-      <div class="bg-white w-full max-w-xs rounded-2xl shadow-xl overflow-hidden text-right">
-        <div class="bg-indigo-950 p-3.5 text-white flex justify-between items-center">
-          <h3 class="font-bold text-sm">הוספת אירוע חדש בלוח</h3>
-          <button onclick="closeAddModal()" class="text-slate-300 hover:text-white text-xl font-light">&times;</button>
-        </div>
-        <form id="eventForm" onsubmit="submitEvent(event)" class="p-4 space-y-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">שם ילדת בת המצווה (מולא אוטומטית)</label>
-            <input type="text" id="formGirlName" readonly class="w-full px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none">
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="block text-xs font-bold text-slate-600 mb-1">תאריך אירוע *</label>
-              <input type="date" id="formDate" required oninput="validateForm()" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-600 mb-1">שעת התחלה *</label>
-              <input type="time" id="formTime" required oninput="validateForm()" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500">
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">מקום האירוע (אולם/מועדון) *</label>
-            <input type="text" id="formLocation" list="locationsList" required oninput="validateForm()" placeholder="הקלד או בחר מהרשימה..." class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500">
-            <datalist id="locationsList"></datalist>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">כתובת מדויקת לניווט *</label>
-            <input type="text" id="formAddress" list="addressesList" required oninput="validateForm()" placeholder="רחוב, עיר (יושלם אוטומטית אם קיים)" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500">
-            <datalist id="addressesList"></datalist>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">תפריט *</label>
-            <select id="formMenu" required oninput="validateForm()" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white">
-              <option value="חלבי">🥛 חלבי</option>
-              <option value="בשרי">🥩 בשרי</option>
-            </select>
-          </div>
-          <div class="pt-2 flex gap-2 justify-end text-xs">
-            <button type="button" onclick="closeAddModal()" class="px-3 py-1.5 text-slate-500 hover:bg-slate-50 rounded-xl">ביטול</button>
-            <button type="submit" id="submitFormBtn" disabled class="px-4 py-1.5 bg-slate-200 text-slate-400 font-bold rounded-xl shadow-sm transition-all cursor-not-allowed">פרסום בלוח</button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <nav class="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white border-t border-gray-200 h-16 flex shadow-lg z-40">
+        <button onclick="switchTab('feed')" id="nav-feed" class="flex-1 flex flex-col items-center justify-center text-purple-600 font-bold gap-0.5">
+            <i class="fa-solid fa-house-chimney text-lg"></i>
+            <span class="text-[11px]">האירועים</span>
+        </button>
+        <button onclick="switchTab('gantt')" id="nav-gantt" class="flex-1 flex flex-col items-center justify-center text-gray-400 gap-0.5">
+            <i class="fa-solid fa-calendar-week text-lg"></i>
+            <span class="text-[11px]">ריכוז חודשי</span>
+        </button>
+        <button onclick="switchTab('add')" id="nav-add" class="flex-1 flex flex-col items-center justify-center text-gray-400 gap-0.5">
+            <i class="fa-solid fa-calendar-plus text-lg"></i>
+            <span class="text-[11px]">הוספת אירוע</span>
+        </button>
+    </nav>
 
-  </div>
+    <script type="module">
+        // ייבוא Firebase Realtime Database
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-  <script>
-    let pName = localStorage.getItem('bt_p_name') || '';
-    let dName = localStorage.getItem('bt_d_name') || '';
-    let pRole = localStorage.getItem('bt_p_role') || 'אמא';
-    let pPhone = localStorage.getItem('bt_p_phone') || '';
-    let currentTab = 'feed';
-    let allEvents = [];
+        // TODO: החלף את הקונפיגורציה הזו בפרטי ה-Firebase שלך!
+        const firebaseConfig = {
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com/"
+        };
 
-    let localBackupData = JSON.parse(localStorage.getItem('bt_local_db_backup')) || [];
+        // אתחול האפליקציה והדאטהבייס
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
 
-    const daysOfWeek = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
-    const monthsHeb = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+        // משתנים גלובליים פנימיים
+        let currentUser = null;
+        let allEvents = [];
 
-    document.addEventListener('DOMContentLoaded', () => {
-      if (!pName || !dName) {
-        document.getElementById('authModal').style.display = 'flex';
-      } else {
-        updateUserHeader();
-        initDataFlow();
-      }
-    });
-
-    function saveUserIdentity() {
-      const parent = document.getElementById('authParentName').value.trim();
-      const daughter = document.getElementById('authDaughterName').value.trim();
-      const role = document.querySelector('input[name="parentRole"]:checked').value;
-      const phone = document.getElementById('authPhone').value.trim();
-
-      if(parent.length < 2 || daughter.length < 2) return alert('אנא מלאו את שדות החובה');
-      
-      localStorage.setItem('bt_p_name', parent);
-      localStorage.setItem('bt_d_name', daughter);
-      localStorage.setItem('bt_p_role', role);
-      localStorage.setItem('bt_p_phone', phone);
-      
-      pName = parent;
-      dName = daughter;
-      pRole = role;
-      pPhone = phone;
-      
-      document.getElementById('authModal').style.display = 'none';
-      updateUserHeader();
-      initDataFlow();
-    }
-
-    function updateUserHeader() {
-      document.getElementById('welcomeUserTxt').innerText = `${pRole}: ${pName} | הבת: ${dName}`;
-    }
-
-    // פונקציית התנתקות וניקוי זיכרון כדי לאפשר בדיקה חוזרת
-    function logoutUser() {
-      if(confirm('האם ברצונך להתנתק ולשנות את פרטי הזיהוי שלך?')) {
-        localStorage.removeItem('bt_p_name');
-        localStorage.removeItem('bt_d_name');
-        localStorage.removeItem('bt_p_role');
-        localStorage.removeItem('bt_p_phone');
-        
-        // ריענון העמוד כדי להציג את הטופס הנקי
-        window.location.reload();
-      }
-    }
-
-    function initDataFlow() {
-      if (isFirebaseReady) {
-        db.ref('events').on('value', (snapshot) => {
-          const data = snapshot.val();
-          allEvents = [];
-          if (data) {
-            for (let id in data) { allEvents.push({ id, ...data[id] }); }
-          }
-          processAndRender();
+        // הפעלה ראשונית של המערכת בטעינת הדף
+        window.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            listenToEvents();
         });
-      } else {
-        allEvents = localBackupData;
-        processAndRender();
-      }
-    }
 
-    function processAndRender() {
-      allEvents.sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
-      populateDatalists();
-      renderStickyAlert();
-      renderFeed();
-      renderGantt();
-    }
-
-    function populateDatalists() {
-      const locList = document.getElementById('locationsList');
-      const addList = document.getElementById('addressesList');
-      
-      const uniqueLocations = [...new Set(allEvents.map(e => e.location))];
-      const uniqueAddresses = [...new Set(allEvents.map(e => e.address))];
-      
-      locList.innerHTML = uniqueLocations.map(l => `<option value="${l}"></option>`).join('');
-      addList.innerHTML = uniqueAddresses.map(a => `<option value="${a}"></option>`).join('');
-
-      document.getElementById('formLocation').removeEventListener('input', handleLocationInput);
-      document.getElementById('formLocation').addEventListener('input', handleLocationInput);
-    }
-
-    function handleLocationInput(e) {
-      const match = allEvents.find(ev => ev.location === e.target.value);
-      if(match) {
-        document.getElementById('formAddress').value = match.address;
-        validateForm();
-      }
-    }
-
-    function validateForm() {
-      const date = document.getElementById('formDate').value;
-      const time = document.getElementById('formTime').value;
-      const location = document.getElementById('formLocation').value.trim();
-      const address = document.getElementById('formAddress').value.trim();
-      
-      const btn = document.getElementById('submitFormBtn');
-      
-      if(date && time && location && address) {
-        btn.disabled = false;
-        btn.className = "px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all cursor-pointer";
-      } else {
-        btn.disabled = true;
-        btn.className = "px-4 py-1.5 bg-slate-200 text-slate-400 font-bold rounded-xl shadow-sm transition-all cursor-not-allowed";
-      }
-    }
-
-    function renderStickyAlert() {
-      const alertEl = document.getElementById('nextEventAlert');
-      const todayStr = new Date().toISOString().split('T')[0];
-      const futureEvents = allEvents.filter(e => e.date >= todayStr);
-      
-      if(futureEvents.length > 0) {
-        const next = futureEvents[0];
-        document.getElementById('nextGirl').innerText = next.girlName;
-        const d = new Date(next.date);
-        const dateFormatted = `${d.getDate()}/${d.getMonth()+1} (יום ${daysOfWeek[d.getDay()]})`;
-        document.getElementById('nextDetails').innerText = `${dateFormatted} ב-${next.time} | ${next.location}`;
-        alertEl.classList.remove('hidden');
-      } else {
-        alertEl.classList.add('hidden');
-      }
-    }
-
-    function renderFeed() {
-      const container = document.getElementById('feedContainer');
-      container.innerHTML = '';
-      const todayStr = new Date().toISOString().split('T')[0];
-
-      if(allEvents.length === 0) {
-        container.innerHTML = `<div class="text-center p-8 text-slate-400 text-xs">אין עדיין אירועים בלוח.</div>`;
-        return;
-      }
-
-      allEvents.forEach(ev => {
-        const isPast = ev.date < todayStr;
-        const evDate = new Date(ev.date);
-        const dateStr = `${evDate.getDate()}/${evDate.getMonth()+1} (יום ${daysOfWeek[evDate.getDay()]})`;
-        
-        let rsvpCount = { yes: 0, maybe: 0, no: 0 };
-        const attendees = ev.attendees || {};
-        for(let key in attendees) {
-          if(attendees[key].status === 'yes') rsvpCount.yes++;
-          if(attendees[key].status === 'maybe') rsvpCount.maybe++;
-          if(attendees[key].status === 'no') rsvpCount.no++;
+        // -------------------------
+        // מנגנון זיהוי, רישום ותאומות
+        // -------------------------
+        window.toggleTwinField = function() {
+            const container = document.getElementById('twinContainer');
+            const btn = document.getElementById('twinBtn');
+            const input2 = document.getElementById('girlName2');
+            
+            if(container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                input2.required = true;
+                unlockField('girlName2'); // לפתוח מיד להקלדה ראשונית
+                btn.innerHTML = `<i class="fa-solid fa-minus mr-1"></i> בטל תאומה`;
+            } else {
+                container.classList.add('hidden');
+                input2.required = false;
+                input2.value = "";
+                btn.innerHTML = `<i class="fa-solid fa-plus mr-1"></i> יש לך תאומות בכיתה?`;
+            }
         }
 
-        const userKey = `${pName}_${dName}`.replace(/[.#$/\[\]]/g, "_");
-        const myStatus = attendees[userKey] ? attendees[userKey].status : '';
-
-        const card = document.createElement('div');
-        card.className = `p-4 rounded-2xl border transition-all text-right ${isPast ? 'bg-slate-50 border-slate-200 text-slate-400 opacity-60' : 'bg-white border-slate-100 shadow-sm'}`;
-        
-        card.innerHTML = `
-          <div class="flex justify-between items-start">
-            <div>
-              <h3 class="text-base font-bold ${isPast ? 'text-slate-500' : 'text-indigo-950'}">בת מצווה ל${ev.girlName}</h3>
-              <p class="text-xs font-semibold mt-0.5 text-pink-600">📅 ${dateStr} בשעה ${ev.time}</p>
-            </div>
-            <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${ev.menu === 'חלבי' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-700'}">
-              ${ev.menu === 'חלבי' ? '🥛 חלבי' : '🥩 בשרי'}
-            </span>
-          </div>
-
-          <div class="mt-2 text-xs space-y-0.5 text-slate-600">
-            <p>📍 <strong>מקום:</strong> ${ev.location}</p>
-            <p>🗺️ <strong>כתובת:</strong> ${ev.address} 
-              <a href="https://waze.com/ul?q=${encodeURIComponent(ev.address)}" target="_blank" class="text-indigo-600 font-bold hover:underline mr-1 ${isPast ? 'pointer-events-none text-slate-400' : ''}">🚙 ניווט</a>
-            </p>
-          </div>
-
-          <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-semibold text-slate-500">
-            <div class="flex gap-2">
-              <span class="text-emerald-600">🟩 ${rsvpCount.yes}</span>
-              <span class="text-amber-600">🟨 ${rsvpCount.maybe}</span>
-              <span class="text-rose-600">🟥 ${rsvpCount.no}</span>
-            </div>
-            <button onclick="toggleAttendeeList('${ev.id}')" class="text-indigo-600 hover:underline">מי מגיע? 📋</button>
-          </div>
-
-          <div id="list-${ev.id}" class="hidden mt-2 p-2.5 bg-slate-50 rounded-xl text-xs space-y-1 border border-slate-100 text-slate-600">
-            <div class="max-h-24 overflow-y-auto space-y-1">
-              ${Object.keys(attendees).length === 0 ? 'אין עדיין תגובות.' : Object.values(attendees).map(att => {
-                return `<div>${att.status === 'yes' ? '🟩' : (att.status === 'maybe' ? '🟨' : '🟥')} <strong>${att.parent}</strong> (${att.role} של ${att.daughter})</div>`;
-              }).join('')}
-            </div>
-          </div>
-
-          <div class="mt-3 grid grid-cols-3 gap-1.5 ${isPast ? 'hidden' : ''}">
-            <button onclick="updateRSVP('${ev.id}', 'yes')" class="py-1.5 rounded-xl text-xs font-bold border transition-all ${myStatus === 'yes' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 border-slate-200 text-slate-600'}">מגיע 👍</button>
-            <button onclick="updateRSVP('${ev.id}', 'maybe')" class="py-1.5 rounded-xl text-xs font-bold border transition-all ${myStatus === 'maybe' ? 'bg-amber-500 text-white border-amber-500' : 'bg-slate-50 border-slate-200 text-slate-600'}">אולי 🤔</button>
-            <button onclick="updateRSVP('${ev.id}', 'no')" class="py-1.5 rounded-xl text-xs font-bold border transition-all ${myStatus === 'no' ? 'bg-rose-600 text-white border-rose-600' : 'bg-slate-50 border-slate-200 text-slate-600'}">לא 👎</button>
-          </div>
-        `;
-        container.appendChild(card);
-      });
-    }
-
-    function renderGantt() {
-      const container = document.getElementById('ganttContainer');
-      container.innerHTML = '';
-      if (allEvents.length === 0) return;
-
-      const monthsGroup = {};
-      allEvents.forEach(ev => {
-        const d = new Date(ev.date);
-        const groupKey = `${d.getFullYear()}-${d.getMonth()}`;
-        if (!monthsGroup[groupKey]) {
-          monthsGroup[groupKey] = { title: `${monthsHeb[d.getMonth()]} ${d.getFullYear()}`, events: [] };
+        window.unlockField = function(fieldId) {
+            const input = document.getElementById(fieldId);
+            const lockIcon = document.getElementById(fieldId === 'girlName1' ? 'lockIcon1' : 'lockIcon2');
+            
+            if(input.hasAttribute('readonly')) {
+                input.removeAttribute('readonly');
+                input.classList.remove('bg-gray-100', 'text-gray-500', 'cursor-pointer');
+                input.classList.add('bg-white', 'text-gray-800');
+                if(lockIcon) lockIcon.innerHTML = `<i class="fa-solid fa-lock-open text-purple-500"></i>`;
+                input.focus();
+            }
         }
-        monthsGroup[groupKey].events.push(ev);
-      });
 
-      for (let key in monthsGroup) {
-        const month = monthsGroup[key];
-        const monthBlock = document.createElement('div');
-        monthBlock.className = 'bg-white rounded-2xl p-3 shadow-sm border border-slate-100 text-right';
-        
-        let eventsHtml = month.events.map(ev => {
-          const d = new Date(ev.date);
-          const todayStr = new Date().toISOString().split('T')[0];
-          const isPast = ev.date < todayStr;
+        window.handleAuth = function(event) {
+            event.preventDefault();
+            
+            const parentRole = document.querySelector('input[name="parentRole"]:checked').value;
+            const parentName = document.getElementById('parentName').value.trim();
+            const g1 = document.getElementById('girlName1').value.trim();
+            const g2 = document.getElementById('girlName2').value.trim();
+            const prefix = document.getElementById('phonePrefix').value;
+            const mainNum = document.getElementById('phoneMain').value;
+            const phone = `${prefix}-${mainNum}`;
 
-          return `
-            <div class="flex items-center justify-between py-2 border-b border-slate-100 last:border-0 ${isPast ? 'opacity-40 text-slate-400 line-through' : ''}">
-              <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-lg flex flex-col items-center justify-center font-bold text-xs ${isPast ? 'bg-slate-200 text-slate-500' : 'bg-indigo-50 text-indigo-600'}">
-                  <span>${d.getDate()}</span>
-                </div>
-                <div>
-                  <h4 class="font-bold text-xs ${isPast ? 'text-slate-500' : 'text-slate-900'}">בת מצווה ל${ev.girlName}</h4>
-                  <p class="text-[10px] text-slate-400">${ev.time} | ${ev.location}</p>
-                </div>
-              </div>
-              <span class="text-xs">${ev.menu === 'חלבי' ? '🥛' : '🥩'}</span>
-            </div>
-          `;
-        }).join('');
+            if(!g1) return alert("חובה להזין לפחות שם של ילדה אחת");
 
-        monthBlock.innerHTML = `
-          <h3 class="text-xs font-bold text-indigo-900 mb-1.5 border-b pb-1 border-indigo-50/50">📂 ${month.title}</h3>
-          <div class="divide-y divide-slate-50">${eventsHtml}</div>
-        `;
-        container.appendChild(monthBlock);
-      }
-    }
+            const girlNames = [g1];
+            if(g2 && !document.getElementById('twinContainer').classList.contains('hidden')) {
+                girlNames.push(g2);
+            }
 
-    function switchTab(tab) {
-      currentTab = tab;
-      document.getElementById('tabFeed').classList.toggle('hidden', tab !== 'feed');
-      document.getElementById('tabGantt').classList.toggle('hidden', tab !== 'gantt');
-      document.getElementById('tabFeedBtn').className = tab === 'feed' ? 'w-1/2 py-3 text-center border-b-2 border-indigo-600 text-indigo-600 transition-all' : 'w-1/2 py-3 text-center border-b-2 border-transparent text-slate-400 transition-all';
-      document.getElementById('tabGanttBtn').className = tab === 'gantt' ? 'w-1/2 py-3 text-center border-b-2 border-indigo-600 text-indigo-600 transition-all' : 'w-1/2 py-3 text-center border-b-2 border-transparent text-slate-400 transition-all';
-    }
-
-    function toggleAttendeeList(id) {
-      document.getElementById(`list-${id}`).classList.toggle('hidden');
-    }
-
-    function updateRSVP(eventId, status) {
-      const userKey = `${pName}_${dName}`.replace(/[.#$/\[\]]/g, "_");
-      const rsvpObject = { parent: pName, daughter: dName, role: pRole, status: status };
-      
-      if (isFirebaseReady) {
-        db.ref(`events/${eventId}/attendees/${userKey}`).set(rsvpObject);
-      } else {
-        const ev = allEvents.find(e => e.id === eventId);
-        if(ev) {
-          if(!ev.attendees) ev.attendees = {};
-          ev.attendees[userKey] = rsvpObject;
-          localStorage.setItem('bt_local_db_backup', JSON.stringify(allEvents));
-          processAndRender();
+            currentUser = { parentRole, parentName, girlNames, phone };
+            localStorage.setItem('batMitzvahUser', JSON.stringify(currentUser));
+            
+            document.getElementById('authModal').classList.add('hidden');
+            renderHeader();
+            renderAddEventFormFields();
+            renderFeed();
         }
-      }
-    }
 
-    function openAddModal() { 
-      document.getElementById('addModal').style.display = 'flex'; 
-      document.getElementById('formGirlName').value = dName;
-      validateForm();
-    }
-    
-    function closeAddModal() { 
-      document.getElementById('addModal').style.display = 'none'; 
-      document.getElementById('eventForm').reset();
-    }
+        function checkAuth() {
+            const stored = localStorage.getItem('batMitzvahUser');
+            if (stored) {
+                currentUser = JSON.parse(stored);
+                renderHeader();
+                renderAddEventFormFields();
+            } else {
+                document.getElementById('authModal').classList.remove('hidden');
+                // אתחול שדה השם הראשון כנעול כברירת מחדל לאפיון, אך ריק
+                const g1 = document.getElementById('girlName1');
+                g1.setAttribute('readonly', 'true');
+            }
+        }
 
-    function submitEvent(e) {
-      e.preventDefault();
-      
-      const date = document.getElementById('formDate').value;
-      const girlName = document.getElementById('formGirlName').value.trim();
-      const time = document.getElementById('formTime').value;
-      const location = document.getElementById('formLocation').value.trim();
-      const address = document.getElementById('formAddress').value.trim();
-      const menu = document.getElementById('formMenu').value;
+        window.logout = function() {
+            if(confirm("האם ברצונך להתנתק ולמחוק את נתוני המשתמש מהמכשיר הנוכחי?")) {
+                localStorage.removeItem('batMitzvahUser');
+                currentUser = null;
+                location.reload();
+            }
+        }
 
-      const dateConflict = allEvents.find(ev => ev.date === date);
-      const girlConflict = allEvents.find(ev => ev.girlName.toLowerCase() === girlName.toLowerCase());
+        // -------------------------
+        // רינדור רכיבי ממשק
+        // -------------------------
+        function renderHeader() {
+            if(!currentUser) return;
+            document.getElementById('headerEmoji').innerText = currentUser.parentRole === 'אמא' ? '👩‍🦰' : '👨';
+            document.getElementById('headerParentName').innerText = `שלום, ${currentUser.parentName}`;
+            document.getElementById('headerGirlName').innerText = `הבנות: ${currentUser.girlNames.join(' ו-')}`;
+            document.getElementById('phoneActions').classList.remove('hidden');
+        }
 
-      if (girlConflict) {
-        alert(`כבר קיים בלוח אירוע עבור הבת "${girlName}". מניעת כפל רישום.`);
-        return;
-      }
+        window.callParent = function() { if(currentUser) window.location.href = `tel:${currentUser.phone}`; }
+        window.copyPhone = function() { 
+            if(currentUser) {
+                navigator.clipboard.writeText(currentUser.phone);
+                alert("מספר הטלפון הועתק לקליפבורד! 📋");
+            }
+        }
 
-      if (dateConflict) {
-        const confirmDouble = confirm(`שים לב! בתאריך זה כבר קיים אירוע עבור ${dateConflict.girlName}.\nהאם בכל זאת לקבוע לאותו היום?`);
-        if (!confirmDouble) return;
-      }
+        function renderAddEventFormFields() {
+            const container = document.getElementById('girlNameSelectionContainer');
+            if(!currentUser) return;
 
-      const newEvent = { girlName, date, time, location, address, menu };
-      
-      if (isFirebaseReady) {
-        db.ref('events').push(newEvent).then(() => { closeAddModal(); });
-      } else {
-        newEvent.id = '_' + Math.random().toString(36).substr(2, 9);
-        allEvents.push(newEvent);
-        localStorage.setItem('bt_local_db_backup', JSON.stringify(allEvents));
-        closeAddModal();
-        processAndRender();
-      }
-    }
-  </script>
+            if(currentUser.girlNames.length === 1) {
+                // רק ילדה אחת - שדה readonly רגיל
+                container.innerHTML = `<input type="text" id="eventGirlName" value="${currentUser.girlNames[0]}" readonly class="w-full border p-2.5 rounded-xl bg-gray-100 text-gray-500 font-bold outline-none">`;
+            } else {
+                // תאומות - תפריט בחירה (Select) כפי שמכתיב האפיון החדש
+                let options = currentUser.girlNames.map(name => `<option value="${name}">${name}</option>`).join('');
+                container.innerHTML = `
+                    <select id="eventGirlName" class="w-full border p-2.5 rounded-xl bg-white font-bold outline-none focus:ring-2 focus:ring-purple-500">
+                        ${options}
+                    </select>
+                `;
+            }
+        }
+
+        // -------------------------
+        // טאבים וניווט
+        // -------------------------
+        window.switchTab = function(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.remove('hidden');
+            
+            // עדכון עיצוב כפתורי הניווט התחתון
+            ['feed', 'gantt', 'add'].forEach(t => {
+                const btn = document.getElementById(`nav-${t}`);
+                if(t === tabName) {
+                    btn.classList.add('text-purple-600', 'font-bold');
+                    btn.classList.remove('text-gray-400');
+                } else {
+                    btn.classList.remove('text-purple-600', 'font-bold');
+                    btn.classList.add('text-gray-400');
+                }
+            });
+        }
+
+        // -------------------------
+        // סנכרון מול ענן (Firebase)
+        // -------------------------
+        function listenToEvents() {
+            const eventsRef = ref(db, 'events');
+            onValue(eventsRef, (snapshot) => {
+                const data = snapshot.val();
+                allEvents = [];
+                if (data) {
+                    for (let id in data) {
+                        allEvents.push({ id, ...data[id] });
+                    }
+                }
+                // מיון כרונולוגי של האירועים
+                allEvents.sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
+                
+                updateStickyAlert();
+                renderFeed();
+                renderGantt();
+                updateDatalist();
+            });
+        }
+
+        function updateStickyAlert() {
+            const now = new Date();
+            const upcoming = allEvents.find(e => new Date(`${e.date}T${e.time}`) >= now);
+            const alertEl = document.getElementById('stickyAlert');
+            
+            if(upcoming) {
+                const [year, month, day] = upcoming.date.split('-');
+                document.getElementById('stickyAlertText').innerText = `🚨 האירוע הקרוב: של ${upcoming.girlName} ב-${day}/${month} בשעה ${upcoming.time}`;
+                alertEl.classList.remove('hidden');
+            } else {
+                alertEl.classList.add('hidden');
+            }
+        }
+
+        // -------------------------
+        // מסך א': פיד כרטיסים
+        // -------------------------
+        function renderFeed() {
+            const container = document.getElementById('tabFeed');
+            if(!currentUser) return;
+            if(allEvents.length === 0) {
+                container.innerHTML = `<div class="text-center text-gray-400 py-12"><i class="fa-solid fa-calendar-xmark text-4xl mb-2"></i><p>אין עדיין אירועים בלוח הכיתתי.</p></div>`;
+                return;
+            }
+
+            const now = new Date();
+            container.innerHTML = "";
+
+            allEvents.forEach(event => {
+                const eventDateTime = new Date(`${event.date}T${event.time}`);
+                const isPast = eventDateTime < now;
+                const isOwnEvent = currentUser.girlNames.includes(event.girlName);
+                
+                // חישוב אישורי הגעה
+                const totalAttendees = event.attendees ? Object.keys(event.attendees).length : 0;
+                const userKey = `${currentUser.parentName}_${currentUser.girlNames[0]}`; // מפתח משתמש ייחודי להצבעה
+                const userResponse = event.attendees && event.attendees[userKey] ? event.attendees[userKey].status : null;
+
+                // יצירת כרטיס ב-HTML
+                const card = document.createElement('div');
+                card.id = `card-${event.id}`;
+                card.className = `bg-white rounded-2xl p-5 shadow-sm border border-gray-100 relative transition-all ${isPast ? 'opacity-60 bg-gray-50' : ''}`;
+                
+                let [year, month, day] = event.date.split('-');
+                
+                // כותרת ופרטי בסיס
+                let html = `
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <span class="bg-purple-100 text-purple-700 font-extrabold text-xs px-2.5 py-1 rounded-full">בת מצווה ל${event.girlName} ✨</span>
+                            <div class="flex items-center gap-2 mt-2 text-gray-500 text-xs">
+                                <span><i class="fa-solid fa-calendar text-purple-400"></i> ${day}/${month}/${year}</span>
+                                <span><i class="fa-solid fa-clock text-purple-400"></i> ${event.time}</span>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">${event.menu}</span>
+                    </div>
+
+                    <div class="bg-gray-50 p-3 rounded-xl space-y-1.5 text-xs mb-4">
+                        <p><strong class="text-gray-700">📍 מקום:</strong> ${event.location}</p>
+                        <p><strong class="text-gray-700">🗺️ כתובת:</strong> ${event.address}</p>
+                        <button onclick="openWaze('${event.address}')" class="text-blue-600 font-bold hover:underline flex items-center gap-1 mt-1">
+                            <i class="fa-brands fa-waze text-sm"></i> ניווט ישיר ל-Waze
+                        </button>
+                    </div>
+                `;
+
+                // לוגיקת כפתורים / ניהול בהתאם לחוקי האפיון
+                if(isPast) {
+                    html += `<div class="text-center bg-gray-200 text-gray-500 font-bold p-2.5 rounded-xl text-xs">האירוע כבר התקיים</div>`;
+                } else if(isOwnEvent) {
+                    // חוק אירוע אישי - כפתור ניהול בלעדי להסתרת מאשרים
+                    const isHidden = event.hideAttendees || false;
+                    html += `
+                        <div class="border-t pt-3 mt-2">
+                            <p class="text-xs text-purple-600 font-bold mb-2"><i class="fa-solid fa-star"></i> אירוע של המשפחה שלך!</p>
+                            <button onclick="togglePrivacy('${event.id}', ${isHidden})" class="w-full bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold py-2.5 px-4 rounded-xl transition-all">
+                                ${isHidden ? '👁️ להציג רשימת מאשרים לכולם' : '🙈 להסתיר רשימת מאשרים מהכיתה'}
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    // כרטיס של ילדה אחרת - הצבעת הגעה
+                    html += `<div class="border-t pt-3" id="voting-zone-${event.id}">`;
+                    
+                    if(userResponse) {
+                        // חוק נעילת אישור ועריכה
+                        let statusText = userResponse === 'yes' ? '🟩 הגבת שתגיעו' : (userResponse === 'maybe' ? '🟨 הגבת שאולי תגיעו' : '🟥 הגבת שלא תגיעו');
+                        html += `
+                            <div class="flex justify-between items-center bg-gray-50 p-2 rounded-xl">
+                                <span class="text-xs font-bold text-gray-700">${statusText}</span>
+                                <button onclick="enableVoteChange('${event.id}')" class="text-xs text-purple-600 font-bold hover:underline"><i class="fa-solid fa-pen-to-square"></i> עריכה</button>
+                            </div>
+                        `;
+                    } else {
+                        // 3 כפתורים בולטים לאישור
+                        html += `
+                            <p class="text-xs font-bold text-gray-500 mb-2">האם תגיעו?</p>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button onclick="submitAttendance('${event.id}', 'yes')" class="bg-green-100 hover:bg-green-200 text-green-700 font-bold py-2 rounded-xl text-xs">מגיע 👍</button>
+                                <button onclick="submitAttendance('${event.id}', 'maybe')" class="bg-yellow-100 hover:bg-yellow-200 text-yellow-700 font-bold py-2 rounded-xl text-xs">אולי 🤔</button>
+                                <button onclick="submitAttendance('${event.id}', 'no')" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold py-2 rounded-xl text-xs">לא 👎</button>
+                            </div>
+                        `;
+                    }
+                    html += `</div>`;
+                }
+
+                // תצוגת מונים ורשימת מאשרים (חוק מניעת מבוכה)
+                const showListToClass = !event.hideAttendees;
+                if(isOwnEvent || showListToClass) {
+                    html += `
+                        <div class="mt-4 pt-3 border-t text-xs text-gray-500">
+                            <span class="font-bold text-gray-700">אישרו הגעה עד כה: ${totalAttendees}</span>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="mt-4 pt-3 border-t text-xs text-gray-400 italic text-center">
+                            🔒 פרטי המאשרים חסויים לבקשת המשפחה
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = html;
+                container.appendChild(card);
+            });
+        }
+
+        window.openWaze = function(address) {
+            window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, '_blank');
+        }
+
+        window.submitAttendance = function(eventId, status) {
+            const userKey = `${currentUser.parentName}_${currentUser.girlNames[0]}`;
+            const attendanceRef = ref(db, `events/${eventId}/attendees/${userKey}`);
+            set(attendanceRef, {
+                parentName: currentUser.parentName,
+                status: status
+            });
+        }
+
+        window.enableVoteChange = function(eventId) {
+            // זמנית מוחקים את הבחירה כדי שהממשק ירנדר שוב את 3 הכפתורים
+            const userKey = `${currentUser.parentName}_${currentUser.girlNames[0]}`;
+            set(ref(db, `events/${eventId}/attendees/${userKey}`), null);
+        }
+
+        window.togglePrivacy = function(eventId, currentStatus) {
+            update(ref(db, `events/${eventId}`), { hideAttendees: !currentStatus });
+        }
+
+        // -------------------------
+        // מסך ב': גאנט (ריכוז חודשי)
+        // -------------------------
+        function renderGantt() {
+            const container = document.getElementById('ganttContainer');
+            if(!currentUser || allEvents.length === 0) return;
+
+            // קיבוץ לפי חודש ושנה
+            const groups = {};
+            const monthsNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+            
+            allEvents.forEach(event => {
+                const [year, month] = event.date.split('-');
+                const key = `${monthsNames[parseInt(month)-1]} ${year}`;
+                if(!groups[key]) groups[key] = [];
+                groups[key].push(event);
+            });
+
+            container.innerHTML = "";
+            const now = new Date();
+
+            for (let monthYear in groups) {
+                const monthSection = document.createElement('div');
+                monthSection.className = "space-y-2";
+                monthSection.innerHTML = `<h4 class="text-xs font-extrabold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-md inline-block">${monthYear}</h4>`;
+                
+                groups[monthYear].forEach(event => {
+                    const eventDateTime = new Date(`${event.date}T${event.time}`);
+                    const isPast = eventDateTime < now;
+                    const userKey = `${currentUser.parentName}_${currentUser.girlNames[0]}`;
+                    const hasConfirmed = event.attendees && event.attendees[userKey] && event.attendees[userKey].status === 'yes';
+
+                    const [y, m, day] = event.date.split('-');
+                    
+                    const row = document.createElement('button');
+                    row.onclick = () => scrollToCard(event.id);
+                    row.className = `w-full text-right flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-all text-xs active:scale-[0.99]`;
+                    
+                    let innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-gray-400 w-6">${day}</span>
+                            <span class="${isPast ? 'line-through text-gray-400' : 'font-medium text-gray-800'}">בת מצווה ל${event.girlName}</span>
+                        </div>
+                    `;
+
+                    if(hasConfirmed && !isPast) {
+                        innerHTML += `<span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-md font-bold">אישרת ✔️</span>`;
+                    }
+
+                    row.innerHTML = innerHTML;
+                    monthSection.appendChild(row);
+                });
+
+                container.appendChild(monthSection);
+            }
+        }
+
+        function scrollToCard(eventId) {
+            switchTab('feed');
+            setTimeout(() => {
+                const card = document.getElementById(`card-${eventId}`);
+                if(card) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    card.classList.add('ring-4', 'ring-purple-400');
+                    setTimeout(() => card.classList.remove('ring-4', 'ring-purple-400'), 2000);
+                }
+            }, 150);
+        }
+
+        // -------------------------
+        // מסך ג': טופס הוספה חכם ומניעת התנגשויות
+        // -------------------------
+        window.handleLocationInput = function() {
+            const currentVal = document.getElementById('eventLocation').value;
+            // מציאת אירוע עבר עם אותו השם כדי לבצע השלמה אוטומטית של כתובת
+            const match = allEvents.find(e => e.location === currentVal);
+            if(match) {
+                document.getElementById('eventAddress').value = match.address;
+            }
+        }
+
+        function updateDatalist() {
+            const datalist = document.getElementById('locationsDatalist');
+            const uniqueLocations = [...new Set(allEvents.map(e => e.location))];
+            datalist.innerHTML = uniqueLocations.map(loc => `<option value="${loc}">`).join('');
+        }
+
+        window.validateForm = function() {
+            const date = document.getElementById('eventDate').value;
+            const time = document.getElementById('eventTime').value;
+            const location = document.getElementById('eventLocation').value;
+            const address = document.getElementById('eventAddress').value;
+            const menu = document.getElementById('eventMenu').value;
+            const btn = document.getElementById('submitEventBtn');
+
+            if(date && time && location && address && menu) {
+                btn.removeAttribute('disabled');
+                btn.className = "w-full bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-xl transition-all shadow-md cursor-pointer";
+                btn.innerText = "פרסום בלוח הכיתתי 🚀";
+            } else {
+                btn.setAttribute('disabled', 'true');
+                btn.className = "w-full bg-gray-300 text-gray-500 font-bold p-3 rounded-xl transition-all cursor-not-allowed shadow-sm";
+                btn.innerText = "מלאו את כל שדות החובה לפרסום";
+            }
+        }
+
+        window.createNewEvent = function(event) {
+            event.preventDefault();
+            
+            const girlName = document.getElementById('eventGirlName').value;
+            const date = document.getElementById('eventDate').value;
+            const time = document.getElementById('eventTime').value;
+            const location = document.getElementById('eventLocation').value;
+            const address = document.getElementById('eventAddress').value;
+            const menu = document.getElementById('eventMenu').value;
+
+            // 1. חסימת מניעת כפל אירועים לאותה ילדה
+            const alreadyHasEvent = allEvents.some(e => e.girlName === girlName);
+            if(alreadyHasEvent) {
+                alert(`⚠️ שים לב: כבר קיים בלוח אירוע רשום על שם ${girlName}. לא ניתן לפרסם אירוע נוסף.`);
+                return;
+            }
+
+            // 2. התרעת התנגשות תאריכים (ילדה אחרת באותו יום)
+            const dateCollision = allEvents.find(e => e.date === date);
+            if(dateCollision) {
+                const proceed = confirm(`🚨 התרעת התנגשות! בתאריך שנבחר כבר מתקיים אירוע של ${dateCollision.girlName}.\nהאם אתה בטוח שברצונך להמשיך ולרשום אירוע נוסף באותו היום?`);
+                if(!proceed) return; // עצירת השליחה במידה וההורה מתחרט
+            }
+
+            // שליחה לענן
+            const newEventRef = push(ref(db, 'events'));
+            set(newEventRef, {
+                girlName, date, time, location, address, menu,
+                hideAttendees: false
+            }).then(() => {
+                alert("האירוע פורסם בהצלחה בלוח הכיתתי! 🎉");
+                document.getElementById('addEventForm').reset();
+                validateForm();
+                switchTab('feed');
+            }).catch(err => alert("שגיאה בשמירה בענן: " + err.message));
+        }
+    </script>
 </body>
 </html>
