@@ -3,1258 +3,1423 @@
 
 <head>
 
-    <meta charset="UTF-8" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>ישומון אירועי בת מצווה</title>
 
-    <title>ישומון אירועי בת מצווה</title>
+<script src="https://cdn.tailwindcss.com"></script>
 
-    <script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
 
-    <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+<style>
 
-    <style>
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
+*{
+box-sizing:border-box;
+-webkit-tap-highlight-color:transparent;
+}
 
-        body {
-            margin: 0 auto;
-            max-width: 430px;
-            background:
-                radial-gradient(circle at top right, rgba(168, 85, 247, 0.22), transparent 35%),
-                radial-gradient(circle at bottom left, rgba(236, 72, 153, 0.18), transparent 35%),
-                #07070a;
-            color: white;
-            font-family: sans-serif;
-            overflow-x: hidden;
-        }
+body{
+margin:0 auto;
+max-width:430px;
+background:
+radial-gradient(circle at top right, rgba(168,85,247,.22), transparent 35%),
+radial-gradient(circle at bottom left, rgba(236,72,153,.18), transparent 35%),
+#07070a;
+font-family:sans-serif;
+color:white;
+overflow-x:hidden;
+}
 
-        .glass {
-            background: rgba(255, 255, 255, 0.07);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-        }
+.glass{
+background:rgba(255,255,255,.07);
+backdrop-filter:blur(16px);
+border:1px solid rgba(255,255,255,.06);
+}
 
-        .login-bg {
-            position: fixed;
-            inset: 0;
-            overflow: hidden;
-            pointer-events: none;
-            z-index: 0;
-        }
+.login-bg{
+position:fixed;
+inset:0;
+pointer-events:none;
+overflow:hidden;
+}
 
-        .login-bg::before {
-            content: "12";
-            position: absolute;
-            top: 48%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-8deg);
+.login-bg::before{
+content:"12";
+position:absolute;
+top:48%;
+left:50%;
+transform:translate(-50%,-50%) rotate(-8deg);
 
-            font-size: 430px;
-            font-weight: 900;
+font-size:430px;
+font-weight:900;
 
-            background:
-                linear-gradient(180deg,
-                    rgba(255, 255, 255, .14),
-                    rgba(168, 85, 247, .22),
-                    rgba(236, 72, 153, .16));
+background:
+linear-gradient(
+180deg,
+rgba(255,255,255,.14),
+rgba(168,85,247,.22),
+rgba(236,72,153,.16)
+);
 
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+-webkit-background-clip:text;
+-webkit-text-fill-color:transparent;
 
-            opacity: .22;
+opacity:.22;
 
-            text-shadow:
-                0 0 40px rgba(168, 85, 247, .18),
-                0 0 90px rgba(236, 72, 153, .08);
-        }
+text-shadow:
+0 0 40px rgba(168,85,247,.18),
+0 0 90px rgba(236,72,153,.08);
+}
 
-        .phoneCell {
-            width: 34px;
-            height: 48px;
-            border-radius: 14px;
-            background: rgba(255, 255, 255, .08);
-            border: 1px solid rgba(255, 255, 255, .08);
-            color: white;
-            text-align: center;
-            font-weight: 900;
-            outline: none;
-        }
+.phoneCell{
+width:34px;
+height:48px;
+border-radius:14px;
+background:rgba(255,255,255,.08);
+border:1px solid rgba(255,255,255,.08);
+color:white;
+text-align:center;
+font-weight:900;
+outline:none;
+}
 
-        .phoneCell:focus {
-            border-color: #a855f7;
-            box-shadow: 0 0 0 3px rgba(168, 85, 247, .18);
-        }
+.phoneCell:focus{
+border-color:#a855f7;
+box-shadow:0 0 0 3px rgba(168,85,247,.18);
+}
 
-        .event-card {
-            animation: fade .25s ease;
-        }
+.event-card{
+animation:fade .25s ease;
+}
 
-        @keyframes fade {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
+@keyframes fade{
+from{
+opacity:0;
+transform:translateY(10px);
+}
+to{
+opacity:1;
+transform:translateY(0);
+}
+}
 
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+.active-rsvp{
+transform:scale(1.03);
+box-shadow:0 0 18px rgba(0,0,0,.25);
+}
 
-        .active-rsvp {
-            transform: scale(1.03);
-            box-shadow: 0 0 18px rgba(0, 0, 0, .25);
-        }
-    </style>
+.tab{
+display:none;
+}
+
+.tab.active{
+display:block;
+}
+
+.calendar-day{
+min-height:85px;
+}
+
+</style>
 
 </head>
 
 <body>
 
-    <!-- LOGIN -->
+<!-- LOGIN -->
 
-    <div id="loginScreen"
-        class="min-h-screen flex items-start justify-center pt-10 pb-4 px-4 relative">
+<div id="loginScreen"
+class="min-h-screen flex items-start justify-center pt-10 pb-4 px-4 relative">
 
-        <div class="login-bg"></div>
+<div class="login-bg"></div>
 
-        <div class="glass rounded-[34px] p-5 w-full max-w-sm relative z-10">
+<div class="glass rounded-[34px] p-5 w-full max-w-sm relative z-10">
 
-            <div class="text-center mb-6">
+<div class="text-center mb-6">
 
-                <h1 class="text-2xl font-black leading-tight mb-2">
-                    ברוכים הבאים לישומון אירועי בת מצווה
-                </h1>
+<h1 class="text-2xl font-black mb-2">
+ברוכים הבאים לישומון אירועי בת מצווה
+</h1>
 
-                <div class="text-purple-200 text-sm">
-                    כנפי רוח ו׳-4 • תשפ״ו
-                </div>
+<div class="text-purple-200 text-sm">
+כנפי רוח ו׳-4 • תשפ״ו
+</div>
 
-            </div>
+</div>
 
-            <form id="loginForm" class="space-y-3">
+<form id="loginForm" class="space-y-3">
 
-                <!-- ROLE -->
+<div class="grid grid-cols-2 gap-3">
 
-                <div class="grid grid-cols-2 gap-3">
+<button type="button"
+class="roleBtn bg-purple-600 rounded-2xl p-3 font-bold"
+data-role="אמא">
 
-                    <button type="button"
-                        class="roleBtn bg-purple-600 rounded-2xl p-3 font-bold"
-                        data-role="אמא">
+אמא 👩
 
-                        אמא 👩
+</button>
 
-                    </button>
+<button type="button"
+class="roleBtn bg-white/10 rounded-2xl p-3 font-bold"
+data-role="אבא">
 
-                    <button type="button"
-                        class="roleBtn bg-white/10 rounded-2xl p-3 font-bold"
-                        data-role="אבא">
+אבא 👨
 
-                        אבא 👨
+</button>
 
-                    </button>
+</div>
 
-                </div>
+<div>
 
-                <!-- NAME -->
+<label class="block text-sm font-bold mb-1">
+שם ההורה *
+</label>
 
-                <div>
+<input id="parentName"
+class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none"
+placeholder="שם מלא">
 
-                    <label class="block text-sm font-bold mb-1">
-                        שם ההורה *
-                    </label>
+</div>
 
-                    <input id="parentName"
-                        class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none"
-                        placeholder="שם מלא">
+<div>
 
-                </div>
+<label class="block text-sm font-bold mb-1">
+שם הילדה *
+</label>
 
-                <!-- GIRL -->
+<input id="girlName"
+class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none"
+placeholder="שם פרטי">
 
-                <div>
+</div>
 
-                    <label class="block text-sm font-bold mb-1">
-                        שם הילדה *
-                    </label>
+<div>
 
-                    <input id="girlName"
-                        class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none"
-                        placeholder="שם פרטי">
+<button type="button"
+id="toggleTwin"
+class="text-sm text-purple-300 font-bold">
 
-                </div>
++ תאומה נוספת
 
-                <!-- TWIN -->
+</button>
 
-                <div>
+<input id="twinName"
+class="hidden w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none mt-3"
+placeholder="שם התאומה">
 
-                    <button type="button"
-                        id="toggleTwin"
-                        class="text-sm text-purple-300 font-bold">
+</div>
 
-                        + תאומה נוספת
+<div>
 
-                    </button>
+<label class="block text-sm font-bold mb-1">
+טלפון
+<span class="text-gray-400 text-xs">
+(לא חובה)
+</span>
+</label>
 
-                    <input id="twinName"
-                        class="hidden w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none mt-3"
-                        placeholder="שם התאומה">
+<div class="flex items-center gap-2" dir="ltr">
 
-                </div>
+<select id="phonePrefix"
+class="h-12 px-2 rounded-2xl bg-white/10 border border-white/10 text-white outline-none">
 
-                <!-- PHONE -->
+<option>051</option>
+<option>052</option>
+<option>053</option>
+<option>054</option>
+<option>055</option>
+<option>056</option>
+<option>057</option>
+<option>058</option>
+<option>059</option>
 
-                <div>
+</select>
 
-                    <label class="block text-sm font-bold mb-1">
-                        טלפון
-                        <span class="text-gray-400 text-xs">
-                            (לא חובה)
-                        </span>
-                    </label>
+<span class="text-white/40 font-black">-</span>
 
-                    <div class="flex items-center gap-2" dir="ltr">
+<div class="flex gap-1">
 
-                        <select id="phonePrefix"
-                            class="h-12 px-2 rounded-2xl bg-white/10 border border-white/10 text-white outline-none">
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
 
-                            <option>051</option>
-                            <option>052</option>
-                            <option>053</option>
-                            <option>054</option>
-                            <option>055</option>
-                            <option>056</option>
-                            <option>057</option>
-                            <option>058</option>
-                            <option>059</option>
+</div>
 
-                        </select>
+</div>
 
-                        <span class="text-white/40 font-black">-</span>
+</div>
 
-                        <div class="flex gap-1">
+<button
+class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black shadow-xl">
 
-                            <input maxlength="1" class="phoneCell">
-                            <input maxlength="1" class="phoneCell">
-                            <input maxlength="1" class="phoneCell">
-                            <input maxlength="1" class="phoneCell">
-                            <input maxlength="1" class="phoneCell">
-                            <input maxlength="1" class="phoneCell">
-                            <input maxlength="1" class="phoneCell">
+כניסה לישומון
 
-                        </div>
+</button>
 
-                    </div>
+</form>
 
-                </div>
+</div>
 
-                <!-- BTN -->
+</div>
 
-                <button
-                    class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black shadow-xl mt-2">
+<!-- APP -->
 
-                    כניסה לישומון
+<div id="appScreen" class="hidden pb-28">
 
-                </button>
+<!-- HEADER -->
 
-            </form>
+<header
+class="sticky top-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/5">
 
-        </div>
+<div class="p-4">
 
-    </div>
+<div class="flex justify-between items-start">
 
-    <!-- APP -->
+<div>
 
-    <div id="appScreen" class="hidden pb-28">
+<div class="flex items-center gap-2 flex-wrap">
 
-        <!-- HEADER -->
+<h2 id="headerName"
+class="font-black text-lg"></h2>
 
-        <header
-            class="sticky top-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/5">
+<button id="callBtn"
+class="w-8 h-8 rounded-full bg-white/10 text-white/40 flex items-center justify-center">
 
-            <div class="p-4">
+<i class="fa-solid fa-phone"></i>
 
-                <div class="flex justify-between items-start">
+</button>
 
-                    <div>
+<button id="waBtn"
+class="w-8 h-8 rounded-full bg-white/10 text-white/40 flex items-center justify-center">
 
-                        <div class="flex items-center gap-2 flex-wrap">
+<i class="fa-brands fa-whatsapp"></i>
 
-                            <h2 id="headerName"
-                                class="font-black text-lg"></h2>
+</button>
 
-                            <!-- PHONE -->
+<button id="logoutBtn"
+class="text-xs text-red-300">
 
-                            <button id="callBtn"
-                                class="w-8 h-8 rounded-full bg-white/10 text-white/40 flex items-center justify-center">
+התנתקות
 
-                                <i class="fa-solid fa-phone"></i>
+</button>
 
-                            </button>
+</div>
 
-                            <!-- WA -->
+<div class="flex items-center gap-2 mt-1">
 
-                            <button id="waBtn"
-                                class="w-8 h-8 rounded-full bg-white/10 text-white/40 flex items-center justify-center">
+<div id="headerRole"
+class="text-sm text-purple-200"></div>
 
-                                <i class="fa-brands fa-whatsapp"></i>
+<button id="switchRoleBtn"
+class="text-xs text-white/50">
 
-                            </button>
+<i class="fa-solid fa-pen"></i>
 
-                            <!-- LOGOUT -->
+</button>
 
-                            <button id="logoutBtn"
-                                class="text-xs text-red-300">
+</div>
 
-                                התנתקות
+</div>
 
-                            </button>
+</div>
 
-                        </div>
+</div>
 
-                        <div class="flex items-center gap-2 mt-1">
+</header>
 
-                            <div id="headerRole"
-                                class="text-sm text-purple-200"></div>
+<!-- UPCOMING -->
 
-                            <button id="switchRoleBtn"
-                                class="text-xs text-white/50">
+<div id="upcomingBar"
+class="mx-4 mt-4 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 text-sm font-bold shadow-xl">
 
-                                <i class="fa-solid fa-pen"></i>
+</div>
 
-                            </button>
+<!-- TABS -->
 
-                        </div>
+<div id="eventsTab" class="tab active p-4 space-y-4"></div>
 
-                    </div>
+<div id="calendarTab" class="tab p-4"></div>
 
-                </div>
+<div id="messagesTab" class="tab p-4 space-y-4">
 
-            </div>
+<div class="glass rounded-[28px] p-4">
 
-        </header>
+<textarea id="messageInput"
+class="w-full bg-white/10 rounded-2xl p-4 outline-none min-h-[120px]"
+placeholder="כתוב הודעה לכל ההורים..."></textarea>
 
-        <!-- UPCOMING -->
+<button onclick="publishMessage()"
+class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">
 
-        <div id="upcomingBar"
-            class="mx-4 mt-4 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 text-sm font-bold shadow-xl">
+פרסם הודעה
 
-        </div>
+</button>
 
-        <!-- EVENTS -->
+</div>
 
-        <div id="eventsContainer"
-            class="p-4 space-y-4"></div>
+<div id="messagesContainer"
+class="space-y-3"></div>
 
-    </div>
+</div>
 
-    <!-- ADD BTN -->
+</div>
 
-    <button id="addBtn"
-        class="hidden fixed bottom-24 left-6 z-50 w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 shadow-2xl text-3xl font-black">
+<!-- ADD BTN -->
 
-        +
+<button id="addBtn"
+class="hidden fixed bottom-24 left-6 z-50 w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 shadow-2xl text-3xl font-black">
 
-    </button>
++
 
-    <!-- ADD EVENT -->
+</button>
 
-    <div id="eventModal"
-        class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4">
+<!-- MODAL -->
 
-        <div class="glass rounded-[34px] p-5 w-full max-w-sm">
+<div id="eventModal"
+class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4">
 
-            <div class="flex justify-between items-center mb-5">
+<div class="glass rounded-[34px] p-5 w-full max-w-sm">
 
-                <h3 class="font-black text-lg">
-                    הוספת אירוע
-                </h3>
+<div class="flex justify-between items-center mb-5">
 
-                <button id="closeModal">
+<h3 class="font-black text-lg">
+הוספת אירוע
+</h3>
 
-                    <i class="fa-solid fa-xmark"></i>
+<button id="closeModal">
 
-                </button>
+<i class="fa-solid fa-xmark"></i>
 
-            </div>
+</button>
 
-            <form id="eventForm" class="space-y-4">
+</div>
 
-                <input type="date"
-                    id="eventDate"
-                    class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
+<form id="eventForm" class="space-y-4">
 
-                <input type="time"
-                    id="eventTime"
-                    class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
+<input type="date"
+id="eventDate"
+class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
 
-                <input type="text"
-                    id="eventLocation"
-                    placeholder="מקום האירוע"
-                    class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
+<input type="time"
+id="eventTime"
+class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
 
-                <input type="text"
-                    id="eventAddress"
-                    placeholder="כתובת"
-                    class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
+<input type="text"
+id="eventLocation"
+placeholder="מקום האירוע"
+class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
 
-                <select id="eventMenu"
-                    class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
+<input type="text"
+id="eventAddress"
+placeholder="כתובת"
+class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
 
-                    <option value="">בחר תפריט</option>
-                    <option value="חלבי 🥛">חלבי 🥛</option>
-                    <option value="בשרי 🥩">בשרי 🥩</option>
+<select id="eventMenu"
+class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
 
-                </select>
+<option value="">בחר תפריט</option>
+<option value="חלבי 🥛">חלבי 🥛</option>
+<option value="בשרי 🥩">בשרי 🥩</option>
 
-                <input type="file"
-                    id="girlImage"
-                    accept="image/*">
+</select>
 
-                <!-- PRIVACY -->
+<input type="file"
+id="girlImage"
+accept="image/*">
 
-                <div class="flex items-center gap-3">
+<div class="flex items-center gap-3">
 
-                    <button type="button"
-                        id="privacyBtn"
-                        class="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center">
+<button type="button"
+id="privacyBtn"
+class="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center">
 
-                        <i class="fa-solid fa-eye-slash"></i>
+<i class="fa-solid fa-eye-slash"></i>
 
-                    </button>
+</button>
 
-                    <div id="privacyText"
-                        class="hidden text-xs text-white/60 leading-5">
+<div id="privacyText"
+class="hidden text-xs text-white/60 leading-5">
 
-                        המשתמשים לא יוכלו לראות
-                        את אישורי ההגעה של האחרים
+המשתמשים לא יוכלו לראות
+את אישורי ההגעה של האחרים
 
-                    </div>
+</div>
 
-                </div>
+</div>
 
-                <!-- SHABBAT -->
+<div id="shabbatWarning"
+class="hidden text-red-300 bg-red-500/10 border border-red-500/30 rounded-2xl p-3 text-sm">
 
-                <div id="shabbatWarning"
-                    class="hidden text-red-300 bg-red-500/10 border border-red-500/30 rounded-2xl p-3 text-sm">
+לא ניתן לקבוע אירוע בזמן שבת ✨
 
-                    לא ניתן לקבוע אירוע בזמן שבת ✨
+</div>
 
-                </div>
+<button
+class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black">
 
-                <button
-                    class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black">
+פרסום אירוע 🚀
 
-                    פרסום אירוע 🚀
+</button>
 
-                </button>
+</form>
 
-            </form>
+</div>
 
-        </div>
+</div>
 
-    </div>
+<!-- NAV -->
 
-    <!-- BOTTOM NAV -->
+<nav id="bottomNav"
+class="hidden fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto h-20 bg-black/70 backdrop-blur-2xl border-t border-white/10 flex z-50">
 
-    <nav id="bottomNav"
-        class="hidden fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto h-20 bg-black/70 backdrop-blur-2xl border-t border-white/10 flex z-50">
+<button onclick="switchTab('events')"
+class="flex-1 flex flex-col items-center justify-center gap-1 text-pink-300">
 
-        <button class="flex-1 flex flex-col items-center justify-center gap-1 text-pink-300">
+<i class="fa-solid fa-list"></i>
 
-            <i class="fa-solid fa-list"></i>
+<span class="text-[11px]">
+אירועים
+</span>
 
-            <span class="text-[11px]">
-                אירועים
-            </span>
+</button>
 
-        </button>
+<button onclick="switchTab('calendar')"
+class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
 
-        <button class="navSoon flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
+<i class="fa-solid fa-calendar-days"></i>
 
-            <i class="fa-solid fa-calendar-days"></i>
+<span class="text-[11px]">
+לוח שנה
+</span>
 
-            <span class="text-[11px]">
-                לוח שנה
-            </span>
+</button>
 
-        </button>
+<button onclick="switchTab('messages')"
+class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
 
-        <button class="navSoon flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
+<i class="fa-solid fa-bell"></i>
 
-            <i class="fa-solid fa-bell"></i>
+<span class="text-[11px]">
+הודעות
+</span>
 
-            <span class="text-[11px]">
-                הודעות
-            </span>
+</button>
 
-        </button>
+<button id="navAdd"
+class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
 
-        <button id="navAdd"
-            class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
+<i class="fa-solid fa-plus"></i>
 
-            <i class="fa-solid fa-plus"></i>
+<span class="text-[11px]">
+הוסף אירוע
+</span>
 
-            <span class="text-[11px]">
-                הוסף אירוע
-            </span>
+</button>
 
-        </button>
+</nav>
 
-    </nav>
+<script>
 
-    <script>
+// ====================
+// DATA
+// ====================
 
-        // =====================
-        // DATA
-        // =====================
+let currentUser=
+JSON.parse(localStorage.getItem("bm_user")) || null;
 
-        let currentUser =
-            JSON.parse(localStorage.getItem("bm_user")) || null;
+let events=
+JSON.parse(localStorage.getItem("bm_events")) || [];
 
-        let events =
-            JSON.parse(localStorage.getItem("bm_events")) || [];
+let messages=
+JSON.parse(localStorage.getItem("bm_messages")) || [];
 
-        let selectedRole = "אמא";
+let selectedRole="אמא";
 
-        let hideGuests = false;
+let hideGuests=false;
 
-        // =====================
-        // PHONE INPUT
-        // =====================
+// ====================
+// PHONE
+// ====================
 
-        document.querySelectorAll(".phoneCell").forEach((cell, index) => {
+document.querySelectorAll(".phoneCell").forEach((cell,index)=>{
 
-            cell.addEventListener("input", (e) => {
+cell.addEventListener("input",(e)=>{
 
-                e.target.value =
-                    e.target.value.replace(/[^0-9]/g, '');
+e.target.value=
+e.target.value.replace(/[^0-9]/g,'');
 
-                if (e.target.value.length === 1) {
+if(e.target.value.length===1){
 
-                    const next =
-                        document.querySelectorAll(".phoneCell")[index + 1];
+const next=
+document.querySelectorAll(".phoneCell")[index+1];
 
-                    if (next) next.focus();
+if(next) next.focus();
 
-                }
+}
 
-            });
+});
 
-            cell.addEventListener("keydown", (e) => {
+cell.addEventListener("keydown",(e)=>{
 
-                if (e.key === "Backspace" && !cell.value) {
+if(e.key==="Backspace" && !cell.value){
 
-                    const prev =
-                        document.querySelectorAll(".phoneCell")[index - 1];
+const prev=
+document.querySelectorAll(".phoneCell")[index-1];
 
-                    if (prev) prev.focus();
+if(prev) prev.focus();
 
-                }
+}
 
-            });
+});
 
-        });
+});
 
-        // =====================
-        // ROLE
-        // =====================
+// ====================
+// ROLE
+// ====================
 
-        document.querySelectorAll(".roleBtn").forEach(btn => {
+document.querySelectorAll(".roleBtn").forEach(btn=>{
 
-            btn.onclick = () => {
+btn.onclick=()=>{
 
-                document.querySelectorAll(".roleBtn").forEach(b => {
+document.querySelectorAll(".roleBtn").forEach(b=>{
 
-                    b.classList.remove("bg-purple-600");
+b.classList.remove("bg-purple-600");
+b.classList.add("bg-white/10");
 
-                    b.classList.add("bg-white/10");
+});
 
-                });
+btn.classList.remove("bg-white/10");
+btn.classList.add("bg-purple-600");
 
-                btn.classList.remove("bg-white/10");
+selectedRole=btn.dataset.role;
 
-                btn.classList.add("bg-purple-600");
+};
 
-                selectedRole = btn.dataset.role;
+});
 
-            };
+// ====================
+// LOGIN
+// ====================
 
-        });
+loginForm.onsubmit=(e)=>{
 
-        // =====================
-        // TWIN
-        // =====================
+e.preventDefault();
 
-        toggleTwin.onclick = () => {
+const parentName=
+document.getElementById("parentName").value.trim();
 
-            twinName.classList.toggle("hidden");
+const girlName=
+document.getElementById("girlName").value.trim();
 
-        };
+if(!parentName || !girlName){
 
-        // =====================
-        // LOGIN
-        // =====================
+alert("יש למלא את כל שדות החובה");
 
-        loginForm.onsubmit = (e) => {
+return;
 
-            e.preventDefault();
+}
 
-            const parentName =
-                document.getElementById("parentName").value.trim();
+let digits="";
 
-            const girlName =
-                document.getElementById("girlName").value.trim();
+document.querySelectorAll(".phoneCell").forEach(c=>{
 
-            if (!parentName || !girlName) {
+digits+=c.value;
 
-                alert("יש למלא את כל שדות החובה");
+});
 
-                return;
+let phone="";
 
-            }
+if(digits.length===7){
 
-            let phoneDigits = "";
+phone=
+phonePrefix.value+"-"+digits;
 
-            document.querySelectorAll(".phoneCell").forEach(c => {
+}
 
-                phoneDigits += c.value;
+currentUser={
 
-            });
+id:crypto.randomUUID(),
 
-            let phone = "";
+role:selectedRole,
 
-            if (phoneDigits.length === 7) {
+parentName,
 
-                phone =
-                    phonePrefix.value + "-" + phoneDigits;
+girlName,
 
-            }
+phone
 
-            currentUser = {
+};
 
-                id: crypto.randomUUID(),
+localStorage.setItem(
+"bm_user",
+JSON.stringify(currentUser)
+);
 
-                role: selectedRole,
+init();
 
-                parentName,
+};
 
-                girlName,
+// ====================
+// INIT
+// ====================
 
-                twinName: twinName.value.trim(),
+function init(){
 
-                phone
+loginScreen.classList.add("hidden");
 
-            };
+appScreen.classList.remove("hidden");
 
-            localStorage.setItem(
-                "bm_user",
-                JSON.stringify(currentUser)
-            );
+bottomNav.classList.remove("hidden");
 
-            init();
+renderHeader();
 
-        };
+renderUpcoming();
 
-        // =====================
-        // INIT
-        // =====================
+renderEvents();
 
-        function init() {
+renderCalendar();
 
-            loginScreen.classList.add("hidden");
+renderMessages();
 
-            appScreen.classList.remove("hidden");
+updateAddButton();
 
-            bottomNav.classList.remove("hidden");
+}
 
-            document.body.classList.add("logged");
+if(currentUser){
 
-            renderHeader();
+init();
 
-            renderUpcoming();
+}
 
-            renderEvents();
+// ====================
+// HEADER
+// ====================
 
-            updateAddButton();
+function renderHeader(){
 
-        }
+headerName.innerText=
+currentUser.parentName;
 
-        if (currentUser) {
+headerRole.innerText=
+`${currentUser.role} של ${currentUser.girlName}`;
 
-            init();
+if(currentUser.phone){
 
-        }
+callBtn.classList.remove("text-white/40");
 
-        // =====================
-        // HEADER
-        // =====================
+waBtn.classList.remove("text-white/40");
 
-        function renderHeader() {
+callBtn.onclick=()=>{
 
-            headerName.innerText =
-                currentUser.parentName;
+location.href=`tel:${currentUser.phone}`;
 
-            headerRole.innerText =
-                `${currentUser.role} של ${currentUser.girlName}`;
+};
 
-            if (currentUser.phone) {
+waBtn.onclick=()=>{
 
-                callBtn.classList.remove("text-white/40");
+const clean=
+currentUser.phone.replace("-","");
 
-                waBtn.classList.remove("text-white/40");
+window.open(
+`https://wa.me/972${clean.substring(1)}`,
+"_blank"
+);
 
-                callBtn.onclick = () => {
+};
 
-                    location.href = `tel:${currentUser.phone}`;
+}
 
-                };
+}
 
-                waBtn.onclick = () => {
+// ====================
+// UPCOMING
+// ====================
 
-                    const clean =
-                        currentUser.phone.replace("-", "");
+function renderUpcoming(){
 
-                    window.open(
-                        `https://wa.me/972${clean.substring(1)}`,
-                        "_blank"
-                    );
+const now=new Date();
 
-                };
+const upcoming=
+events
+.filter(e=>new Date(`${e.date}T${e.time}`)>=now)
+.slice(0,2);
 
-            }
+if(!upcoming.length){
 
-        }
+upcomingBar.innerHTML=
+"אין אירועים קרובים";
 
-        // =====================
-        // UPCOMING
-        // =====================
+return;
 
-        function renderUpcoming() {
+}
 
-            const now = new Date();
+upcomingBar.innerHTML=
+upcoming.map(e=>{
 
-            const upcoming =
-                events.find(e =>
-                    new Date(`${e.date}T${e.time}`) >= now
-                );
+const d=new Date(`${e.date}T${e.time}`);
 
-            if (!upcoming) {
+const formatted=
+d.toLocaleDateString("he-IL")+" "+
+d.toLocaleTimeString("he-IL",{
+hour:"2-digit",
+minute:"2-digit"
+});
 
-                upcomingBar.innerHTML =
-                    "אין אירועים קרובים השבוע";
+return `🚨 ${e.girlName} • ${formatted}`;
 
-                return;
+}).join("<br>");
 
-            }
+}
 
-            upcomingBar.innerHTML =
-                `🚨 האירוע הקרוב: בת מצווה ל${upcoming.girlName} • ${upcoming.date} • ${upcoming.time}`;
+// ====================
+// ADD BTN
+// ====================
 
-        }
+function updateAddButton(){
 
-        // =====================
-        // ADD BTN
-        // =====================
+const exists=
+events.find(e=>e.girlName===currentUser.girlName);
 
-        function updateAddButton() {
+if(!exists){
 
-            const exists =
-                events.find(e =>
-                    e.girlName === currentUser.girlName
-                );
+addBtn.classList.remove("hidden");
 
-            if (!exists) {
+}
 
-                addBtn.classList.remove("hidden");
+}
 
-            }
+addBtn.onclick=openModal;
+navAdd.onclick=openModal;
 
-        }
+function openModal(){
 
-        addBtn.onclick = openModal;
-        navAdd.onclick = openModal;
+eventModal.classList.remove("hidden");
+eventModal.classList.add("flex");
 
-        function openModal() {
+}
 
-            eventModal.classList.remove("hidden");
+closeModal.onclick=()=>{
 
-            eventModal.classList.add("flex");
+eventModal.classList.add("hidden");
+eventModal.classList.remove("flex");
 
-        }
+};
 
-        closeModal.onclick = () => {
+// ====================
+// PRIVACY
+// ====================
 
-            eventModal.classList.add("hidden");
+privacyBtn.onclick=()=>{
 
-            eventModal.classList.remove("flex");
+hideGuests=!hideGuests;
 
-        };
+privacyText.classList.toggle("hidden");
 
-        // =====================
-        // PRIVACY BTN
-        // =====================
+privacyBtn.classList.toggle("bg-purple-600");
 
-        privacyBtn.onclick = () => {
+};
 
-            hideGuests = !hideGuests;
+// ====================
+// SHABBAT
+// ====================
 
-            privacyText.classList.toggle("hidden");
+function isShabbat(date,time){
 
-            privacyBtn.classList.toggle("bg-purple-600");
+const d=
+new Date(`${date}T${time}`);
 
-        };
+const day=d.getDay();
+const hour=d.getHours();
 
-        // =====================
-        // SHABBAT
-        // =====================
+if(day===5 && hour>=17) return true;
 
-        function isShabbat(date, time) {
+if(day===6 && hour<19) return true;
 
-            const d =
-                new Date(`${date}T${time}`);
+return false;
 
-            const day = d.getDay();
+}
 
-            const hour = d.getHours();
+// ====================
+// EVENT
+// ====================
 
-            if (day === 5 && hour >= 17) return true;
+eventForm.onsubmit=async(e)=>{
 
-            if (day === 6 && hour < 19) return true;
+e.preventDefault();
 
-            return false;
+const date=eventDate.value;
+const time=eventTime.value;
+const location=eventLocation.value.trim();
+const address=eventAddress.value.trim();
+const menu=eventMenu.value;
 
-        }
+if(!date || !time || !location || !address || !menu){
 
-        // =====================
-        // CREATE EVENT
-        // =====================
+alert("יש למלא את כל השדות");
 
-        eventForm.onsubmit = async (e) => {
+return;
 
-            e.preventDefault();
+}
 
-            const date = eventDate.value;
-            const time = eventTime.value;
-            const location = eventLocation.value.trim();
-            const address = eventAddress.value.trim();
-            const menu = eventMenu.value;
+if(isShabbat(date,time)){
 
-            if (!date || !time || !location || !address || !menu) {
+shabbatWarning.classList.remove("hidden");
 
-                alert("יש למלא את כל השדות");
+return;
 
-                return;
+}
 
-            }
+const exists=
+events.find(e=>e.girlName===currentUser.girlName);
 
-            if (isShabbat(date, time)) {
+if(exists){
 
-                shabbatWarning.classList.remove("hidden");
+alert("האירוע של בתכם כבר פורסם");
 
-                return;
+return;
 
-            }
+}
 
-            const exists =
-                events.find(e =>
-                    e.girlName === currentUser.girlName
-                );
+let image="";
 
-            if (exists) {
+const file=girlImage.files[0];
 
-                alert("האירוע של בתכם כבר פורסם");
+if(file){
 
-                return;
+image=await toBase64(file);
 
-            }
+}
 
-            let image = "";
+events.push({
 
-            const file = girlImage.files[0];
+id:crypto.randomUUID(),
 
-            if (file) {
+ownerId:currentUser.id,
 
-                image = await toBase64(file);
+girlName:currentUser.girlName,
 
-            }
+date,
+time,
+location,
+address,
+menu,
+image,
 
-            events.push({
+hideGuests,
 
-                id: crypto.randomUUID(),
+rsvp:{}
 
-                ownerId: currentUser.id,
+});
 
-                girlName: currentUser.girlName,
+localStorage.setItem(
+"bm_events",
+JSON.stringify(events)
+);
 
-                date,
-                time,
-                location,
-                address,
-                menu,
-                image,
+renderEvents();
+renderUpcoming();
+renderCalendar();
 
-                hideGuests,
+eventModal.classList.add("hidden");
+eventModal.classList.remove("flex");
 
-                rsvp: {}
+eventForm.reset();
 
-            });
+};
 
-            localStorage.setItem(
-                "bm_events",
-                JSON.stringify(events)
-            );
+// ====================
+// EVENTS
+// ====================
 
-            renderEvents();
+function renderEvents(){
 
-            renderUpcoming();
+eventsTab.innerHTML="";
 
-            updateAddButton();
+if(!events.length){
 
-            eventModal.classList.add("hidden");
+eventsTab.innerHTML=
+`<div class="text-center py-20 text-white/40">
+עדיין אין אירועים
+</div>`;
 
-            eventModal.classList.remove("flex");
+return;
 
-            eventForm.reset();
+}
 
-        };
+events.forEach(event=>{
 
-        // =====================
-        // EVENTS
-        // =====================
+const isMine=
+event.ownerId===currentUser.id;
 
-        function renderEvents() {
+const myVote=
+event.rsvp[currentUser.id];
 
-            eventsContainer.innerHTML = "";
+const yes=
+Object.values(event.rsvp)
+.filter(v=>v==="yes").length;
 
-            if (!events.length) {
+const maybe=
+Object.values(event.rsvp)
+.filter(v=>v==="maybe").length;
 
-                eventsContainer.innerHTML =
-                    `<div class="text-center py-20 text-white/40">
-                        עדיין אין אירועים
-                    </div>`;
+const no=
+Object.values(event.rsvp)
+.filter(v=>v==="no").length;
 
-                return;
+const d=
+new Date(`${event.date}T${event.time}`);
 
-            }
+const formatted=
+d.toLocaleDateString("he-IL")+" "+
+d.toLocaleTimeString("he-IL",{
+hour:"2-digit",
+minute:"2-digit"
+});
 
-            events.forEach(event => {
+eventsTab.innerHTML+=`
 
-                const isMine =
-                    event.ownerId === currentUser.id;
+<div class="event-card glass rounded-[34px] p-5">
 
-                const myVote =
-                    event.rsvp[currentUser.id];
+<div class="flex gap-4">
 
-                const yes =
-                    Object.values(event.rsvp)
-                        .filter(v => v === "yes").length;
+<img src="${event.image || 'https://placehold.co/200'}"
+class="w-20 h-20 rounded-full object-cover border-4 border-white/10">
 
-                const maybe =
-                    Object.values(event.rsvp)
-                        .filter(v => v === "maybe").length;
+<div class="flex-1">
 
-                const no =
-                    Object.values(event.rsvp)
-                        .filter(v => v === "no").length;
+<div class="flex justify-between items-start">
 
-                const card =
-                    document.createElement("div");
+<div>
 
-                card.className =
-                    "event-card glass rounded-[34px] p-5";
+<h3 class="font-black text-lg">
+בת מצווה ל${event.girlName} ✨
+</h3>
 
-                card.innerHTML = `
+<div class="text-white/50 text-sm mt-1">
+${formatted}
+</div>
 
-                    <div class="flex gap-4">
+</div>
 
-                        <img src="${event.image || 'https://placehold.co/200'}"
-                            class="w-20 h-20 rounded-full object-cover border-4 border-white/10">
+${isMine ? `
 
-                        <div class="flex-1">
+<div class="flex gap-2">
 
-                            <div class="flex justify-between items-start">
+<button
+class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
 
-                                <div>
+<i class="fa-solid fa-pen text-sm"></i>
 
-                                    <h3 class="font-black text-lg">
-                                        בת מצווה ל${event.girlName} ✨
-                                    </h3>
+</button>
 
-                                    <div class="text-white/50 text-sm mt-1">
-                                        ${event.date} • ${event.time}
-                                    </div>
+<button
+onclick="deleteEvent('${event.id}')"
+class="w-9 h-9 rounded-full bg-red-500/20 text-red-300 flex items-center justify-center">
 
-                                </div>
+<i class="fa-solid fa-trash"></i>
 
-                                ${isMine ? `
+</button>
 
-                                <div class="flex gap-2">
+</div>
 
-                                    <button
-                                        class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
+` : ''}
 
-                                        <i class="fa-solid fa-pen text-sm"></i>
+</div>
 
-                                    </button>
+<div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">
+${event.menu}
+</div>
 
-                                    <button
-                                        onclick="deleteEvent('${event.id}')"
-                                        class="w-9 h-9 rounded-full bg-red-500/20 text-red-300 flex items-center justify-center">
+</div>
 
-                                        <i class="fa-solid fa-trash"></i>
+</div>
 
-                                    </button>
+<div class="bg-white/5 rounded-2xl p-4 mt-4 text-sm space-y-2">
 
-                                </div>
+<div>📍 ${event.location}</div>
 
-                                ` : ''}
+<div>🗺️ ${event.address}</div>
 
-                            </div>
+</div>
 
-                            <div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">
-                                ${event.menu}
-                            </div>
+${!isMine ? `
 
-                        </div>
+<div class="grid grid-cols-3 gap-2 mt-4">
 
-                    </div>
+<button onclick="vote('${event.id}','yes')"
+class="${myVote==='yes'
+? 'bg-green-500 active-rsvp'
+: 'bg-green-500/15 text-green-300'}
+rounded-2xl p-3 font-bold">
 
-                    <div class="bg-white/5 rounded-2xl p-4 mt-4 text-sm space-y-2">
+מגיע 👍
 
-                        <div>📍 ${event.location}</div>
+</button>
 
-                        <div>🗺️ ${event.address}</div>
+<button onclick="vote('${event.id}','maybe')"
+class="${myVote==='maybe'
+? 'bg-yellow-500 text-black active-rsvp'
+: 'bg-yellow-500/15 text-yellow-300'}
+rounded-2xl p-3 font-bold">
 
-                    </div>
+אולי 🤔
 
-                    ${!isMine ? `
+</button>
 
-                    <div class="grid grid-cols-3 gap-2 mt-4">
+<button onclick="vote('${event.id}','no')"
+class="${myVote==='no'
+? 'bg-red-500 active-rsvp'
+: 'bg-red-500/15 text-red-300'}
+rounded-2xl p-3 font-bold">
 
-                        <button onclick="vote('${event.id}','yes')"
-                            class="${myVote === 'yes'
-                                ? 'bg-green-500 active-rsvp'
-                                : 'bg-green-500/15 text-green-300'}
-                            rounded-2xl p-3 font-bold">
+לא מגיע 👎
 
-                            מגיע 👍
+</button>
 
-                        </button>
+</div>
 
-                        <button onclick="vote('${event.id}','maybe')"
-                            class="${myVote === 'maybe'
-                                ? 'bg-yellow-500 text-black active-rsvp'
-                                : 'bg-yellow-500/15 text-yellow-300'}
-                            rounded-2xl p-3 font-bold">
+${myVote ? `
 
-                            אולי 🤔
+<button onclick="editVote('${event.id}')"
+class="text-xs text-purple-300 mt-2">
 
-                        </button>
+עריכה
 
-                        <button onclick="vote('${event.id}','no')"
-                            class="${myVote === 'no'
-                                ? 'bg-red-500 active-rsvp'
-                                : 'bg-red-500/15 text-red-300'}
-                            rounded-2xl p-3 font-bold">
+</button>
 
-                            לא מגיע 👎
+` : ''}
 
-                        </button>
+` : ''}
 
-                    </div>
+<div class="mt-4 pt-4 border-t border-white/10">
 
-                    ${myVote ? `
+${event.hideGuests
+? `
+<div class="text-white/40 text-sm">
+אישורי ההגעה מוסתרים 🔒
+</div>
+`
+:
+`
+<div class="flex gap-4 flex-wrap text-sm">
 
-                    <button onclick="editVote('${event.id}')"
-                        class="text-xs text-purple-300 mt-2">
+<div class="text-green-300">
+מגיעים: ${yes}
+</div>
 
-                        עריכה
+<div class="text-yellow-300">
+אולי: ${maybe}
+</div>
 
-                    </button>
+<div class="text-red-300">
+לא מגיעים: ${no}
+</div>
 
-                    ` : ''}
+</div>
+`
+}
 
-                    ` : ''}
+</div>
 
-                    <div class="mt-4 pt-4 border-t border-white/10">
+</div>
 
-                        ${event.hideGuests
-                            ? `
-                            
-                            <div class="text-white/40 text-sm">
-                                רשימת המשתתפים מוסתרת 🔒
-                            </div>
-                            
-                            `
-                            :
-                            `
-                            
-                            <div class="flex gap-4 flex-wrap text-sm">
+`;
 
-                                <div class="text-green-300">
-                                    מגיעים: ${yes}
-                                </div>
+});
 
-                                <div class="text-yellow-300">
-                                    אולי: ${maybe}
-                                </div>
+}
 
-                                <div class="text-red-300">
-                                    לא מגיעים: ${no}
-                                </div>
+// ====================
+// CALENDAR
+// ====================
 
-                            </div>
-                            
-                            `
-                        }
+function renderCalendar(){
 
-                    </div>
+const now=new Date();
 
-                `;
+const month=now.getMonth();
+const year=now.getFullYear();
 
-                eventsContainer.appendChild(card);
+const days=
+new Date(year,month+1,0).getDate();
 
-            });
+calendarTab.innerHTML=`
 
-        }
+<div class="grid grid-cols-7 gap-2 text-center text-xs mb-3">
 
-        // =====================
-        // RSVP
-        // =====================
+<div>א</div>
+<div>ב</div>
+<div>ג</div>
+<div>ד</div>
+<div>ה</div>
+<div>ו</div>
+<div>ש</div>
 
-        function vote(id, status) {
+</div>
 
-            const event =
-                events.find(e => e.id === id);
+<div class="grid grid-cols-7 gap-2">
 
-            event.rsvp[currentUser.id] = status;
+${Array.from({length:days}).map((_,i)=>{
 
-            localStorage.setItem(
-                "bm_events",
-                JSON.stringify(events)
-            );
+const day=i+1;
 
-            renderEvents();
+const currentDate=
+`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
 
-        }
+const event=
+events.find(e=>e.date===currentDate);
 
-        function editVote(id) {
+return `
 
-            const event =
-                events.find(e => e.id === id);
+<div class="calendar-day glass rounded-2xl p-2 text-xs">
 
-            delete event.rsvp[currentUser.id];
+<div class="font-bold mb-1">
+${day}
+</div>
 
-            localStorage.setItem(
-                "bm_events",
-                JSON.stringify(events)
-            );
+${event ? `
 
-            renderEvents();
+<div class="bg-pink-500 rounded-xl p-1 text-[10px]">
 
-        }
+${event.girlName}
 
-        // =====================
-        // DELETE
-        // =====================
+</div>
 
-        function deleteEvent(id) {
+` : ''}
 
-            const ok =
-                confirm("למחוק את האירוע?");
+</div>
 
-            if (!ok) return;
+`;
 
-            events =
-                events.filter(e => e.id !== id);
+}).join("")}
 
-            localStorage.setItem(
-                "bm_events",
-                JSON.stringify(events)
-            );
+</div>
 
-            renderEvents();
+`;
 
-            updateAddButton();
+}
 
-        }
+// ====================
+// MESSAGES
+// ====================
 
-        // =====================
-        // LOGOUT
-        // =====================
+function publishMessage(){
 
-        logoutBtn.onclick = () => {
+const text=
+messageInput.value.trim();
 
-            localStorage.removeItem("bm_user");
+if(!text) return;
 
-            location.reload();
+messages.unshift({
 
-        };
+id:crypto.randomUUID(),
 
-        // =====================
-        // SWITCH ROLE
-        // =====================
+name:currentUser.parentName,
 
-        switchRoleBtn.onclick = () => {
+text,
 
-            currentUser.role =
-                currentUser.role === "אמא"
-                    ? "אבא"
-                    : "אמא";
+date:new Date().toLocaleString("he-IL")
 
-            localStorage.setItem(
-                "bm_user",
-                JSON.stringify(currentUser)
-            );
+});
 
-            renderHeader();
+localStorage.setItem(
+"bm_messages",
+JSON.stringify(messages)
+);
 
-        };
+messageInput.value="";
 
-        // =====================
-        // NAV PLACEHOLDER
-        // =====================
+renderMessages();
 
-        document.querySelectorAll(".navSoon").forEach(btn => {
+}
 
-            btn.onclick = () => {
+function renderMessages(){
 
-                alert("בקרוב ✨");
+messagesContainer.innerHTML="";
 
-            };
+messages.forEach(msg=>{
 
-        });
+messagesContainer.innerHTML+=`
 
-        // =====================
-        // IMAGE
-        // =====================
+<div class="glass rounded-[28px] p-4">
 
-        function toBase64(file) {
+<div class="flex justify-between items-center mb-2">
 
-            return new Promise((resolve, reject) => {
+<div class="font-black">
+${msg.name}
+</div>
 
-                const reader =
-                    new FileReader();
+<div class="text-xs text-white/40">
+${msg.date}
+</div>
 
-                reader.readAsDataURL(file);
+</div>
 
-                reader.onload =
-                    () => resolve(reader.result);
+<div class="text-sm leading-7">
+${msg.text}
+</div>
 
-                reader.onerror =
-                    error => reject(error);
+</div>
 
-            });
+`;
 
-        }
+});
 
-    </script>
+}
+
+// ====================
+// TABS
+// ====================
+
+function switchTab(tab){
+
+document.querySelectorAll(".tab")
+.forEach(t=>t.classList.remove("active"));
+
+if(tab==="events"){
+
+eventsTab.classList.add("active");
+
+}
+
+if(tab==="calendar"){
+
+calendarTab.classList.add("active");
+
+}
+
+if(tab==="messages"){
+
+messagesTab.classList.add("active");
+
+}
+
+}
+
+// ====================
+// RSVP
+// ====================
+
+function vote(id,status){
+
+const event=
+events.find(e=>e.id===id);
+
+event.rsvp[currentUser.id]=status;
+
+localStorage.setItem(
+"bm_events",
+JSON.stringify(events)
+);
+
+renderEvents();
+
+}
+
+function editVote(id){
+
+const event=
+events.find(e=>e.id===id);
+
+delete event.rsvp[currentUser.id];
+
+localStorage.setItem(
+"bm_events",
+JSON.stringify(events)
+);
+
+renderEvents();
+
+}
+
+// ====================
+// DELETE
+// ====================
+
+function deleteEvent(id){
+
+const ok=
+confirm("למחוק את האירוע?");
+
+if(!ok) return;
+
+events=
+events.filter(e=>e.id!==id);
+
+localStorage.setItem(
+"bm_events",
+JSON.stringify(events)
+);
+
+renderEvents();
+renderUpcoming();
+renderCalendar();
+
+}
+
+// ====================
+// LOGOUT
+// ====================
+
+logoutBtn.onclick=()=>{
+
+localStorage.removeItem("bm_user");
+
+location.reload();
+
+};
+
+// ====================
+// SWITCH ROLE
+// ====================
+
+switchRoleBtn.onclick=()=>{
+
+currentUser.role=
+currentUser.role==="אמא"
+? "אבא"
+: "אמא";
+
+localStorage.setItem(
+"bm_user",
+JSON.stringify(currentUser)
+);
+
+renderHeader();
+
+};
+
+// ====================
+// IMAGE
+// ====================
+
+function toBase64(file){
+
+return new Promise((resolve,reject)=>{
+
+const reader=
+new FileReader();
+
+reader.readAsDataURL(file);
+
+reader.onload=
+()=>resolve(reader.result);
+
+reader.onerror=
+error=>reject(error);
+
+});
+
+}
+
+</script>
 
 </body>
 
