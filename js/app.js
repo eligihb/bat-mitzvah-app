@@ -11,11 +11,15 @@ let hideGuests = false;
 let syncTimer = null;
 let isSyncing = false;
 let activeTab = sessionStorage.getItem("bm_active_tab") || "events";
+let editingEventId = null;
+let editingEventImage = "";
+let isSavingEvent = false;
 
 // ─── הפעלה ─────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   bindPhoneCells();
   bindRoleButtons();
+  bindTwinToggle();
   bindLogin();
   bindModal();
   bindPrivacy();
@@ -103,6 +107,7 @@ function bindLogin() {
 
     const parentName = document.getElementById("parentName").value.trim();
     const girlName = document.getElementById("girlName").value.trim();
+    const twinName = document.getElementById("twinName").value.trim();
 
     if (!parentName || !girlName) {
       alert("יש למלא את כל שדות החובה");
@@ -129,6 +134,7 @@ function bindLogin() {
       role: selectedRole,
       parentName,
       girlName,
+      twinName: twinName || "",
       phone,
     };
 
@@ -141,14 +147,44 @@ function bindRoleButtons() {
   document.querySelectorAll(".roleBtn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".roleBtn").forEach((b) => {
-        b.classList.remove("bg-purple-600");
-        b.classList.add("bg-white/10");
+        b.classList.remove("role-btn-active");
+        b.classList.add("role-btn-idle");
       });
-      btn.classList.remove("bg-white/10");
-      btn.classList.add("bg-purple-600");
+      btn.classList.remove("role-btn-idle");
+      btn.classList.add("role-btn-active");
       selectedRole = btn.dataset.role;
     });
   });
+}
+
+function bindTwinToggle() {
+  const btn = document.getElementById("toggleTwin");
+  const wrap = document.getElementById("twinFieldWrap");
+  const input = document.getElementById("twinName");
+  if (!btn || !wrap || !input) return;
+
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTwinFieldOpen(wrap.classList.contains("is-hidden"));
+  });
+}
+
+function setTwinFieldOpen(open) {
+  const btn = document.getElementById("toggleTwin");
+  const wrap = document.getElementById("twinFieldWrap");
+  const input = document.getElementById("twinName");
+  if (!btn || !wrap || !input) return;
+
+  wrap.classList.toggle("is-hidden", !open);
+  btn.classList.toggle("is-active", open);
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+
+  if (open) {
+    input.focus();
+  } else {
+    input.value = "";
+  }
 }
 
 function bindPhoneCells() {
@@ -198,14 +234,17 @@ function logout() {
   selectedRole = APP_CONFIG.defaultRole;
 
   document.querySelectorAll(".roleBtn").forEach((b) => {
-    b.classList.remove("bg-purple-600");
-    b.classList.add("bg-white/10");
+    b.classList.remove("role-btn-active");
+    b.classList.add("role-btn-idle");
   });
   const defaultBtn = document.querySelector('.roleBtn[data-role="אמא"]');
   if (defaultBtn) {
-    defaultBtn.classList.remove("bg-white/10");
-    defaultBtn.classList.add("bg-purple-600");
+    defaultBtn.classList.remove("role-btn-idle");
+    defaultBtn.classList.add("role-btn-active");
   }
+
+  document.getElementById("twinName").value = "";
+  setTwinFieldOpen(false);
 
   switchTab("events", false);
 }
@@ -213,8 +252,11 @@ function logout() {
 // ─── כותרת ─────────────────────────────────────────────────
 function renderHeader() {
   document.getElementById("headerName").textContent = currentUser.parentName;
+  const girls = currentUser.twinName
+    ? `${currentUser.girlName} ו${currentUser.twinName}`
+    : currentUser.girlName;
   document.getElementById("headerRole").textContent =
-    `${currentUser.role} של ${currentUser.girlName}`;
+    `${currentUser.role} של ${girls}`;
 }
 
 // ─── אירועים קרובים ────────────────────────────────────────
@@ -242,17 +284,74 @@ function renderUpcoming() {
     .join("<br>");
 }
 
-// ─── הוספת אירוע ───────────────────────────────────────────
+// ─── הוספת / עריכת אירוע ───────────────────────────────────
 function bindFloatingAdd() {
-  document.getElementById("addBtn").addEventListener("click", openModal);
-  document.getElementById("navAdd").addEventListener("click", openModal);
+  document.getElementById("addBtn").addEventListener("click", openModalForCreate);
+  document.getElementById("navAdd").addEventListener("click", () => {
+    const familyEvent = events.find((e) => e.girlName === currentUser.girlName);
+    if (familyEvent) {
+      openModalForEdit(familyEvent.id);
+    } else {
+      openModalForCreate();
+    }
+  });
 }
 
 function bindModal() {
   document.getElementById("closeModal").addEventListener("click", closeModal);
 }
 
-function openModal() {
+function canManageEvent(event) {
+  return event.girlName === currentUser.girlName;
+}
+
+function resetEventForm() {
+  document.getElementById("eventForm").reset();
+  editingEventId = null;
+  editingEventImage = "";
+  hideGuests = false;
+  document.getElementById("privacyText").classList.add("hidden");
+  document.getElementById("privacyBtn").classList.remove("bg-purple-600");
+  document.getElementById("currentImageHint").classList.add("hidden");
+  document.getElementById("modalTitle").textContent = "הוספת אירוע";
+  document.getElementById("eventSubmitBtn").textContent = "פרסום אירוע 🚀";
+  setEventSubmitLoading(false);
+}
+
+function openModalForCreate() {
+  resetEventForm();
+  const modal = document.getElementById("eventModal");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function openModalForEdit(eventId) {
+  const event = events.find((e) => e.id === eventId);
+  if (!event || !canManageEvent(event)) return;
+
+  resetEventForm();
+  editingEventId = event.id;
+  editingEventImage = event.image || "";
+
+  document.getElementById("eventDate").value = event.date;
+  document.getElementById("eventTime").value = event.time;
+  document.getElementById("eventLocation").value = event.location;
+  document.getElementById("eventAddress").value = event.address;
+  document.getElementById("eventMenu").value = event.menu;
+
+  hideGuests = event.hideGuests;
+  if (hideGuests) {
+    document.getElementById("privacyText").classList.remove("hidden");
+    document.getElementById("privacyBtn").classList.add("bg-purple-600");
+  }
+
+  if (editingEventImage) {
+    document.getElementById("currentImageHint").classList.remove("hidden");
+  }
+
+  document.getElementById("modalTitle").textContent = "עריכת אירוע";
+  document.getElementById("eventSubmitBtn").textContent = "שמירת שינויים ✓";
+
   const modal = document.getElementById("eventModal");
   modal.classList.remove("hidden");
   modal.classList.add("flex");
@@ -262,10 +361,19 @@ function closeModal() {
   const modal = document.getElementById("eventModal");
   modal.classList.add("hidden");
   modal.classList.remove("flex");
-  document.getElementById("eventForm").reset();
-  hideGuests = false;
-  document.getElementById("privacyText").classList.add("hidden");
-  document.getElementById("privacyBtn").classList.remove("bg-purple-600");
+  resetEventForm();
+}
+
+function setEventSubmitLoading(loading) {
+  const btn = document.getElementById("eventSubmitBtn");
+  btn.disabled = loading;
+  if (loading) {
+    btn.dataset.originalText = btn.textContent;
+    btn.textContent = "שומר...";
+  } else if (btn.dataset.originalText) {
+    btn.textContent = btn.dataset.originalText;
+    delete btn.dataset.originalText;
+  }
 }
 
 function bindPrivacy() {
@@ -284,6 +392,7 @@ function updateAddButton() {
 function bindEventForm() {
   document.getElementById("eventForm").addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (isSavingEvent) return;
 
     const date = document.getElementById("eventDate").value;
     const time = document.getElementById("eventTime").value;
@@ -296,45 +405,79 @@ function bindEventForm() {
       return;
     }
 
-    if (events.some((ev) => ev.girlName === currentUser.girlName)) {
-      alert("האירוע כבר קיים");
+    if (!editingEventId && events.some((ev) => ev.girlName === currentUser.girlName)) {
+      alert("כבר קיים אירוע למשפחה — השתמשו בעריכה");
       return;
     }
 
-    let image = "";
+    isSavingEvent = true;
+    setEventSubmitLoading(true);
+
+    let image = editingEventImage;
     const file = document.getElementById("girlImage").files[0];
     if (file) {
       image = await toBase64(file);
     }
 
-    const eventId = crypto.randomUUID();
-
     try {
-      setSyncStatus("שומר אירוע...");
-      await Api.createEvent({
-        id: eventId,
-        ownerId: currentUser.id,
-        ownerName: currentUser.parentName,
-        girlName: currentUser.girlName,
-        date,
-        time,
-        location,
-        address,
-        menu,
-        hideAttendees: hideGuests,
-        image,
-        phone: currentUser.phone || "",
-        role: currentUser.role,
-      });
+      setSyncStatus(editingEventId ? "מעדכן אירוע..." : "שומר אירוע...");
+
+      if (editingEventId) {
+        await Api.updateEvent({
+          eventId: editingEventId,
+          date,
+          time,
+          location,
+          address,
+          menu,
+          hideAttendees: hideGuests,
+          image,
+        });
+      } else {
+        await Api.createEvent({
+          id: crypto.randomUUID(),
+          ownerId: currentUser.id,
+          ownerName: currentUser.parentName,
+          girlName: currentUser.girlName,
+          date,
+          time,
+          location,
+          address,
+          menu,
+          hideAttendees: hideGuests,
+          image,
+          phone: currentUser.phone || "",
+          role: currentUser.role,
+        });
+      }
 
       closeModal();
       await syncFromServer();
     } catch (err) {
       console.error(err);
-      alert("לא הצלחנו לשמור את האירוע. נסו שוב.");
+      alert(editingEventId ? "לא הצלחנו לעדכן את האירוע." : "לא הצלחנו לשמור את האירוע.");
       setSyncStatus("");
+    } finally {
+      isSavingEvent = false;
+      setEventSubmitLoading(false);
     }
   });
+}
+
+async function deleteEventById(eventId) {
+  const event = events.find((e) => e.id === eventId);
+  if (!event || !canManageEvent(event)) return;
+  if (!confirm(`למחוק את האירוע של ${event.girlName}?`)) return;
+
+  try {
+    setSyncStatus("מוחק אירוע...");
+    await Api.deleteEvent(eventId);
+    await syncFromServer();
+  } catch (err) {
+    console.error(err);
+    alert("לא הצלחנו למחוק את האירוע.");
+    setSyncStatus("");
+  }
 }
 
 // ─── רשימת אירועים ─────────────────────────────────────────
@@ -349,7 +492,7 @@ function renderEvents() {
   }
 
   events.forEach((event) => {
-    const isMine = event.ownerId === currentUser.id;
+    const isFamily = canManageEvent(event);
     const myVote = event.rsvp[currentUser.id];
     const yes = Object.values(event.rsvp).filter((v) => v === "yes").length;
     const maybe = Object.values(event.rsvp).filter((v) => v === "maybe").length;
@@ -367,20 +510,35 @@ function renderEvents() {
       "beforeend",
       `
       <div class="event-card glass rounded-[34px] p-5">
-        <div class="flex gap-4">
-          <img src="${img}" class="w-20 h-20 rounded-full object-cover border-4 border-white/10" alt="">
-          <div class="flex-1">
-            <h3 class="font-black text-lg">בת מצווה ל${event.girlName} ✨</h3>
-            <div class="text-white/50 text-sm mt-1">${formatted}</div>
-            <div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">${event.menu}</div>
+        <div class="flex gap-3 items-start">
+          <div class="flex gap-4 flex-1 min-w-0">
+            <img src="${img}" class="w-20 h-20 shrink-0 rounded-full object-cover border-4 border-white/10" alt="">
+            <div class="flex-1 min-w-0">
+              <h3 class="font-black text-lg">בת מצווה ל${event.girlName} ✨</h3>
+              <div class="text-white/50 text-sm mt-1">${formatted}</div>
+              <div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">${event.menu}</div>
+            </div>
           </div>
+          ${
+            isFamily
+              ? `
+          <div class="event-actions">
+            <button type="button" class="event-action-btn edit" data-edit-id="${event.id}" aria-label="עריכה">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+            <button type="button" class="event-action-btn delete" data-delete-id="${event.id}" aria-label="מחיקה">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>`
+              : ""
+          }
         </div>
         <div class="bg-white/5 rounded-2xl p-4 mt-4 text-sm space-y-2">
           <div>📍 ${event.location}</div>
           <div>🗺️ ${event.address}</div>
         </div>
         ${
-          !isMine
+          !isFamily
             ? `
         <div class="grid grid-cols-3 gap-2 mt-4">
           <button type="button" class="rsvp-btn ${rsvpClass(myVote, "yes")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="yes">מגיע 👍</button>
@@ -518,6 +676,18 @@ function bindNavigation() {
   });
 
   document.getElementById("eventsTab").addEventListener("click", (e) => {
+    const editBtn = e.target.closest("[data-edit-id]");
+    if (editBtn) {
+      openModalForEdit(editBtn.dataset.editId);
+      return;
+    }
+
+    const deleteBtn = e.target.closest("[data-delete-id]");
+    if (deleteBtn) {
+      deleteEventById(deleteBtn.dataset.deleteId);
+      return;
+    }
+
     const btn = e.target.closest(".rsvp-btn");
     if (!btn) return;
     vote(btn.dataset.eventId, btn.dataset.vote);

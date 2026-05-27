@@ -7,49 +7,62 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=3" />
 </head>
 <body>
 
   <div id="appShell">
 
     <!-- התחברות -->
-    <div id="loginScreen" class="min-h-screen flex items-start justify-center pt-10 pb-4 px-4 relative">
-      <div class="login-bg"></div>
+    <div id="loginScreen" class="login-screen min-h-screen flex items-start justify-center pt-10 pb-8 px-4 relative overflow-hidden">
+      <div class="login-bg" aria-hidden="true">
+        <span class="login-bg-number">12</span>
+        <span class="login-bg-sparkle login-bg-sparkle-1">✨</span>
+        <span class="login-bg-sparkle login-bg-sparkle-2">🎀</span>
+        <span class="login-bg-sparkle login-bg-sparkle-3">💜</span>
+      </div>
 
-      <div class="glass rounded-[34px] p-5 w-full max-w-sm relative z-10">
+      <div class="login-card rounded-[34px] p-5 w-full max-w-sm relative z-10">
         <div class="text-center mb-6">
-          <h1 class="text-2xl font-black mb-2 leading-tight">ברוכים הבאים לישומון אירועי בת מצווה</h1>
-          <div class="text-purple-200 text-sm">כנפי רוח ו׳-4 • תשפ״ו</div>
+          <div class="login-badge">בת מצווה • כיתה ו׳</div>
+          <h1 class="text-2xl font-black mb-2 leading-tight text-[#2d1b4e]">ברוכים הבאים לישומון האירועים</h1>
+          <div class="text-purple-600/80 text-sm font-bold">כנפי רוח ו׳-4 • תשפ״ו</div>
         </div>
 
         <form id="loginForm" class="space-y-3">
           <div class="grid grid-cols-2 gap-3">
-            <button type="button" class="roleBtn bg-purple-600 rounded-2xl p-3 font-bold" data-role="אמא">אמא 👩</button>
-            <button type="button" class="roleBtn bg-white/10 rounded-2xl p-3 font-bold" data-role="אבא">אבא 👨</button>
+            <button type="button" class="roleBtn role-btn-active rounded-2xl p-3 font-bold" data-role="אמא">אמא 👩</button>
+            <button type="button" class="roleBtn role-btn-idle rounded-2xl p-3 font-bold" data-role="אבא">אבא 👨</button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="login-label" for="parentName">שם ההורה *</label>
+              <input id="parentName" class="login-input" placeholder="שם מלא" />
+            </div>
+            <div>
+              <label class="login-label" for="girlName">שם הילדה *</label>
+              <input id="girlName" class="login-input" placeholder="שם פרטי" />
+            </div>
+          </div>
+
+          <div class="twin-row">
+            <span class="twin-row-label">תאומה נוספת</span>
+            <button type="button" id="toggleTwin" class="twin-add-btn" aria-label="הוספת תאומה" aria-expanded="false">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+          <div id="twinFieldWrap" class="twin-field-wrap is-hidden">
+            <label class="login-label" for="twinName">שם התאומה</label>
+            <input id="twinName" class="login-input" placeholder="שם פרטי של התאומה" />
           </div>
 
           <div>
-            <label class="block text-sm font-bold mb-1">שם ההורה *</label>
-            <input id="parentName" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none" placeholder="שם מלא" />
-          </div>
-
-          <div>
-            <label class="block text-sm font-bold mb-1">שם הילדה *</label>
-            <input id="girlName" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none" placeholder="שם פרטי" />
-          </div>
-
-          <div>
-            <button type="button" id="toggleTwin" class="text-sm text-purple-300 font-bold">+ תאומה נוספת</button>
-            <input id="twinName" class="hidden w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none mt-3" placeholder="שם התאומה" />
-          </div>
-
-          <div>
-            <label class="block text-sm font-bold mb-1">
-              טלפון <span class="text-gray-400 text-xs">(לא חובה)</span>
+            <label class="login-label">
+              טלפון <span class="text-gray-400 text-xs font-normal">(לא חובה)</span>
             </label>
             <div class="flex items-center gap-2" dir="ltr">
-              <select id="phonePrefix" class="h-12 px-2 rounded-2xl bg-white/10 border border-white/10 text-white outline-none">
+              <select id="phonePrefix" class="login-input h-12 px-2 w-auto shrink-0">
                 <option>051</option>
                 <option>052</option>
                 <option>053</option>
@@ -60,20 +73,20 @@
                 <option>058</option>
                 <option>059</option>
               </select>
-              <span class="text-white/40 font-black">-</span>
+              <span class="text-purple-300 font-black">-</span>
               <div class="flex gap-1">
-                <input maxlength="1" class="phoneCell" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell" inputmode="numeric" />
-                <input maxlength="1" class="phoneCell" inputmode="numeric" />
+                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
+                <input maxlength="1" class="phoneCell phoneCell-light" inputmode="numeric" />
               </div>
             </div>
           </div>
 
-          <button type="submit" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black shadow-xl">
+          <button type="submit" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black shadow-lg shadow-purple-300/40 text-white">
             כניסה לישומון
           </button>
         </form>
@@ -132,25 +145,47 @@
     <div id="eventModal" class="hidden fixed inset-0 z-[60] bg-black/70 items-center justify-center p-4">
       <div class="glass rounded-[34px] p-5 w-full max-w-sm mx-auto">
         <div class="flex justify-between items-center mb-5">
-          <h3 class="font-black text-lg">הוספת אירוע</h3>
+          <h3 id="modalTitle" class="font-black text-lg">הוספת אירוע</h3>
           <button id="closeModal" type="button" class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center" aria-label="סגירה">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
 
         <form id="eventForm" class="space-y-4">
-          <input type="date" id="eventDate" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3" />
-          <input type="time" id="eventTime" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3" />
-          <input type="text" id="eventLocation" placeholder="מקום האירוע" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3" />
-          <input type="text" id="eventAddress" placeholder="כתובת" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3" />
+          <div>
+            <label class="block text-sm font-bold mb-1" for="eventDate">תאריך האירוע *</label>
+            <input type="date" id="eventDate" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3" required />
+          </div>
 
-          <select id="eventMenu" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
-            <option value="">בחר תפריט</option>
-            <option value="חלבי 🥛">חלבי 🥛</option>
-            <option value="בשרי 🥩">בשרי 🥩</option>
-          </select>
+          <div>
+            <label class="block text-sm font-bold mb-1" for="eventTime">שעת האירוע *</label>
+            <input type="time" id="eventTime" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3" required />
+          </div>
 
-          <input type="file" id="girlImage" accept="image/*" />
+          <div>
+            <label class="block text-sm font-bold mb-1" for="eventLocation">מקום האירוע *</label>
+            <input type="text" id="eventLocation" placeholder="למשל: אולם אירועים" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3" required />
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold mb-1" for="eventAddress">כתובת *</label>
+            <input type="text" id="eventAddress" placeholder="רחוב, עיר" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3" required />
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold mb-1" for="eventMenu">תפריט *</label>
+            <select id="eventMenu" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3" required>
+              <option value="">בחר תפריט</option>
+              <option value="חלבי 🥛">חלבי 🥛</option>
+              <option value="בשרי 🥩">בשרי 🥩</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold mb-1" for="girlImage">תמונת הילדה</label>
+            <input type="file" id="girlImage" accept="image/*" class="w-full text-sm" />
+            <div id="currentImageHint" class="hidden text-xs text-white/50 mt-1">יש תמונה קיימת — בחרו קובץ חדש רק להחלפה</div>
+          </div>
 
           <div class="flex items-center gap-3">
             <button type="button" id="privacyBtn" class="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center" aria-label="הסתרת אורחים">
@@ -165,7 +200,7 @@
             לא ניתן לקבוע אירוע בזמן שבת ✨
           </div>
 
-          <button type="submit" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black">
+          <button type="submit" id="eventSubmitBtn" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black disabled:opacity-50 disabled:cursor-not-allowed">
             פרסום אירוע 🚀
           </button>
         </form>
@@ -194,8 +229,8 @@
 
   </div>
 
-  <script src="js/config.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/config.js?v=3"></script>
+  <script src="js/api.js?v=3"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>

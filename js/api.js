@@ -39,6 +39,10 @@ const Api = {
     return this.post({ action: "deleteEvent", eventId });
   },
 
+  updateEvent(event) {
+    return this.post({ action: "updateEvent", ...event });
+  },
+
   /** המרת נתונים מהגיליון לפורמט האפליקציה */
   normalizePayload(eventsRaw, rsvpsRaw, messagesRaw) {
     const rsvpByEvent = {};
