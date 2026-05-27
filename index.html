@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ריכוז אירועי בת מצווה כיתתי</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700&display=swap" rel="stylesheet">
+  
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <style>
+    body { font-family: 'Assistant', sans-serif; }
+    .sticky-header { position: sticky; top: 0; z-index: 40; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-24 select-none">
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      databaseURL: "YOUR_DATABASE_URL", // ה-URL של ה-Realtime Database שלך
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+  </script>
+
+  <div id="authModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 text-center border border-slate-100">
+      <h3 class="text-xl font-bold text-indigo-900 mb-2">ברוכים הבאים! 👋</h3>
+      <p class="text-sm text-slate-500 mb-4">כדי לאשר הגעה בקליק, אנא הזן את שמך המלא (למשל: משפחת כהן / רון כהן)</p>
+      <input type="text" id="userNameInput" placeholder="שם מלא / שם המשפחה" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-center font-semibold text-lg mb-4">
+      <button onclick="saveUserIdentity()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md transition-all">כניסה למערכת</button>
+    </div>
+  </div>
+
+  <div class="sticky-header shadow-sm">
+    <header class="bg-white border-b border-slate-100">
+      <div class="max-w-xl mx-auto px-4 py-3 flex justify-between items-center">
+        <div>
+          <h1 class="text-lg font-bold text-indigo-950">חוגגות בת מצווה 👑</h1>
+          <p class="text-xs text-slate-400" id="welcomeUserTxt">שלום, אורח</p>
+        </div>
+        <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-1">
+          <span>+</span> הוספת אירוע
+        </button>
+      </div>
+    </header>
+
+    <div id="nextEventAlert" class="bg-gradient-to-r from-pink-500 to-indigo-600 text-white px-4 py-2.5 text-center text-sm font-semibold hidden">
+      📢 <span class="font-bold">האירוע הקרוב ביותר:</span> בת מצווה ל<span id="nextGirl"></span> | <span id="nextDetails"></span>
+    </div>
+
+    <nav class="bg-white border-b border-slate-200 flex justify-around text-sm font-medium">
+      <button id="tabFeedBtn" onclick="switchTab('feed')" class="w-1/2 py-3 text-center border-b-2 border-indigo-600 text-indigo-600 font-bold transition-all">🎬 האירועים הקרובים</button>
+      <button id="tabGanttBtn" onclick="switchTab('gantt')" class="w-1/2 py-3 text-center border-b-2 border-transparent text-slate-500 transition-all">📅 ריכוז חודשי (גאנט)</button>
+    </nav>
+  </div>
+
+  <main class="max-w-xl mx-auto px-4 mt-4">
+    
+    <div id="tabFeed" class="space-y-4">
+      <div id="feedContainer" class="space-y-4">
+        </div>
+    </div>
+
+    <div id="tabGantt" class="hidden space-y-6">
+      <div id="ganttContainer" class="space-y-6">
+        </div>
+    </div>
+
+  </main>
+
+  <div id="addModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+      <div class="bg-indigo-950 p-4 text-white flex justify-between items-center">
+        <h3 class="font-bold text-base">הוספת אירוע חדש בלוח</h3>
+        <button onclick="closeAddModal()" class="text-slate-300 hover:text-white text-2xl font-light">&times;</button>
+      </div>
+      <form id="eventForm" onsubmit="submitEvent(event)" class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">שם הילדה החוגגת *</label>
+          <input type="text" id="formGirlName" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">תאריך אירוע *</label>
+            <input type="date" id="formDate" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">שעת התחלה *</label>
+            <input type="time" id="formTime" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">מקום האירוע (שם האולם/מועדון) *</label>
+          <input type="text" id="formLocation" required placeholder="למשל: מועדון הכוכב" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">כתובת מדויקת (עבור הניווט) *</label>
+          <input type="text" id="formAddress" required placeholder="רחוב, עיר" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">תפריט *</label>
+          <select id="formMenu" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm bg-white">
+            <option value="חלבי">🥛 חלבי</option>
+            <option value="בשרי">🥩 בשרי</option>
+          </select>
+        </div>
+        <div class="pt-2 flex gap-3 justify-end text-sm">
+          <button type="button" onclick="closeAddModal()" class="px-4 py-2 text-slate-500 hover:bg-slate-50 rounded-xl">ביטול</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm">פרסום בלוח</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let currentUser = localStorage.getItem('bt_user_name') || '';
+    let currentTab = 'feed';
+    let allEvents = [];
+
+    const daysOfWeek = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+    const monthsHeb = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!currentUser) {
+        document.getElementById('authModal').style.display = 'flex';
+      } else {
+        updateUserHeader();
+        listenToEvents();
+      }
+    });
+
+    function saveUserIdentity() {
+      const name = document.getElementById('userNameInput').value.trim();
+      if(name.length < 2) return alert('אנא הזן שם מלא תקין');
+      localStorage.setItem('bt_user_name', name);
+      currentUser = name;
+      document.getElementById('authModal').style.display = 'none';
+      updateUserHeader();
+      listenToEvents();
+    }
+
+    function updateUserHeader() {
+      document.getElementById('welcomeUserTxt').innerText = `שלום, ${currentUser}`;
+    }
+
+    function listenToEvents() {
+      db.ref('events').on('value', (snapshot) => {
+        const data = snapshot.val();
+        allEvents = [];
+        if (data) {
+          for (let id in data) {
+            allEvents.push({ id, ...data[id] });
+          }
+        }
+        // מיון כרונולוגי של האירועים מהקרוב לרחוק
+        allEvents.sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
+        
+        renderStickyAlert();
+        renderFeed();
+        renderGantt();
+      });
+    }
+
+    function renderStickyAlert() {
+      const alertEl = document.getElementById('nextEventAlert');
+      const todayStr = new Date().toISOString().split('T')[0];
+      
+      const futureEvents = allEvents.filter(e => e.date >= todayStr);
+      
+      if(futureEvents.length > 0) {
+        const next = futureEvents[0];
+        document.getElementById('nextGirl').innerText = next.girlName;
+        
+        const d = new Date(next.date);
+        const dateFormatted = `${d.getDate()}/${d.getMonth()+1} (יום ${daysOfWeek[d.getDay()]})`;
+        document.getElementById('nextDetails').innerText = `${dateFormatted} ב-${next.time} | ${next.location}`;
+        alertEl.classList.remove('hidden');
+      } else {
+        alertEl.classList.add('hidden');
+      }
+    }
+
+    function renderFeed() {
+      const container = document.getElementById('feedContainer');
+      container.innerHTML = '';
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      if(allEvents.length === 0) {
+        container.innerHTML = `<div class="text-center p-8 text-slate-400 text-sm">אין עדיין אירועים בלוח. תהיו הראשונים להוסיף! ✨</div>`;
+        return;
+      }
+
+      allEvents.forEach(ev => {
+        const isPast = ev.date < todayStr;
+        const evDate = new Date(ev.date);
+        const dateStr = `${evDate.getDate()}/${evDate.getMonth()+1} (יום ${daysOfWeek[evDate.getDay()]})`;
+        
+        let rsvpCount = { yes: 0, maybe: 0, no: 0 };
+        const attendees = ev.attendees || {};
+        for(let user in attendees) {
+          if(attendees[user] === 'yes') rsvpCount.yes++;
+          if(attendees[user] === 'maybe') rsvpCount.maybe++;
+          if(attendees[user] === 'no') rsvpCount.no++;
+        }
+
+        const myStatus = attendees[currentUser.replace(/[.#$/\[\]]/g, "_")] || '';
+
+        const card = document.createElement('div');
+        card.className = `p-5 rounded-2xl border transition-all ${isPast ? 'bg-slate-100/70 border-slate-200 text-slate-400 opacity-60' : 'bg-white border-slate-100 shadow-sm'}`;
+        
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="text-xl font-bold ${isPast ? 'text-slate-500' : 'text-indigo-950'}">בת מצווה ל${ev.girlName}</h3>
+              <p class="text-sm font-semibold mt-1 flex items-center gap-1 ${isPast ? 'text-slate-400' : 'text-pink-600'}">
+                📅 ${dateStr} בשעה ${ev.time}
+              </p>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded-full font-bold ${isPast ? 'bg-slate-200 text-slate-500' : (ev.menu === 'חלבי' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-700')}">
+              ${ev.menu === 'חלבי' ? '🥛 חלבי' : '🥩 בשרי'}
+            </span>
+          </div>
+
+          <div class="mt-3 text-xs space-y-1 ${isPast ? 'text-slate-400' : 'text-slate-600'}">
+            <p>📍 <strong>מקום:</strong> ${ev.location}</p>
+            <p>🗺️ <strong>כתובת:</strong> ${ev.address} 
+              <a href="https://waze.com/ul?q=${encodeURIComponent(ev.address)}" target="_blank" class="text-indigo-600 font-bold hover:underline mr-1 ${isPast ? 'pointer-events-none text-slate-400' : ''}">🚙 ניווט ב-Waze</a>
+            </p>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-slate-500">
+            <div class="flex gap-3">
+              <span class="text-emerald-600">🟩 ${rsvpCount.yes} מגיעים</span>
+              <span class="text-amber-600">🟨 ${rsvpCount.maybe} מתלבטים</span>
+              <span class="text-rose-600">🟥 ${rsvpCount.no} לא מגיעים</span>
+            </div>
+            <button onclick="toggleAttendeeList('${ev.id}')" class="text-indigo-600 hover:underline">מי אישר? 📋</button>
+          </div>
+
+          <div id="list-${ev.id}" class="hidden mt-3 p-3 bg-slate-50 rounded-xl text-xs space-y-1 border border-slate-100 text-slate-600">
+            <strong>פירוט אישורים:</strong>
+            <div class="max-h-24 overflow-y-auto pt-1 space-y-1">
+              ${Object.keys(attendees).length === 0 ? 'אין עדיין תגובות.' : Object.entries(attendees).map(([user, status]) => {
+                let badge = status === 'yes' ? '🟩' : (status === 'maybe' ? '🟨' : '🟥');
+                // החזרת השם המקורי (החלפת קו תחתון חזרה לרווח לצורך תצוגה)
+                return `<div>${badge} <strong>${user.replace(/_/g, " ")}</strong></div>`;
+              }).join('')}
+            </div>
+          </div>
+
+          <div class="mt-4 grid grid-cols-3 gap-2 ${isPast ? 'hidden' : ''}">
+            <button onclick="updateRSVP('${ev.id}', 'yes')" class="py-2 rounded-xl text-xs font-bold border transition-all ${myStatus === 'yes' ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}">מגיע 👍</button>
+            <button onclick="updateRSVP('${ev.id}', 'maybe')" class="py-2 rounded-xl text-xs font-bold border transition-all ${myStatus === 'maybe' ? 'bg-amber-500 text-white border-amber-500 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}">מתלבט 🤔</button>
+            <button onclick="updateRSVP('${ev.id}', 'no')" class="py-2 rounded-xl text-xs font-bold border transition-all ${myStatus === 'no' ? 'bg-rose-600 text-white border-rose-600 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}">לא מגיע 👎</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderGantt() {
+      const container = document.getElementById('ganttContainer');
+      container.innerHTML = '';
+
+      if (allEvents.length === 0) {
+        container.innerHTML = `<div class="text-center p-8 text-slate-400 text-sm">אין נתונים להצגה</div>`;
+        return;
+      }
+
+      const monthsGroup = {};
+      allEvents.forEach(ev => {
+        const d = new Date(ev.date);
+        const groupKey = `${d.getFullYear()}-${d.getMonth()}`;
+        if (!monthsGroup[groupKey]) {
+          monthsGroup[groupKey] = {
+            title: `${monthsHeb[d.getMonth()]} ${d.getFullYear()}`,
+            events: []
+          };
+        }
+        monthsGroup[groupKey].events.push(ev);
+      });
+
+      for (let key in monthsGroup) {
+        const month = monthsGroup[key];
+        const monthBlock = document.createElement('div');
+        monthBlock.className = 'bg-white rounded-2xl p-4 shadow-sm border border-slate-100';
+        
+        let eventsHtml = month.events.map(ev => {
+          const d = new Date(ev.date);
+          const todayStr = new Date().toISOString().split('T')[0];
+          const isPast = ev.date < todayStr;
+
+          return `
+            <div class="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0 ${isPast ? 'opacity-40 text-slate-400 line-through' : ''}">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl flex flex-col items-center justify-center font-bold text-sm ${isPast ? 'bg-slate-200 text-slate-500' : 'bg-indigo-50 text-indigo-600'}">
+                  <span>${d.getDate()}</span>
+                  <span class="text-[9px] font-normal">יום ${daysOfWeek[d.getDay()].substring(0,3)}'</span>
+                </div>
+                <div>
+                  <h4 class="font-bold text-sm ${isPast ? 'text-slate-500' : 'text-slate-900'}">בת מצווה ל${ev.girlName}</h4>
+                  <p class="text-xs text-slate-400">${ev.time} | ${ev.location}</p>
+                </div>
+              </div>
+              <span class="text-xs font-bold ${isPast ? 'text-slate-400' : 'text-slate-500'}">${ev.menu === 'חלבי' ? '🥛' : '🥩'}</span>
+            </div>
+          `;
+        }).join('');
+
+        monthBlock.innerHTML = `
+          <h3 class="text-sm font-bold text-indigo-900 mb-2 border-b pb-2 border-indigo-50/50 flex items-center gap-2">📂 ${month.title}</h3>
+          <div class="divide-y divide-slate-50">${eventsHtml}</div>
+        `;
+        container.appendChild(monthBlock);
+      }
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.getElementById('tabFeed').classList.toggle('hidden', tab !== 'feed');
+      document.getElementById('tabGantt').classList.toggle('hidden', tab !== 'gantt');
+      
+      document.getElementById('tabFeedBtn').className = tab === 'feed' ? 'w-1/2 py-3 text-center border-b-2 border-indigo-600 text-indigo-600 font-bold transition-all' : 'w-1/2 py-3 text-center border-b-2 border-transparent text-slate-500 transition-all';
+      document.getElementById('tabGanttBtn').className = tab === 'gantt' ? 'w-1/2 py-3 text-center border-b-2 border-indigo-600 text-indigo-600 font-bold transition-all' : 'w-1/2 py-3 text-center border-b-2 border-transparent text-slate-500 transition-all';
+    }
+
+    function toggleAttendeeList(id) {
+      const el = document.getElementById(`list-${id}`);
+      el.classList.toggle('hidden');
+    }
+
+    function updateRSVP(eventId, status) {
+      // מנקים תווים אסורים עבור נתיב ב-Firebase
+      const safeUserName = currentUser.replace(/[.#$/\[\]]/g, "_");
+      db.ref(`events/${eventId}/attendees/${safeUserName}`).set(status);
+    }
+
+    function openAddModal() { document.getElementById('addModal').style.display = 'flex'; }
+    function closeAddModal() { document.getElementById('addModal').style.display = 'none'; }
+
+    function submitEvent(e) {
+      e.preventDefault();
+      
+      const date = document.getElementById('formDate').value;
+      const girlName = document.getElementById('formGirlName').value.trim();
+      const time = document.getElementById('formTime').value;
+      const location = document.getElementById('formLocation').value.trim();
+      const address = document.getElementById('formAddress').value.trim();
+      const menu = document.getElementById('formMenu').value;
+
+      const conflict = allEvents.find(ev => ev.date === date);
+      if (conflict) {
+        const confirmDouble = confirm(`שים לב! בתאריך זה כבר קיים אירוע מתוכנן עבור בת המצווה של ${conflict.girlName}.\nהאם את/ה בטוח שברצונך לקבוע באותו יום?`);
+        if (!confirmDouble) return;
+      }
+
+      const newEvent = { girlName, date, time, location, address, menu, attendees: {} };
+      
+      db.ref('events').push(newEvent, (error) => {
+        if (error) {
+          alert('שגיאה בשמירת הנתונים');
+        } else {
+          document.getElementById('eventForm').reset();
+          closeAddModal();
+        }
+      });
+    }
+  </script>
+</body>
+</html>
