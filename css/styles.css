@@ -444,6 +444,24 @@ body {
   display: flex !important;
 }
 
+/* נראות ברורה לתפריט חלבי/בשרי במודל */
+#eventModal #eventMenu {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#eventModal #eventMenu:focus {
+  outline: none;
+  border-color: #f472b6;
+  box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.2);
+}
+
+#eventModal #eventMenu option {
+  background: #261339;
+  color: #ffffff;
+}
+
 .nav-tab-active {
   color: #f9a8d4 !important;
 }

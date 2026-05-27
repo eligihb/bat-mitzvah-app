@@ -22,7 +22,6 @@ document.addEventListener("DOMContentLoaded", () => {
   bindTwinToggle();
   bindLogin();
   bindModal();
-  bindPrivacy();
   bindEventForm();
   bindNavigation();
   bindMessages();
@@ -307,8 +306,6 @@ function resetEventForm() {
   editingEventId = null;
   editingEventImage = "";
   hideGuests = false;
-  document.getElementById("privacyText").classList.add("hidden");
-  document.getElementById("privacyBtn").classList.remove("bg-purple-600");
   document.getElementById("currentImageHint").classList.add("hidden");
   document.getElementById("modalTitle").textContent = "הוספת אירוע";
   document.getElementById("eventSubmitBtn").textContent = "פרסום אירוע 🚀";
@@ -337,10 +334,6 @@ function openModalForEdit(eventId) {
   document.getElementById("eventMenu").value = event.menu;
 
   hideGuests = event.hideGuests;
-  if (hideGuests) {
-    document.getElementById("privacyText").classList.remove("hidden");
-    document.getElementById("privacyBtn").classList.add("bg-purple-600");
-  }
 
   if (editingEventImage) {
     document.getElementById("currentImageHint").classList.remove("hidden");
@@ -371,14 +364,6 @@ function setEventSubmitLoading(loading) {
     btn.textContent = btn.dataset.originalText;
     delete btn.dataset.originalText;
   }
-}
-
-function bindPrivacy() {
-  document.getElementById("privacyBtn").addEventListener("click", () => {
-    hideGuests = !hideGuests;
-    document.getElementById("privacyText").classList.toggle("hidden");
-    document.getElementById("privacyBtn").classList.toggle("bg-purple-600");
-  });
 }
 
 function updateAddButton() {
