@@ -31,6 +31,7 @@
             
             <form id="authForm" onsubmit="handleAuth(event)" class="space-y-4">
                 <div>
+                    <label class="block text-sm font-medium mb-2">אני ה- :</label>
                     <div class="flex gap-4">
                         <label class="flex items-center gap-2 bg-gray-50 border p-3 rounded-xl flex-1 justify-center cursor-pointer">
                             <input type="radio" name="parentRole" value="אמא" checked class="accent-purple-600">
@@ -49,21 +50,23 @@
                 </div>
 
                 <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="block text-sm font-medium">שם הילדה החוגגת</label>
-                        <button type="button" id="twinBtn" onclick="toggleTwinField()" class="text-xs text-purple-600 font-bold hover:underline">
-                            <i class="fa-solid fa-plus mr-1"></i> יש לך תאומות בכיתה?
-                        </button>
-                    </div>
+                    <label class="block text-sm font-medium mb-1">שם הילדה החוגגת</label>
                     
-                    <div class="relative mb-2">
+                    <div class="relative mb-1">
                         <input type="text" id="girlName1" required readonly onclick="unlockField('girlName1')"
                             class="w-full border p-3 rounded-xl bg-gray-100 text-gray-500 cursor-pointer pr-10 focus:bg-white focus:text-gray-800 outline-none transition-all" 
                             placeholder="שם פרטי בלבד">
                         <span class="absolute left-3 top-3.5 text-gray-400 text-xs" id="lockIcon1"><i class="fa-solid fa-lock"></i></span>
                     </div>
 
-                    <div id="twinContainer" class="relative hidden">
+                    <div class="flex justify-start items-center gap-1.5 mb-3 mt-0.5 px-1">
+                        <span class="text-xs text-gray-400">יש תאומות בכיתה?</span>
+                        <button type="button" id="twinBtn" onclick="toggleTwinField()" class="text-xs text-purple-600 font-bold hover:underline">
+                            <i class="fa-solid fa-pen"></i> הוספה/עריכה
+                        </button>
+                    </div>
+
+                    <div id="twinContainer" class="relative hidden mb-3">
                         <label class="block text-xs font-medium text-gray-500 mb-1">שם התאומה השנייה</label>
                         <div class="relative">
                             <input type="text" id="girlName2" readonly onclick="unlockField('girlName2')"
@@ -72,13 +75,12 @@
                             <span class="absolute left-3 top-3.5 text-gray-400 text-xs" id="lockIcon2"><i class="fa-solid fa-lock"></i></span>
                         </div>
                     </div>
-                    <p class="text-[11px] text-gray-400 mt-1"><i class="fa-solid fa-circle-info"></i> לחצו על שדה השם כדי לערוך אותו.</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium mb-1">מספר טלפון נייד</label>
-                    <div class="flex gap-1" dir="ltr">
-                        <select id="phonePrefix" class="border p-3 rounded-xl bg-gray-50 outline-none">
+                    <div class="flex gap-1.5 items-center" dir="ltr">
+                        <select id="phonePrefix" class="border p-3 rounded-xl bg-gray-50 outline-none shrink-0 h-[50px]">
                             <option value="050">050</option>
                             <option value="052">052</option>
                             <option value="053">053</option>
@@ -86,10 +88,20 @@
                             <option value="055">055</option>
                             <option value="058">058</option>
                         </select>
-                        <span class="flex items-center text-gray-400 font-bold">-</span>
-                        <input type="tel" id="phoneMain" required pattern="[0-9]{7}" maxlength="7" 
-                               class="w-full border p-3 rounded-xl text-center outline-none focus:ring-2 focus:ring-purple-500" placeholder="1234567">
+                        
+                        <span class="text-gray-400 font-bold shrink-0">-</span>
+                        
+                        <div class="flex gap-1 w-full justify-between">
+                            <input type="tel" maxlength="1" pattern="[0-9]" class="phone-cell w-full h-[50px] border rounded-xl text-center font-bold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none" oninput="moveNext(this, 1)" onkeydown="moveBack(this, event, 1)">
+                            <input type="tel" maxlength="1" pattern="[0-9]" class="phone-cell w-full h-[50px] border rounded-xl text-center font-bold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none" oninput="moveNext(this, 2)" onkeydown="moveBack(this, event, 2)">
+                            <input type="tel" maxlength="1" pattern="[0-9]" class="phone-cell w-full h-[50px] border rounded-xl text-center font-bold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none" oninput="moveNext(this, 3)" onkeydown="moveBack(this, event, 3)">
+                            <input type="tel" maxlength="1" pattern="[0-9]" class="phone-cell w-full h-[50px] border rounded-xl text-center font-bold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none" oninput="moveNext(this, 4)" onkeydown="moveBack(this, event, 4)">
+                            <input type="tel" maxlength="1" pattern="[0-9]" class="phone-cell w-full h-[50px] border rounded-xl text-center font-bold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none" oninput="moveNext(this, 5)" onkeydown="moveBack(this, event, 5)">
+                            <input type="tel" maxlength="1" pattern="[0-9]" class="phone-cell w-full h-[50px] border rounded-xl text-center font-bold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none" oninput="moveNext(this, 6)" onkeydown="moveBack(this, event, 6)">
+                            <input type="tel" maxlength="1" pattern="[0-9]" class="phone-cell w-full h-[50px] border rounded-xl text-center font-bold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none" oninput="moveNext(this, 7)" onkeydown="moveBack(this, event, 7)">
+                        </div>
                     </div>
+                    <p class="text-[11px] text-gray-400 mt-2"><i class="fa-solid fa-circle-info"></i> לחצו על שדה השם כדי לערוך אותו.</p>
                 </div>
 
                 <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-xl transition-all shadow-md mt-2">
@@ -135,8 +147,7 @@
 
         <div id="tabGantt" class="space-y-4 tab-content hidden">
             <h3 class="font-bold text-gray-700 text-sm border-b pb-2"><i class="fa-solid fa-calendar-days text-purple-500 mr-1"></i> מפת תאריכים כיתתית</h3>
-            <div id="ganttContainer" class="grid grid-cols-1 gap-4">
-                </div>
+            <div id="ganttContainer" class="grid grid-cols-1 gap-4"></div>
         </div>
 
         <div id="tabAdd" class="tab-content hidden bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
@@ -196,7 +207,7 @@
             <span class="text-[11px]">לוח אירועים</span>
         </button>
         <button onclick="switchTab('gantt')" id="nav-gantt" class="flex-1 flex flex-col items-center justify-center text-gray-400 gap-0.5">
-            <i class="fa-solid fa-calendar-grid text-lg"></i>
+            <i class="fa-solid fa-calendar-days text-lg"></i>
             <span class="text-[11px]">ריכוז חודשי</span>
         </button>
         <button onclick="switchTab('add')" id="nav-add" class="flex-1 flex flex-col items-center justify-center text-gray-400 gap-0.5">
@@ -225,7 +236,22 @@
             listenToEvents();
         });
 
-        // זיהוי ותאומות
+        // פונקציות ניווט בין קוביות הטלפון
+        window.moveNext = function(current, index) {
+            if(current.value.length === 1 && index < 7) {
+                const cells = document.querySelectorAll('.phone-cell');
+                cells[index].focus();
+            }
+        }
+
+        window.moveBack = function(current, event, index) {
+            if(event.key === "Backspace" && current.value.length === 0 && index > 1) {
+                const cells = document.querySelectorAll('.phone-cell');
+                cells[index - 2].focus();
+            }
+        }
+
+        // ניהול תאומות ונעילת שדות
         window.toggleTwinField = function() {
             const container = document.getElementById('twinContainer');
             const btn = document.getElementById('twinBtn');
@@ -240,7 +266,7 @@
                 container.classList.add('hidden');
                 input2.required = false;
                 input2.value = "";
-                btn.innerHTML = `<i class="fa-solid fa-plus mr-1"></i> יש לך תאומות בכיתה?`;
+                btn.innerHTML = `<i class="fa-solid fa-pen mr-1"></i> הוספה/עריכה`;
             }
         }
 
@@ -257,6 +283,7 @@
             }
         }
 
+        // זיהוי ורישום משתמש
         window.handleAuth = function(event) {
             event.preventDefault();
             
@@ -265,15 +292,21 @@
             const g1 = document.getElementById('girlName1').value.trim();
             const g2 = document.getElementById('girlName2').value.trim();
             const prefix = document.getElementById('phonePrefix').value;
-            const mainNum = document.getElementById('phoneMain').value;
-            const phone = `${prefix}-${mainNum}`;
+            
+            // איסוף מ-7 הקוביות
+            const cells = document.querySelectorAll('.phone-cell');
+            let mainNum = "";
+            cells.forEach(cell => mainNum += cell.value);
 
-            if(!g1) return alert("חובה להזין שם ילדה");
+            if(!g1) return alert("חובה למלא שם של ילדה אחת לפחות");
+            if(mainNum.length < 7) return alert("חובה למלא את מספר הטלפון המלא בקוביות המיועדות לכך");
 
             const girlNames = [g1];
             if(g2 && !document.getElementById('twinContainer').classList.contains('hidden')) {
                 girlNames.push(g2);
             }
+
+            const phone = `${prefix}-${mainNum}`;
 
             currentUser = { parentRole, parentName, girlNames, phone };
             localStorage.setItem('batMitzvahUser', JSON.stringify(currentUser));
@@ -305,27 +338,18 @@
             }
         }
 
-        // רינדור Header וכפתורי תקשורת מודגשים
+        // רינדור רכיבי ממשק עליון
         function renderHeader() {
             if(!currentUser) return;
             document.getElementById('headerParentName').innerText = `שלום, ${currentUser.parentName}`;
             
-            // עיצוב תת-כותרת בסוגריים (למניעת עומס)
             const girlsText = currentUser.girlNames.join(' ושל ');
             document.getElementById('headerSubDetails').innerText = `(${currentUser.parentRole} של ${girlsText})`;
 
-            // הדגשת כפתורי טלפון ו-WhatsApp בצבעים אקטיביים אם הוגדר טלפון
-            const callBtn = document.getElementById('btnCall');
-            const waBtn = document.getElementById('btnSkipped'); 
-            const whatsappBtn = document.getElementById('btnAuthorization'); 
-            
             if(currentUser.phone) {
-                // כפתור חיוג ירוק
                 document.getElementById('btnCall').className = "p-2.5 bg-green-100 text-green-600 rounded-xl text-sm hover:bg-green-200 transition-all";
-                // כפתור וואטסאפ ירוק
                 document.getElementById('btnWhatsapp').className = "p-2.5 bg-emerald-100 text-emerald-600 rounded-xl text-sm hover:bg-emerald-200 transition-all";
             } else {
-                // אפור אם לא הוגדר
                 document.getElementById('btnCall').className = "p-2.5 bg-gray-100 text-gray-400 rounded-xl text-sm cursor-not-allowed";
                 document.getElementById('btnWhatsapp').className = "p-2.5 bg-gray-100 text-gray-400 rounded-xl text-sm cursor-not-allowed";
             }
@@ -351,7 +375,7 @@
             }
         }
 
-        // מעבר בין טאבים + ניהול תצוגת כפתור הפלוס הצף
+        // מעבר טאבים וניהול כפתור פלוס
         window.switchTab = function(tabName) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.remove('hidden');
@@ -374,10 +398,7 @@
             const floatBtn = document.getElementById('floatingAddBtn');
             if(!currentUser) return;
 
-            // בודק אם המשתמש כבר פרסם עבור אחת מהבנות שלו
             const hasPublished = allEvents.some(e => currentUser.girlNames.includes(e.girlName));
-            
-            // מציג את כפתור הפלוס רק בטאב הפיד, ורק אם המשתמש עדיין לא פרסם
             if(currentTab === 'feed' && !hasPublished) {
                 floatBtn.classList.remove('hidden');
             } else {
@@ -402,7 +423,6 @@
                 renderGantt();
                 updateDatalist();
                 
-                // עדכון נראות כפתור הפלוס מיד עם קבלת הנתונים מהענן
                 const activeTab = document.getElementById('tabFeed').classList.contains('hidden') ? (document.getElementById('tabGantt').classList.contains('hidden') ? 'add' : 'gantt') : 'feed';
                 manageFloatingButtonVisibility(activeTab);
             });
@@ -440,7 +460,6 @@
                 const isOwnEvent = currentUser.girlNames.includes(event.girlName);
                 
                 const totalAttendees = event.attendees ? Object.keys(event.attendees).length : 0;
-                // מפתח הצבעה ייחודי קבוע להורה ללא תלות בבת הנבחרת
                 const userKey = `${currentUser.parentName.replace(/[\.\#\$\[\]]/g, "_")}`;
                 const userResponse = event.attendees && event.attendees[userKey] ? event.attendees[userKey].status : null;
 
@@ -540,7 +559,7 @@
             update(ref(db, `events/${eventId}`), { hideAttendees: !currentStatus });
         }
 
-        // מסך ב': ריכוז חודשי משופר עם קוביות וגלישת טקסט מלאה
+        // מסך ב': ריכוז חודשי
         function renderGantt() {
             const container = document.getElementById('ganttContainer');
             if(!currentUser || allEvents.length === 0) return;
@@ -576,7 +595,6 @@
                     const row = document.createElement('button');
                     row.onclick = () => scrollToCard(event.id);
                     
-                    // שימוש ב-break-words לגלישת טקסט מושלמת, וצביעה ייחודית אם זה אירוע של הבת שלו
                     let bgStyle = isOwnEvent ? 'bg-purple-50 border-purple-200 ring-1 ring-purple-300' : 'bg-gray-50 border-gray-100';
                     row.className = `w-full text-right flex items-center justify-between p-3 border rounded-xl hover:bg-gray-100 transition-all text-xs active:scale-[0.99] gap-2 ${bgStyle}`;
                     
@@ -615,7 +633,7 @@
             }, 150);
         }
 
-        // מסך ג': טופס הוספה חכם
+        // מסך ג': הוספת אירוע
         window.handleLocationInput = function() {
             const currentVal = document.getElementById('eventLocation').value;
             const match = allEvents.find(e => e.location === currentVal);
