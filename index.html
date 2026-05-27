@@ -12,26 +12,23 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
   <style>
-    body { 
-      font-family: 'Assistant', sans-serif; 
-      background-color: #f8fafc;
-    }
-    /* אכיפת תצוגת מובייל בלבד במרכז המסך */
+    body { font-family: 'Assistant', sans-serif; background-color: #f1f5f9; }
     .mobile-container {
-      max-w: 450px;
+      max-w: 430px;
       margin: 0 auto;
-      min-h: screen;
+      min-h: 100vh;
       background-color: #ffffff;
       box-shadow: 0 0 20px rgba(0,0,0,0.05);
     }
     .sticky-header { position: sticky; top: 0; z-index: 40; }
   </style>
 </head>
-<body class="bg-slate-100 min-h-screen">
+<body class="bg-slate-100">
 
   <div class="mobile-container min-h-screen flex flex-col pb-20 relative select-none">
 
     <script>
+      // החלף ערכים אלו בפרטי ה-Firebase שלך לסנכרון בין כל ההורים
       const firebaseConfig = {
         apiKey: "YOUR_API_KEY",
         authDomain: "YOUR_AUTH_DOMAIN",
@@ -41,35 +38,53 @@
         messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
         appId: "YOUR_APP_ID"
       };
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.database();
+      
+      let isFirebaseReady = false;
+      let db;
+      
+      if (firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("YOUR_")) {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        isFirebaseReady = true;
+      }
     </script>
 
     <div id="authModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
       <div class="bg-white w-full max-w-xs rounded-2xl shadow-xl p-5 border border-slate-100 text-right">
         <div class="text-center mb-4">
           <span class="text-xs font-bold text-pink-600 bg-pink-50 px-3 py-1 rounded-full">כנפי רוח בנות | ו'-4</span>
-          <h3 class="text-lg font-bold text-indigo-950 mt-2">נעים להכיר! 👋</h3>
-          <p class="text-xs text-slate-400 mt-0.5">אנא הגדירו את פרטיכם באופן חד פעמי</p>
+          <h3 class="text-lg font-bold text-indigo-950 mt-2">ברוכים הבאים! 👋</h3>
         </div>
         
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">שם פרטי של ההורה *</label>
-            <input type="text" id="authParentName" placeholder="לדוגמה: מיכל / אבי" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">שם הבת (תלמידת הכיתה) *</label>
-            <input type="text" id="authDaughterName" placeholder="לדוגמה: נועה" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">שם משפחה *</label>
-            <div class="flex gap-2 items-center">
-              <input type="text" id="authLastName" disabled class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm focus:outline-none text-slate-500">
-              <button type="button" onclick="unlockLastName()" class="text-xs text-indigo-600 whitespace-nowrap font-semibold">פתח נעילה</button>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">אני הנייד של: *</label>
+            <div class="flex gap-4 p-1 bg-slate-50 rounded-xl border border-slate-100 justify-around">
+              <label class="flex items-center gap-1.5 text-xs font-semibold p-1 cursor-pointer">
+                <input type="radio" name="parentRole" value="אמא" checked class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"> אמא 👩‍🦰
+              </label>
+              <label class="flex items-center gap-1.5 text-xs font-semibold p-1 cursor-pointer">
+                <input type="radio" name="parentRole" value="אבא" class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"> אבא 👨
+              </label>
             </div>
           </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">שם מלא של ההורה *</label>
+            <input type="text" id="authParentName" placeholder="שם פרטי + שם משפחה" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">שם הילדה *</label>
+            <input type="text" id="authDaughterName" placeholder="שם הילדה בלבד" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">מספר טלפון (אופציונלי)</label>
+            <input type="tel" id="authPhone" placeholder="ליצירת קשר במידת הצורך" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
         </div>
+
         <button onclick="saveUserIdentity()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md mt-5 transition-all">אישור וכניסה</button>
       </div>
     </div>
@@ -114,8 +129,8 @@
         </div>
         <form id="eventForm" onsubmit="submitEvent(event)" class="p-4 space-y-3">
           <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">שם ילדת בת המצווה *</label>
-            <input type="text" id="formGirlName" required oninput="validateForm()" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500">
+            <label class="block text-xs font-bold text-slate-600 mb-1">שם ילדת בת המצווה (מולא אוטומטית)</label>
+            <input type="text" id="formGirlName" readonly class="w-full px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none">
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div>
@@ -135,7 +150,7 @@
           <div>
             <label class="block text-xs font-bold text-slate-600 mb-1">כתובת מדויקת לניווט *</label>
             <input type="text" id="formAddress" list="addressesList" required oninput="validateForm()" placeholder="רחוב, עיר (יושלם אוטומטית אם קיים)" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500">
-            <datalist id="addressesList"></datalist>
+            <addressesList id="addressesList"></addressesList>
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-600 mb-1">תפריט *</label>
@@ -157,9 +172,13 @@
   <script>
     let pName = localStorage.getItem('bt_p_name') || '';
     let dName = localStorage.getItem('bt_d_name') || '';
-    let lName = localStorage.getItem('bt_l_name') || '';
+    let pRole = localStorage.getItem('bt_p_role') || 'אמא';
+    let pPhone = localStorage.getItem('bt_p_phone') || '';
     let currentTab = 'feed';
     let allEvents = [];
+
+    // גיבוי מקומי המאפשר לכפתורים ולשמירות לעבוד מלא גם ללא חיבור ענן פעיל
+    let localBackupData = JSON.parse(localStorage.getItem('bt_local_db_backup')) || [];
 
     const daysOfWeek = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
     const monthsHeb = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
@@ -169,61 +188,61 @@
         document.getElementById('authModal').style.display = 'flex';
       } else {
         updateUserHeader();
-        listenToEvents();
+        initDataFlow();
       }
     });
-
-    function unlockLastName() {
-      const lnInput = document.getElementById('authLastName');
-      lnInput.disabled = false;
-      lnInput.classList.remove('bg-slate-100', 'text-slate-500');
-      lnInput.focus();
-    }
 
     function saveUserIdentity() {
       const parent = document.getElementById('authParentName').value.trim();
       const daughter = document.getElementById('authDaughterName').value.trim();
-      const last = document.getElementById('authLastName').value.trim();
+      const role = document.querySelector('input[name="parentRole"]:checked').value;
+      const phone = document.getElementById('authPhone').value.trim();
 
       if(parent.length < 2 || daughter.length < 2) return alert('אנא מלאו את שדות החובה');
       
       localStorage.setItem('bt_p_name', parent);
       localStorage.setItem('bt_d_name', daughter);
-      localStorage.setItem('bt_l_name', last);
+      localStorage.setItem('bt_p_role', role);
+      localStorage.setItem('bt_p_phone', phone);
       
       pName = parent;
       dName = daughter;
-      lName = last;
+      pRole = role;
+      pPhone = phone;
       
       document.getElementById('authModal').style.display = 'none';
       updateUserHeader();
-      listenToEvents();
+      initDataFlow();
     }
 
     function updateUserHeader() {
-      const fullFamilyDisplay = lName ? ` (${lName})` : '';
-      document.getElementById('welcomeUserTxt').innerText = `הורה: ${pName} | הבת: ${dName}${fullFamilyDisplay}`;
+      document.getElementById('welcomeUserTxt').innerText = `${pRole}: ${pName} | הבת: ${dName}`;
     }
 
-    function listenToEvents() {
-      db.ref('events').on('value', (snapshot) => {
-        const data = snapshot.val();
-        allEvents = [];
-        if (data) {
-          for (let id in data) {
-            allEvents.push({ id, ...data[id] });
+    function initDataFlow() {
+      if (isFirebaseReady) {
+        db.ref('events').on('value', (snapshot) => {
+          const data = snapshot.val();
+          allEvents = [];
+          if (data) {
+            for (let id in data) { allEvents.push({ id, ...data[id] }); }
           }
-        }
-        allEvents.sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
-        
-        populateDatalists();
-        renderStickyAlert();
-        renderFeed();
-        renderGantt();
-      });
+          processAndRender();
+        });
+      } else {
+        allEvents = localBackupData;
+        processAndRender();
+      }
     }
 
-    // הוספה מהירה: מילוי רשימות הבחירה האוטומטיות על סמך אירועים קודמים
+    function processAndRender() {
+      allEvents.sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
+      populateDatalists();
+      renderStickyAlert();
+      renderFeed();
+      renderGantt();
+    }
+
     function populateDatalists() {
       const locList = document.getElementById('locationsList');
       const addList = document.getElementById('addressesList');
@@ -234,19 +253,19 @@
       locList.innerHTML = uniqueLocations.map(l => `<option value="${l}"></option>`).join('');
       addList.innerHTML = uniqueAddresses.map(a => `<option value="${a}"></option>`).join('');
 
-      // האזנה לשינוי במקום כדי להשלים אוטומטית את הכתובת התואמת
-      document.getElementById('formLocation').addEventListener('input', function(e) {
-        const match = allEvents.find(ev => ev.location === e.target.value);
-        if(match) {
-          document.getElementById('formAddress').value = match.address;
-          validateForm();
-        }
-      });
+      document.getElementById('formLocation').removeEventListener('input', handleLocationInput);
+      document.getElementById('formLocation').addEventListener('input', handleLocationInput);
     }
 
-    // ולידציה דינמית לצבע כפתור הפרסום
+    function handleLocationInput(e) {
+      const match = allEvents.find(ev => ev.location === e.target.value);
+      if(match) {
+        document.getElementById('formAddress').value = match.address;
+        validateForm();
+      }
+    }
+
     function validateForm() {
-      const gName = document.getElementById('formGirlName').value.trim();
       const date = document.getElementById('formDate').value;
       const time = document.getElementById('formTime').value;
       const location = document.getElementById('formLocation').value.trim();
@@ -254,7 +273,7 @@
       
       const btn = document.getElementById('submitFormBtn');
       
-      if(gName && date && time && location && address) {
+      if(date && time && location && address) {
         btn.disabled = false;
         btn.className = "px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all cursor-pointer";
       } else {
@@ -303,7 +322,6 @@
           if(attendees[key].status === 'no') rsvpCount.no++;
         }
 
-        // מפתח ייחודי להורה הנוכחי (שילוב שם הורה ושם בת)
         const userKey = `${pName}_${dName}`.replace(/[.#$/\[\]]/g, "_");
         const myStatus = attendees[userKey] ? attendees[userKey].status : '';
 
@@ -340,8 +358,7 @@
           <div id="list-${ev.id}" class="hidden mt-2 p-2.5 bg-slate-50 rounded-xl text-xs space-y-1 border border-slate-100 text-slate-600">
             <div class="max-h-24 overflow-y-auto space-y-1">
               ${Object.keys(attendees).length === 0 ? 'אין עדיין תגובות.' : Object.values(attendees).map(att => {
-                let badge = att.status === 'yes' ? '🟩' : (att.status === 'maybe' ? '🟨' : '🟥');
-                return `<div>${badge} <strong>${att.parent}</strong> (של ${att.daughter})</div>`;
+                return `<div>${att.status === 'yes' ? '🟩' : (att.status === 'maybe' ? '🟨' : '🟥')} <strong>${att.parent}</strong> (${att.role} של ${att.daughter})</div>`;
               }).join('')}
             </div>
           </div>
@@ -419,17 +436,27 @@
 
     function updateRSVP(eventId, status) {
       const userKey = `${pName}_${dName}`.replace(/[.#$/\[\]]/g, "_");
-      db.ref(`events/${eventId}/attendees/${userKey}`).set({
-        parent: pName,
-        daughter: dName,
-        status: status
-      });
+      const rsvpObject = { parent: pName, daughter: dName, role: pRole, status: status };
+      
+      if (isFirebaseReady) {
+        db.ref(`events/${eventId}/attendees/${userKey}`).set(rsvpObject);
+      } else {
+        const ev = allEvents.find(e => e.id === eventId);
+        if(ev) {
+          if(!ev.attendees) ev.attendees = {};
+          ev.attendees[userKey] = rsvpObject;
+          localStorage.setItem('bt_local_db_backup', JSON.stringify(allEvents));
+          processAndRender();
+        }
+      }
     }
 
     function openAddModal() { 
       document.getElementById('addModal').style.display = 'flex'; 
+      document.getElementById('formGirlName').value = dName;
       validateForm();
     }
+    
     function closeAddModal() { 
       document.getElementById('addModal').style.display = 'none'; 
       document.getElementById('eventForm').reset();
@@ -445,29 +472,30 @@
       const address = document.getElementById('formAddress').value.trim();
       const menu = document.getElementById('formMenu').value;
 
-      // מניעת כפל: בדיקה האם כבר קיים אירוע לילדה הזו או בתאריך הזה
       const dateConflict = allEvents.find(ev => ev.date === date);
       const girlConflict = allEvents.find(ev => ev.girlName.toLowerCase() === girlName.toLowerCase());
 
       if (girlConflict) {
-        alert(`שים לב! כבר קיים בלוח אירוע עבור הבת "${girlName}". מניעת רישום כפול.`);
+        alert(`כבר קיים בלוח אירוע עבור הבת "${girlName}". מניעת כפל רישום.`);
         return;
       }
 
       if (dateConflict) {
-        const confirmDouble = confirm(`שים לב! בתאריך זה כבר קיים אירוע עבור ${dateConflict.girlName}.\nהאם בכל זאת ברצונך לקבוע לאותו היום?`);
+        const confirmDouble = confirm(`שים לב! בתאריך זה כבר קיים אירוע עבור ${dateConflict.girlName}.\nהאם בכל זאת לקבוע לאותו היום?`);
         if (!confirmDouble) return;
       }
 
       const newEvent = { girlName, date, time, location, address, menu };
       
-      db.ref('events').push(newEvent)
-        .then(() => {
-          closeAddModal();
-        })
-        .catch((err) => {
-          alert('שגיאה בשמירה: ' + err.message);
-        });
+      if (isFirebaseReady) {
+        db.ref('events').push(newEvent).then(() => { closeAddModal(); });
+      } else {
+        newEvent.id = '_' + Math.random().toString(36).substr(2, 9);
+        allEvents.push(newEvent);
+        localStorage.setItem('bt_local_db_backup', JSON.stringify(allEvents));
+        closeAddModal();
+        processAndRender();
+      }
     }
   </script>
 </body>
