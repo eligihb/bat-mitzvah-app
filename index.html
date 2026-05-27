@@ -28,7 +28,6 @@
   <div class="mobile-container min-h-screen flex flex-col pb-20 relative select-none">
 
     <script>
-      // החלף ערכים אלו בפרטי ה-Firebase שלך לסנכרון בין כל ההורים
       const firebaseConfig = {
         apiKey: "YOUR_API_KEY",
         authDomain: "YOUR_AUTH_DOMAIN",
@@ -94,7 +93,12 @@
         <div>
           <span class="text-[10px] font-bold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full">כנפי רוח בנות • ו'-4</span>
           <h1 class="text-base font-bold text-indigo-950 mt-0.5">לוח אירועי בת מצווה 👑</h1>
-          <p class="text-[11px] text-slate-400" id="welcomeUserTxt">שלום, אורח</p>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <p class="text-[11px] text-slate-400" id="welcomeUserTxt">שלום, אורח</p>
+            <button onclick="logoutUser()" title="התנתקות ושינוי פרטים" class="text-slate-400 hover:text-rose-600 text-xs transition-colors">
+              🚪 <span class="text-[9px] underline">החלף משתמש</span>
+            </button>
+          </div>
         </div>
         <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1">
           <span>+</span> הוספת אירוע
@@ -150,7 +154,7 @@
           <div>
             <label class="block text-xs font-bold text-slate-600 mb-1">כתובת מדויקת לניווט *</label>
             <input type="text" id="formAddress" list="addressesList" required oninput="validateForm()" placeholder="רחוב, עיר (יושלם אוטומטית אם קיים)" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500">
-            <addressesList id="addressesList"></addressesList>
+            <datalist id="addressesList"></datalist>
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-600 mb-1">תפריט *</label>
@@ -177,7 +181,6 @@
     let currentTab = 'feed';
     let allEvents = [];
 
-    // גיבוי מקומי המאפשר לכפתורים ולשמירות לעבוד מלא גם ללא חיבור ענן פעיל
     let localBackupData = JSON.parse(localStorage.getItem('bt_local_db_backup')) || [];
 
     const daysOfWeek = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
@@ -217,6 +220,19 @@
 
     function updateUserHeader() {
       document.getElementById('welcomeUserTxt').innerText = `${pRole}: ${pName} | הבת: ${dName}`;
+    }
+
+    // פונקציית התנתקות וניקוי זיכרון כדי לאפשר בדיקה חוזרת
+    function logoutUser() {
+      if(confirm('האם ברצונך להתנתק ולשנות את פרטי הזיהוי שלך?')) {
+        localStorage.removeItem('bt_p_name');
+        localStorage.removeItem('bt_d_name');
+        localStorage.removeItem('bt_p_role');
+        localStorage.removeItem('bt_p_phone');
+        
+        // ריענון העמוד כדי להציג את הטופס הנקי
+        window.location.reload();
+      }
     }
 
     function initDataFlow() {
