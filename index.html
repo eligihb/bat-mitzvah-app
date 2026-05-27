@@ -17,25 +17,20 @@
 
     <style>
         * {
-            -webkit-tap-highlight-color: transparent;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
-            max-width: 430px;
             margin: 0 auto;
-            overflow-x: hidden;
-            background: #07070a;
-            font-family: sans-serif;
-            color: white;
-        }
-
-        .bg-main {
+            max-width: 430px;
             background:
-                radial-gradient(circle at top right, rgba(168, 85, 247, 0.25), transparent 35%),
+                radial-gradient(circle at top right, rgba(168, 85, 247, 0.22), transparent 35%),
                 radial-gradient(circle at bottom left, rgba(236, 72, 153, 0.18), transparent 35%),
                 #07070a;
-            min-height: 100vh;
+            color: white;
+            font-family: sans-serif;
+            overflow-x: hidden;
         }
 
         .glass {
@@ -44,48 +39,59 @@
             border: 1px solid rgba(255, 255, 255, 0.06);
         }
 
-        .glow {
-            box-shadow:
-                0 0 0 1px rgba(168, 85, 247, 0.25),
-                0 10px 40px rgba(168, 85, 247, 0.2);
-        }
-
-        .twelve-bg {
+        .login-bg {
             position: fixed;
             inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            overflow: hidden;
             pointer-events: none;
             z-index: 0;
         }
 
-        .twelve-bg span {
-            font-size: 320px;
+        .login-bg::before {
+            content: "12";
+            position: absolute;
+            top: 48%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-8deg);
+
+            font-size: 430px;
             font-weight: 900;
-            color: rgba(255, 255, 255, 0.03);
-            text-shadow: 0 0 40px rgba(168, 85, 247, 0.15);
+
+            background:
+                linear-gradient(180deg,
+                    rgba(255, 255, 255, .14),
+                    rgba(168, 85, 247, .22),
+                    rgba(236, 72, 153, .16));
+
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+
+            opacity: .22;
+
+            text-shadow:
+                0 0 40px rgba(168, 85, 247, .18),
+                0 0 90px rgba(236, 72, 153, .08);
         }
 
-        .phoneStyle {
-            width: 40px;
-            height: 54px;
-            border-radius: 16px;
+        .phoneCell {
+            width: 34px;
+            height: 48px;
+            border-radius: 14px;
             background: rgba(255, 255, 255, .08);
             border: 1px solid rgba(255, 255, 255, .08);
+            color: white;
             text-align: center;
             font-weight: 900;
-            color: white;
             outline: none;
         }
 
-        .phoneStyle:focus {
+        .phoneCell:focus {
             border-color: #a855f7;
-            box-shadow: 0 0 0 3px rgba(168, 85, 247, .2);
+            box-shadow: 0 0 0 3px rgba(168, 85, 247, .18);
         }
 
         .event-card {
-            animation: fade .3s ease;
+            animation: fade .25s ease;
         }
 
         @keyframes fade {
@@ -100,30 +106,28 @@
             }
         }
 
-        .activeBtn {
+        .active-rsvp {
             transform: scale(1.03);
-            box-shadow: 0 0 20px rgba(0, 0, 0, .2);
+            box-shadow: 0 0 18px rgba(0, 0, 0, .25);
         }
     </style>
 
 </head>
 
-<body class="bg-main">
+<body>
 
     <!-- LOGIN -->
 
     <div id="loginScreen"
-        class="min-h-screen flex items-center justify-center p-4 relative">
+        class="min-h-screen flex items-start justify-center pt-10 pb-4 px-4 relative">
 
-        <div class="twelve-bg">
-            <span>12</span>
-        </div>
+        <div class="login-bg"></div>
 
-        <div class="glass glow rounded-[34px] p-6 w-full max-w-sm relative z-10">
+        <div class="glass rounded-[34px] p-5 w-full max-w-sm relative z-10">
 
-            <div class="text-center mb-8">
+            <div class="text-center mb-6">
 
-                <h1 class="text-2xl font-black mb-2">
+                <h1 class="text-2xl font-black leading-tight mb-2">
                     ברוכים הבאים לישומון אירועי בת מצווה
                 </h1>
 
@@ -133,14 +137,14 @@
 
             </div>
 
-            <form id="loginForm" class="space-y-4">
+            <form id="loginForm" class="space-y-3">
 
                 <!-- ROLE -->
 
                 <div class="grid grid-cols-2 gap-3">
 
                     <button type="button"
-                        class="roleBtn bg-purple-600 text-white rounded-2xl p-3 font-bold"
+                        class="roleBtn bg-purple-600 rounded-2xl p-3 font-bold"
                         data-role="אמא">
 
                         אמא 👩
@@ -148,7 +152,7 @@
                     </button>
 
                     <button type="button"
-                        class="roleBtn bg-white/10 text-white rounded-2xl p-3 font-bold"
+                        class="roleBtn bg-white/10 rounded-2xl p-3 font-bold"
                         data-role="אבא">
 
                         אבא 👨
@@ -157,11 +161,11 @@
 
                 </div>
 
-                <!-- PARENT -->
+                <!-- NAME -->
 
                 <div>
 
-                    <label class="text-sm font-bold mb-1 block">
+                    <label class="block text-sm font-bold mb-1">
                         שם ההורה *
                     </label>
 
@@ -175,7 +179,7 @@
 
                 <div>
 
-                    <label class="text-sm font-bold mb-1 block">
+                    <label class="block text-sm font-bold mb-1">
                         שם הילדה *
                     </label>
 
@@ -207,25 +211,27 @@
 
                 <div>
 
-                    <label class="text-sm font-bold mb-1 block">
+                    <label class="block text-sm font-bold mb-1">
                         טלפון
-                        <span class="text-gray-400 text-xs">(לא חובה)</span>
+                        <span class="text-gray-400 text-xs">
+                            (לא חובה)
+                        </span>
                     </label>
 
                     <div class="flex items-center gap-2" dir="ltr">
 
                         <select id="phonePrefix"
-                            class="h-14 px-3 rounded-2xl bg-white/10 border border-white/10 text-white outline-none">
+                            class="h-12 px-2 rounded-2xl bg-white/10 border border-white/10 text-white outline-none">
 
-                            <option value="051">051</option>
-                            <option value="052">052</option>
-                            <option value="053">053</option>
-                            <option value="054">054</option>
-                            <option value="055">055</option>
-                            <option value="056">056</option>
-                            <option value="057">057</option>
-                            <option value="058">058</option>
-                            <option value="059">059</option>
+                            <option>051</option>
+                            <option>052</option>
+                            <option>053</option>
+                            <option>054</option>
+                            <option>055</option>
+                            <option>056</option>
+                            <option>057</option>
+                            <option>058</option>
+                            <option>059</option>
 
                         </select>
 
@@ -233,13 +239,13 @@
 
                         <div class="flex gap-1">
 
-                            <input maxlength="1" class="phoneCell phoneStyle">
-                            <input maxlength="1" class="phoneCell phoneStyle">
-                            <input maxlength="1" class="phoneCell phoneStyle">
-                            <input maxlength="1" class="phoneCell phoneStyle">
-                            <input maxlength="1" class="phoneCell phoneStyle">
-                            <input maxlength="1" class="phoneCell phoneStyle">
-                            <input maxlength="1" class="phoneCell phoneStyle">
+                            <input maxlength="1" class="phoneCell">
+                            <input maxlength="1" class="phoneCell">
+                            <input maxlength="1" class="phoneCell">
+                            <input maxlength="1" class="phoneCell">
+                            <input maxlength="1" class="phoneCell">
+                            <input maxlength="1" class="phoneCell">
+                            <input maxlength="1" class="phoneCell">
 
                         </div>
 
@@ -247,8 +253,10 @@
 
                 </div>
 
+                <!-- BTN -->
+
                 <button
-                    class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black shadow-xl">
+                    class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black shadow-xl mt-2">
 
                     כניסה לישומון
 
@@ -280,12 +288,16 @@
                             <h2 id="headerName"
                                 class="font-black text-lg"></h2>
 
+                            <!-- PHONE -->
+
                             <button id="callBtn"
                                 class="w-8 h-8 rounded-full bg-white/10 text-white/40 flex items-center justify-center">
 
                                 <i class="fa-solid fa-phone"></i>
 
                             </button>
+
+                            <!-- WA -->
 
                             <button id="waBtn"
                                 class="w-8 h-8 rounded-full bg-white/10 text-white/40 flex items-center justify-center">
@@ -294,9 +306,13 @@
 
                             </button>
 
+                            <!-- LOGOUT -->
+
                             <button id="logoutBtn"
                                 class="text-xs text-red-300">
+
                                 התנתקות
+
                             </button>
 
                         </div>
@@ -307,7 +323,7 @@
                                 class="text-sm text-purple-200"></div>
 
                             <button id="switchRoleBtn"
-                                class="text-white/50 text-xs">
+                                class="text-xs text-white/50">
 
                                 <i class="fa-solid fa-pen"></i>
 
@@ -337,7 +353,7 @@
 
     </div>
 
-    <!-- ADD BUTTON -->
+    <!-- ADD BTN -->
 
     <button id="addBtn"
         class="hidden fixed bottom-24 left-6 z-50 w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 shadow-2xl text-3xl font-black">
@@ -346,7 +362,7 @@
 
     </button>
 
-    <!-- ADD MODAL -->
+    <!-- ADD EVENT -->
 
     <div id="eventModal"
         class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4">
@@ -360,7 +376,9 @@
                 </h3>
 
                 <button id="closeModal">
+
                     <i class="fa-solid fa-xmark"></i>
+
                 </button>
 
             </div>
@@ -398,6 +416,30 @@
                     id="girlImage"
                     accept="image/*">
 
+                <!-- PRIVACY -->
+
+                <div class="flex items-center gap-3">
+
+                    <button type="button"
+                        id="privacyBtn"
+                        class="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center">
+
+                        <i class="fa-solid fa-eye-slash"></i>
+
+                    </button>
+
+                    <div id="privacyText"
+                        class="hidden text-xs text-white/60 leading-5">
+
+                        המשתמשים לא יוכלו לראות
+                        את אישורי ההגעה של האחרים
+
+                    </div>
+
+                </div>
+
+                <!-- SHABBAT -->
+
                 <div id="shabbatWarning"
                     class="hidden text-red-300 bg-red-500/10 border border-red-500/30 rounded-2xl p-3 text-sm">
 
@@ -418,10 +460,10 @@
 
     </div>
 
-    <!-- NAV -->
+    <!-- BOTTOM NAV -->
 
-    <nav
-        class="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto h-20 bg-black/70 backdrop-blur-2xl border-t border-white/10 flex z-50">
+    <nav id="bottomNav"
+        class="hidden fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto h-20 bg-black/70 backdrop-blur-2xl border-t border-white/10 flex z-50">
 
         <button class="flex-1 flex flex-col items-center justify-center gap-1 text-pink-300">
 
@@ -433,7 +475,7 @@
 
         </button>
 
-        <button class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
+        <button class="navSoon flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
 
             <i class="fa-solid fa-calendar-days"></i>
 
@@ -443,7 +485,7 @@
 
         </button>
 
-        <button class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
+        <button class="navSoon flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
 
             <i class="fa-solid fa-bell"></i>
 
@@ -459,7 +501,7 @@
             <i class="fa-solid fa-plus"></i>
 
             <span class="text-[11px]">
-                הוסף
+                הוסף אירוע
             </span>
 
         </button>
@@ -480,8 +522,10 @@
 
         let selectedRole = "אמא";
 
+        let hideGuests = false;
+
         // =====================
-        // PHONE INPUTS
+        // PHONE INPUT
         // =====================
 
         document.querySelectorAll(".phoneCell").forEach((cell, index) => {
@@ -547,10 +591,9 @@
         // TWIN
         // =====================
 
-        document.getElementById("toggleTwin").onclick = () => {
+        toggleTwin.onclick = () => {
 
-            document.getElementById("twinName")
-                .classList.toggle("hidden");
+            twinName.classList.toggle("hidden");
 
         };
 
@@ -558,7 +601,7 @@
         // LOGIN
         // =====================
 
-        document.getElementById("loginForm").onsubmit = (e) => {
+        loginForm.onsubmit = (e) => {
 
             e.preventDefault();
 
@@ -589,9 +632,7 @@
             if (phoneDigits.length === 7) {
 
                 phone =
-                    document.getElementById("phonePrefix").value +
-                    "-" +
-                    phoneDigits;
+                    phonePrefix.value + "-" + phoneDigits;
 
             }
 
@@ -605,8 +646,7 @@
 
                 girlName,
 
-                twinName:
-                    document.getElementById("twinName").value.trim(),
+                twinName: twinName.value.trim(),
 
                 phone
 
@@ -627,17 +667,19 @@
 
         function init() {
 
-            document.getElementById("loginScreen")
-                .classList.add("hidden");
+            loginScreen.classList.add("hidden");
 
-            document.getElementById("appScreen")
-                .classList.remove("hidden");
+            appScreen.classList.remove("hidden");
+
+            bottomNav.classList.remove("hidden");
+
+            document.body.classList.add("logged");
 
             renderHeader();
 
-            renderEvents();
-
             renderUpcoming();
+
+            renderEvents();
 
             updateAddButton();
 
@@ -664,6 +706,7 @@
             if (currentUser.phone) {
 
                 callBtn.classList.remove("text-white/40");
+
                 waBtn.classList.remove("text-white/40");
 
                 callBtn.onclick = () => {
@@ -687,38 +730,6 @@
             }
 
         }
-
-        // =====================
-        // LOGOUT
-        // =====================
-
-        logoutBtn.onclick = () => {
-
-            localStorage.removeItem("bm_user");
-
-            location.reload();
-
-        };
-
-        // =====================
-        // SWITCH ROLE
-        // =====================
-
-        switchRoleBtn.onclick = () => {
-
-            currentUser.role =
-                currentUser.role === "אמא"
-                    ? "אבא"
-                    : "אמא";
-
-            localStorage.setItem(
-                "bm_user",
-                JSON.stringify(currentUser)
-            );
-
-            renderHeader();
-
-        };
 
         // =====================
         // UPCOMING
@@ -748,7 +759,7 @@
         }
 
         // =====================
-        // ADD BUTTON
+        // ADD BTN
         // =====================
 
         function updateAddButton() {
@@ -766,25 +777,36 @@
 
         }
 
-        // =====================
-        // OPEN MODAL
-        // =====================
+        addBtn.onclick = openModal;
+        navAdd.onclick = openModal;
 
-        addBtn.onclick = () => {
+        function openModal() {
 
             eventModal.classList.remove("hidden");
 
             eventModal.classList.add("flex");
 
-        };
-
-        navAdd.onclick = addBtn.onclick;
+        }
 
         closeModal.onclick = () => {
 
             eventModal.classList.add("hidden");
 
             eventModal.classList.remove("flex");
+
+        };
+
+        // =====================
+        // PRIVACY BTN
+        // =====================
+
+        privacyBtn.onclick = () => {
+
+            hideGuests = !hideGuests;
+
+            privacyText.classList.toggle("hidden");
+
+            privacyBtn.classList.toggle("bg-purple-600");
 
         };
 
@@ -846,7 +868,7 @@
 
             if (exists) {
 
-                alert("האירוע של בתכם כבר פורסם בלוח האירועים ✨");
+                alert("האירוע של בתכם כבר פורסם");
 
                 return;
 
@@ -877,7 +899,7 @@
                 menu,
                 image,
 
-                hideGuests: false,
+                hideGuests,
 
                 rsvp: {}
 
@@ -903,7 +925,7 @@
         };
 
         // =====================
-        // RENDER EVENTS
+        // EVENTS
         // =====================
 
         function renderEvents() {
@@ -913,7 +935,7 @@
             if (!events.length) {
 
                 eventsContainer.innerHTML =
-                    `<div class="text-center text-white/40 py-20">
+                    `<div class="text-center py-20 text-white/40">
                         עדיין אין אירועים
                     </div>`;
 
@@ -945,7 +967,7 @@
                     document.createElement("div");
 
                 card.className =
-                    "event-card glass rounded-[32px] p-5 mx-4";
+                    "event-card glass rounded-[34px] p-5";
 
                 card.innerHTML = `
 
@@ -970,10 +992,33 @@
 
                                 </div>
 
-                                <div class="bg-white/10 px-3 py-1 rounded-full text-xs">
-                                    ${event.menu}
+                                ${isMine ? `
+
+                                <div class="flex gap-2">
+
+                                    <button
+                                        class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
+
+                                        <i class="fa-solid fa-pen text-sm"></i>
+
+                                    </button>
+
+                                    <button
+                                        onclick="deleteEvent('${event.id}')"
+                                        class="w-9 h-9 rounded-full bg-red-500/20 text-red-300 flex items-center justify-center">
+
+                                        <i class="fa-solid fa-trash"></i>
+
+                                    </button>
+
                                 </div>
 
+                                ` : ''}
+
+                            </div>
+
+                            <div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">
+                                ${event.menu}
                             </div>
 
                         </div>
@@ -989,12 +1034,12 @@
                     </div>
 
                     ${!isMine ? `
-                    
+
                     <div class="grid grid-cols-3 gap-2 mt-4">
 
                         <button onclick="vote('${event.id}','yes')"
                             class="${myVote === 'yes'
-                                ? 'bg-green-500 activeBtn'
+                                ? 'bg-green-500 active-rsvp'
                                 : 'bg-green-500/15 text-green-300'}
                             rounded-2xl p-3 font-bold">
 
@@ -1004,7 +1049,7 @@
 
                         <button onclick="vote('${event.id}','maybe')"
                             class="${myVote === 'maybe'
-                                ? 'bg-yellow-500 text-black activeBtn'
+                                ? 'bg-yellow-500 text-black active-rsvp'
                                 : 'bg-yellow-500/15 text-yellow-300'}
                             rounded-2xl p-3 font-bold">
 
@@ -1014,7 +1059,7 @@
 
                         <button onclick="vote('${event.id}','no')"
                             class="${myVote === 'no'
-                                ? 'bg-red-500 activeBtn'
+                                ? 'bg-red-500 active-rsvp'
                                 : 'bg-red-500/15 text-red-300'}
                             rounded-2xl p-3 font-bold">
 
@@ -1025,14 +1070,16 @@
                     </div>
 
                     ${myVote ? `
-                    
+
                     <button onclick="editVote('${event.id}')"
                         class="text-xs text-purple-300 mt-2">
+
                         עריכה
+
                     </button>
 
                     ` : ''}
-                    
+
                     ` : ''}
 
                     <div class="mt-4 pt-4 border-t border-white/10">
@@ -1048,7 +1095,7 @@
                             :
                             `
                             
-                            <div class="flex gap-4 text-sm flex-wrap">
+                            <div class="flex gap-4 flex-wrap text-sm">
 
                                 <div class="text-green-300">
                                     מגיעים: ${yes}
@@ -1068,32 +1115,6 @@
                         }
 
                     </div>
-
-                    ${isMine ? `
-                    
-                    <div class="flex gap-2 mt-4">
-
-                        <button onclick="togglePrivacy('${event.id}')"
-                            class="bg-white/10 rounded-2xl px-4 py-3 text-sm flex items-center gap-2">
-
-                            <i class="fa-solid fa-eye-slash"></i>
-
-                            ${event.hideGuests
-                                ? 'הסתרה פעילה'
-                                : 'הסתר'}
-
-                        </button>
-
-                        <button onclick="deleteEvent('${event.id}')"
-                            class="bg-red-500/20 text-red-300 rounded-2xl px-4">
-
-                            מחק
-
-                        </button>
-
-                    </div>
-                    
-                    ` : ''}
 
                 `;
 
@@ -1140,27 +1161,6 @@
         }
 
         // =====================
-        // PRIVACY
-        // =====================
-
-        function togglePrivacy(id) {
-
-            const event =
-                events.find(e => e.id === id);
-
-            event.hideGuests =
-                !event.hideGuests;
-
-            localStorage.setItem(
-                "bm_events",
-                JSON.stringify(events)
-            );
-
-            renderEvents();
-
-        }
-
-        // =====================
         // DELETE
         // =====================
 
@@ -1184,6 +1184,52 @@
             updateAddButton();
 
         }
+
+        // =====================
+        // LOGOUT
+        // =====================
+
+        logoutBtn.onclick = () => {
+
+            localStorage.removeItem("bm_user");
+
+            location.reload();
+
+        };
+
+        // =====================
+        // SWITCH ROLE
+        // =====================
+
+        switchRoleBtn.onclick = () => {
+
+            currentUser.role =
+                currentUser.role === "אמא"
+                    ? "אבא"
+                    : "אמא";
+
+            localStorage.setItem(
+                "bm_user",
+                JSON.stringify(currentUser)
+            );
+
+            renderHeader();
+
+        };
+
+        // =====================
+        // NAV PLACEHOLDER
+        // =====================
+
+        document.querySelectorAll(".navSoon").forEach(btn => {
+
+            btn.onclick = () => {
+
+                alert("בקרוב ✨");
+
+            };
+
+        });
 
         // =====================
         // IMAGE
