@@ -6,9 +6,9 @@
 <meta charset="UTF-8" />
 
 <meta name="viewport"
-content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 
-<title>ישומון אירועי בת מצווה</title>
+<title>אירועי בת מצווה</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
 
@@ -32,65 +32,42 @@ radial-gradient(circle at bottom left, rgba(236,72,153,.18), transparent 35%),
 font-family:sans-serif;
 color:white;
 overflow-x:hidden;
+min-height:100vh;
 }
 
 .glass{
 background:rgba(255,255,255,.07);
-backdrop-filter:blur(16px);
-border:1px solid rgba(255,255,255,.06);
-}
-
-.login-bg{
-position:fixed;
-inset:0;
-pointer-events:none;
-overflow:hidden;
-z-index:0;
-}
-
-.login-bg::before{
-content:"12";
-position:absolute;
-top:48%;
-left:50%;
-transform:translate(-50%,-50%) rotate(-8deg);
-
-font-size:430px;
-font-weight:900;
-
-background:
-linear-gradient(
-180deg,
-rgba(255,255,255,.14),
-rgba(168,85,247,.22),
-rgba(236,72,153,.16)
-);
-
--webkit-background-clip:text;
--webkit-text-fill-color:transparent;
-
-opacity:.22;
-
-text-shadow:
-0 0 40px rgba(168,85,247,.18),
-0 0 90px rgba(236,72,153,.08);
-}
-
-.phoneCell{
-width:34px;
-height:48px;
-border-radius:14px;
-background:rgba(255,255,255,.08);
+backdrop-filter:blur(18px);
 border:1px solid rgba(255,255,255,.08);
-color:white;
-text-align:center;
-font-weight:900;
-outline:none;
 }
 
-.phoneCell:focus{
-border-color:#a855f7;
-box-shadow:0 0 0 3px rgba(168,85,247,.18);
+.hiddenTab{
+display:none;
+}
+
+.activeTab{
+display:block;
+}
+
+.toast{
+position:fixed;
+top:20px;
+left:50%;
+transform:translateX(-50%);
+z-index:9999;
+padding:14px 22px;
+border-radius:18px;
+font-weight:700;
+background:#111827;
+color:white;
+opacity:0;
+pointer-events:none;
+transition:.3s;
+}
+
+.toast.show{
+opacity:1;
+top:30px;
 }
 
 .event-card{
@@ -108,21 +85,31 @@ transform:translateY(0);
 }
 }
 
-.active-rsvp{
-transform:scale(1.03);
-box-shadow:0 0 18px rgba(0,0,0,.25);
-}
-
-.tab{
-display:none;
-}
-
-.tab.active{
-display:block;
-}
-
 .calendar-day{
 min-height:88px;
+position:relative;
+}
+
+.calendar-dot{
+width:8px;
+height:8px;
+border-radius:999px;
+background:#ec4899;
+}
+
+.loader{
+width:40px;
+height:40px;
+border:4px solid rgba(255,255,255,.15);
+border-top:4px solid white;
+border-radius:50%;
+animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+100%{
+transform:rotate(360deg);
+}
 }
 
 </style>
@@ -131,28 +118,31 @@ min-height:88px;
 
 <body>
 
+<div id="toast"
+class="toast"></div>
+
+<!-- LOADER -->
+
+<div id="loaderScreen"
+class="fixed inset-0 bg-black/70 backdrop-blur-xl z-[999] hidden items-center justify-center">
+
+<div class="loader"></div>
+
+</div>
+
 <!-- LOGIN -->
 
 <div id="loginScreen"
-class="min-h-screen flex items-start justify-center pt-10 pb-4 px-4 relative">
+class="min-h-screen flex items-center justify-center p-4">
 
-<div class="login-bg"></div>
+<div class="glass rounded-[34px] p-5 w-full max-w-sm">
 
-<div class="glass rounded-[34px] p-5 w-full max-w-sm relative z-10">
-
-<div class="text-center mb-6">
-
-<h1 class="text-2xl font-black mb-2 leading-tight">
-ברוכים הבאים לישומון אירועי בת מצווה
+<h1 class="text-2xl font-black text-center mb-6">
+אירועי בת מצווה ✨
 </h1>
 
-<div class="text-purple-200 text-sm">
-כנפי רוח ו׳-4 • תשפ״ו
-</div>
-
-</div>
-
-<form id="loginForm" class="space-y-3">
+<form id="loginForm"
+class="space-y-4">
 
 <div class="grid grid-cols-2 gap-3">
 
@@ -174,94 +164,22 @@ data-role="אבא">
 
 </div>
 
-<div>
-
-<label class="block text-sm font-bold mb-1">
-שם ההורה *
-</label>
-
 <input id="parentName"
-class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none"
-placeholder="שם מלא">
-
-</div>
-
-<div>
-
-<label class="block text-sm font-bold mb-1">
-שם הילדה *
-</label>
+placeholder="שם ההורה"
+class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none">
 
 <input id="girlName"
-class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none"
-placeholder="שם פרטי">
+placeholder="שם הילדה"
+class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none">
 
-</div>
-
-<div>
-
-<button type="button"
-id="toggleTwin"
-class="text-sm text-purple-300 font-bold">
-
-+ תאומה נוספת
-
-</button>
-
-<input id="twinName"
-class="hidden w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none mt-3"
-placeholder="שם התאומה">
-
-</div>
-
-<div>
-
-<label class="block text-sm font-bold mb-1">
-טלפון
-<span class="text-gray-400 text-xs">
-(לא חובה)
-</span>
-</label>
-
-<div class="flex items-center gap-2" dir="ltr">
-
-<select id="phonePrefix"
-class="h-12 px-2 rounded-2xl bg-white/10 border border-white/10 text-white outline-none">
-
-<option>051</option>
-<option>052</option>
-<option>053</option>
-<option>054</option>
-<option>055</option>
-<option>056</option>
-<option>057</option>
-<option>058</option>
-<option>059</option>
-
-</select>
-
-<span class="text-white/40 font-black">-</span>
-
-<div class="flex gap-1">
-
-<input maxlength="1" class="phoneCell">
-<input maxlength="1" class="phoneCell">
-<input maxlength="1" class="phoneCell">
-<input maxlength="1" class="phoneCell">
-<input maxlength="1" class="phoneCell">
-<input maxlength="1" class="phoneCell">
-<input maxlength="1" class="phoneCell">
-
-</div>
-
-</div>
-
-</div>
+<input id="phoneInput"
+placeholder="טלפון"
+class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none">
 
 <button
-class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black shadow-xl">
+class="w-full rounded-2xl p-3 font-black bg-gradient-to-r from-pink-500 to-purple-600">
 
-כניסה לישומון
+כניסה
 
 </button>
 
@@ -273,60 +191,34 @@ class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-
 
 <!-- APP -->
 
-<div id="appScreen" class="hidden pb-28">
+<div id="appScreen"
+class="hidden pb-28">
+
+<!-- HEADER -->
 
 <header
 class="sticky top-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/5">
 
 <div class="p-4">
 
-<div class="flex justify-between items-start">
+<div class="flex justify-between items-center">
 
 <div>
-
-<div class="flex items-center gap-2 flex-wrap">
 
 <h2 id="headerName"
 class="font-black text-lg"></h2>
 
-<button id="callBtn"
-class="w-8 h-8 rounded-full bg-white/10 text-white/40 flex items-center justify-center">
+<div id="headerSub"
+class="text-sm text-purple-200 mt-1"></div>
 
-<i class="fa-solid fa-phone"></i>
-
-</button>
-
-<button id="waBtn"
-class="w-8 h-8 rounded-full bg-white/10 text-white/40 flex items-center justify-center">
-
-<i class="fa-brands fa-whatsapp"></i>
-
-</button>
+</div>
 
 <button id="logoutBtn"
-class="text-xs text-red-300">
+class="text-red-300 text-sm">
 
 התנתקות
 
 </button>
-
-</div>
-
-<div class="flex items-center gap-2 mt-1">
-
-<div id="headerRole"
-class="text-sm text-purple-200"></div>
-
-<button id="switchRoleBtn"
-class="text-xs text-white/50">
-
-<i class="fa-solid fa-pen"></i>
-
-</button>
-
-</div>
-
-</div>
 
 </div>
 
@@ -337,35 +229,37 @@ class="text-xs text-white/50">
 <!-- UPCOMING -->
 
 <div id="upcomingBar"
-class="mx-4 mt-4 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 text-sm font-bold shadow-xl">
+class="mx-4 mt-4 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-4 font-bold text-sm shadow-xl">
+
+טוען אירועים...
 
 </div>
 
 <!-- EVENTS -->
 
 <div id="eventsTab"
-class="tab active p-4 space-y-4"></div>
+class="activeTab p-4 space-y-4"></div>
 
 <!-- CALENDAR -->
 
 <div id="calendarTab"
-class="tab p-4"></div>
+class="hiddenTab p-4"></div>
 
 <!-- MESSAGES -->
 
 <div id="messagesTab"
-class="tab p-4 space-y-4">
+class="hiddenTab p-4 space-y-4">
 
 <div class="glass rounded-[28px] p-4">
 
 <textarea id="messageInput"
 class="w-full bg-white/10 rounded-2xl p-4 outline-none min-h-[120px]"
-placeholder="כתוב הודעה לכל ההורים..."></textarea>
+placeholder="כתוב הודעה..."></textarea>
 
-<button onclick="publishMessage()"
+<button id="sendMessageBtn"
 class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">
 
-פרסם הודעה
+שלח הודעה
 
 </button>
 
@@ -378,16 +272,16 @@ class="space-y-3"></div>
 
 </div>
 
-<!-- ADD BTN -->
+<!-- ADD EVENT BTN -->
 
-<button id="addBtn"
-class="hidden fixed bottom-24 left-6 z-50 w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 shadow-2xl text-3xl font-black">
+<button id="addEventBtn"
+class="fixed bottom-24 left-6 z-50 w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 shadow-2xl text-3xl font-black hidden">
 
 +
 
 </button>
 
-<!-- MODAL -->
+<!-- EVENT MODAL -->
 
 <div id="eventModal"
 class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4">
@@ -397,18 +291,17 @@ class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4">
 <div class="flex justify-between items-center mb-5">
 
 <h3 class="font-black text-lg">
-הוספת אירוע
+יצירת אירוע
 </h3>
 
-<button id="closeModal">
-
+<button id="closeModalBtn">
 <i class="fa-solid fa-xmark"></i>
-
 </button>
 
 </div>
 
-<form id="eventForm" class="space-y-4">
+<form id="eventForm"
+class="space-y-4">
 
 <input type="date"
 id="eventDate"
@@ -438,40 +331,22 @@ class="w-full rounded-2xl bg-white/10 border border-white/10 p-3">
 </select>
 
 <input type="file"
-id="girlImage"
+id="eventImage"
 accept="image/*">
 
-<div class="flex items-center gap-3">
+<label class="flex items-center gap-3 text-sm">
 
-<button type="button"
-id="privacyBtn"
-class="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center">
+<input type="checkbox"
+id="hideAttendees">
 
-<i class="fa-solid fa-eye-slash"></i>
+הסתר אישורי הגעה
 
-</button>
-
-<div id="privacyText"
-class="hidden text-xs text-white/60 leading-5">
-
-המשתמשים לא יוכלו לראות
-את אישורי ההגעה של האחרים
-
-</div>
-
-</div>
-
-<div id="shabbatWarning"
-class="hidden text-red-300 bg-red-500/10 border border-red-500/30 rounded-2xl p-3 text-sm">
-
-לא ניתן לקבוע אירוע בזמן שבת ✨
-
-</div>
+</label>
 
 <button
-class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black">
+class="w-full rounded-2xl p-3 font-black bg-gradient-to-r from-pink-500 to-purple-600">
 
-פרסום אירוע 🚀
+פרסם אירוע 🚀
 
 </button>
 
@@ -483,11 +358,11 @@ class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-
 
 <!-- NAV -->
 
-<nav id="bottomNav"
-class="hidden fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto h-20 bg-black/70 backdrop-blur-2xl border-t border-white/10 flex z-50">
+<nav
+class="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto h-20 bg-black/70 backdrop-blur-2xl border-t border-white/10 flex z-50">
 
 <button onclick="switchTab('events')"
-class="flex-1 flex flex-col items-center justify-center gap-1 text-pink-300">
+class="flex-1 flex flex-col items-center justify-center gap-1 text-pink-300 navBtn">
 
 <i class="fa-solid fa-list"></i>
 
@@ -498,7 +373,7 @@ class="flex-1 flex flex-col items-center justify-center gap-1 text-pink-300">
 </button>
 
 <button onclick="switchTab('calendar')"
-class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
+class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40 navBtn">
 
 <i class="fa-solid fa-calendar-days"></i>
 
@@ -509,7 +384,7 @@ class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
 </button>
 
 <button onclick="switchTab('messages')"
-class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
+class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40 navBtn">
 
 <i class="fa-solid fa-bell"></i>
 
@@ -519,59 +394,154 @@ class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
 
 </button>
 
-<button id="navAdd"
-class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
-
-<i class="fa-solid fa-plus"></i>
-
-<span class="text-[11px]">
-הוסף אירוע
-</span>
-
-</button>
-
 </nav>
 
 <script>
 
-// DATA
+// ========================================
+// CONFIG
+// ========================================
 
-let currentUser=
-JSON.parse(localStorage.getItem("bm_user")) || null;
+const SCRIPT_URL =
+"https://script.google.com/macros/s/AKfycbyRNLuyH_sP-7GJIpvveZWvDdtIu5bj6nfNyVG1G3y7g7rT88SHOtqwyPhWKCBtWpA/exec";
 
-let events=
-JSON.parse(localStorage.getItem("bm_events")) || [];
+// ========================================
+// STATE
+// ========================================
 
-let messages=
-JSON.parse(localStorage.getItem("bm_messages")) || [];
+const state = {
+
+currentUser:
+JSON.parse(localStorage.getItem("bm_user")) || null,
+
+events:[],
+rsvps:[],
+messages:[],
+
+month:new Date().getMonth(),
+year:new Date().getFullYear()
+
+};
 
 let selectedRole="אמא";
 
-let hideGuests=false;
+// ========================================
+// HELPERS
+// ========================================
 
-// PHONE
+function toast(text){
 
-document.querySelectorAll(".phoneCell").forEach((cell,index)=>{
+const el =
+document.getElementById("toast");
 
-cell.addEventListener("input",(e)=>{
+el.innerText=text;
 
-e.target.value=
-e.target.value.replace(/[^0-9]/g,'');
+el.classList.add("show");
 
-if(e.target.value.length===1){
+setTimeout(()=>{
 
-const next=
-document.querySelectorAll(".phoneCell")[index+1];
+el.classList.remove("show");
 
-if(next) next.focus();
+},2500);
 
 }
 
-});
+function showLoader(){
+
+loaderScreen.classList.add("flex");
+loaderScreen.classList.remove("hidden");
+
+}
+
+function hideLoader(){
+
+loaderScreen.classList.remove("flex");
+loaderScreen.classList.add("hidden");
+
+}
+
+function formatDate(date,time){
+
+const d =
+new Date(`${date}T${time}`);
+
+return new Intl.DateTimeFormat(
+'he-IL',
+{
+day:'2-digit',
+month:'2-digit',
+year:'numeric',
+hour:'2-digit',
+minute:'2-digit'
+}
+).format(d);
+
+}
+
+// ========================================
+// API
+// ========================================
+
+async function fetchData(){
+
+try{
+
+showLoader();
+
+const res =
+await fetch(SCRIPT_URL);
+
+const data =
+await res.json();
+
+state.events =
+data.events || [];
+
+state.rsvps =
+data.rsvps || [];
+
+state.messages =
+data.messages || [];
+
+renderUpcoming();
+renderEvents();
+renderCalendar();
+renderMessages();
+updateAddButton();
+
+}catch(err){
+
+toast("שגיאה בטעינת נתונים");
+
+console.error(err);
+
+}
+
+hideLoader();
+
+}
+
+async function api(action,payload={}){
+
+const res =
+await fetch(SCRIPT_URL,{
+
+method:"POST",
+
+body:JSON.stringify({
+action,
+...payload
+})
 
 });
 
-// ROLE
+return await res.json();
+
+}
+
+// ========================================
+// LOGIN
+// ========================================
 
 document.querySelectorAll(".roleBtn").forEach(btn=>{
 
@@ -584,427 +554,476 @@ b.classList.add("bg-white/10");
 
 });
 
-btn.classList.remove("bg-white/10");
 btn.classList.add("bg-purple-600");
+btn.classList.remove("bg-white/10");
 
-selectedRole=btn.dataset.role;
+selectedRole =
+btn.dataset.role;
 
 };
 
 });
-
-// LOGIN
 
 loginForm.onsubmit=(e)=>{
 
 e.preventDefault();
 
-const parentName=
-parentNameInput();
+const parentName =
+parentName.value.trim();
 
-const girlName=
-girlNameInput();
+const girl =
+girlName.value.trim();
 
-if(!parentName || !girlName){
+if(!parentName || !girl){
 
-alert("יש למלא את כל שדות החובה");
+toast("יש למלא את כל השדות");
 
 return;
 
 }
 
-let digits="";
-
-document.querySelectorAll(".phoneCell").forEach(c=>{
-
-digits+=c.value;
-
-});
-
-let phone="";
-
-if(digits.length===7){
-
-phone=
-phonePrefix.value+"-"+digits;
-
-}
-
-currentUser={
+state.currentUser={
 
 id:crypto.randomUUID(),
 
-role:selectedRole,
-
 parentName,
 
-girlName,
+girlName:girl,
 
-phone
+role:selectedRole,
+
+phone:phoneInput.value.trim()
 
 };
 
 localStorage.setItem(
 "bm_user",
-JSON.stringify(currentUser)
+JSON.stringify(state.currentUser)
 );
 
 init();
 
 };
 
-function parentNameInput(){
-return document.getElementById("parentName").value.trim();
-}
-
-function girlNameInput(){
-return document.getElementById("girlName").value.trim();
-}
-
+// ========================================
 // INIT
+// ========================================
 
-function init(){
+async function init(){
 
 loginScreen.classList.add("hidden");
 
 appScreen.classList.remove("hidden");
 
-bottomNav.classList.remove("hidden");
-
 renderHeader();
 
-renderUpcoming();
-
-renderEvents();
-
-renderCalendar();
-
-renderMessages();
-
-updateAddButton();
+await fetchData();
 
 }
 
-if(currentUser){
+if(state.currentUser){
 
 init();
 
 }
 
+// ========================================
 // HEADER
+// ========================================
 
 function renderHeader(){
 
-headerName.innerText=
-currentUser.parentName;
+headerName.innerText =
+state.currentUser.parentName;
 
-headerRole.innerText=
-`${currentUser.role} של ${currentUser.girlName}`;
+headerSub.innerText =
+`${state.currentUser.role} של ${state.currentUser.girlName}`;
 
 }
 
+// ========================================
 // UPCOMING
+// ========================================
 
 function renderUpcoming(){
 
-const now=new Date();
+const now =
+new Date();
 
-const upcoming=
-events
-.filter(e=>new Date(`${e.date}T${e.time}`)>=now)
+const upcoming =
+state.events
+.filter(e=>
+new Date(`${e.date}T${e.time}`)>=now
+)
+.sort((a,b)=>
+new Date(`${a.date}T${a.time}`) -
+new Date(`${b.date}T${b.time}`)
+)
 .slice(0,2);
 
 if(!upcoming.length){
 
-upcomingBar.innerHTML=
+upcomingBar.innerHTML =
 "אין אירועים קרובים";
 
 return;
 
 }
 
-upcomingBar.innerHTML=
-upcoming.map(e=>{
+upcomingBar.innerHTML =
+upcoming.map(e=>`
 
-const d=
-new Date(`${e.date}T${e.time}`);
+<div class="mb-2">
 
-const formatted=
-d.toLocaleDateString("he-IL")+" "+
-d.toLocaleTimeString("he-IL",{
-hour:"2-digit",
-minute:"2-digit"
-});
+🚨 ${e.girlName}
+•
+${formatDate(e.date,e.time)}
 
-return `🚨 ${e.girlName} • ${formatted}`;
+</div>
 
-}).join("<br>");
+`).join("");
 
 }
 
+// ========================================
 // ADD BTN
+// ========================================
 
 function updateAddButton(){
 
-const exists=
-events.find(e=>e.girlName===currentUser.girlName);
+const exists =
+state.events.find(
+e=>e.ownerId===state.currentUser.id
+);
 
-if(!exists){
+if(exists){
 
-addBtn.classList.remove("hidden");
+addEventBtn.classList.add("hidden");
+
+}else{
+
+addEventBtn.classList.remove("hidden");
 
 }
 
 }
 
-addBtn.onclick=openModal;
-navAdd.onclick=openModal;
+addEventBtn.onclick=()=>{
 
-function openModal(){
-
-eventModal.classList.remove("hidden");
 eventModal.classList.add("flex");
+eventModal.classList.remove("hidden");
 
-}
+};
 
-closeModal.onclick=()=>{
+closeModalBtn.onclick=()=>{
 
-eventModal.classList.add("hidden");
 eventModal.classList.remove("flex");
+eventModal.classList.add("hidden");
 
 };
 
-// PRIVACY
-
-privacyBtn.onclick=()=>{
-
-hideGuests=!hideGuests;
-
-privacyText.classList.toggle("hidden");
-
-privacyBtn.classList.toggle("bg-purple-600");
-
-};
-
-// EVENT
+// ========================================
+// EVENT CREATE
+// ========================================
 
 eventForm.onsubmit=async(e)=>{
 
 e.preventDefault();
 
-const date=eventDate.value;
-const time=eventTime.value;
-const location=eventLocation.value.trim();
-const address=eventAddress.value.trim();
-const menu=eventMenu.value;
-
-if(!date || !time || !location || !address || !menu){
-
-alert("יש למלא את כל השדות");
-
-return;
-
-}
-
-const exists=
-events.find(e=>e.girlName===currentUser.girlName);
+const exists =
+state.events.find(
+e=>e.ownerId===state.currentUser.id
+);
 
 if(exists){
 
-alert("האירוע כבר קיים");
+toast("כבר קיים אירוע");
 
 return;
 
 }
 
+showLoader();
+
 let image="";
 
-const file=girlImage.files[0];
+const file =
+eventImage.files[0];
 
 if(file){
 
-image=await toBase64(file);
+image =
+await toBase64(file);
 
 }
 
-events.push({
+await api("createEvent",{
 
 id:crypto.randomUUID(),
 
-ownerId:currentUser.id,
+ownerId:
+state.currentUser.id,
 
-girlName:currentUser.girlName,
+ownerName:
+state.currentUser.parentName,
 
-date,
-time,
-location,
-address,
-menu,
+girlName:
+state.currentUser.girlName,
+
+date:eventDate.value,
+
+time:eventTime.value,
+
+location:eventLocation.value,
+
+address:eventAddress.value,
+
+menu:eventMenu.value,
+
+hideAttendees:
+hideAttendees.checked,
+
 image,
 
-hideGuests,
+phone:
+state.currentUser.phone,
 
-rsvp:{}
+role:
+state.currentUser.role
 
 });
 
-localStorage.setItem(
-"bm_events",
-JSON.stringify(events)
-);
-
-renderEvents();
-renderUpcoming();
-renderCalendar();
-
-eventModal.classList.add("hidden");
 eventModal.classList.remove("flex");
+eventModal.classList.add("hidden");
+
+toast("האירוע פורסם 🎉");
+
+await fetchData();
+
+hideLoader();
 
 };
 
+// ========================================
 // EVENTS
+// ========================================
 
 function renderEvents(){
 
 eventsTab.innerHTML="";
 
-events.forEach(event=>{
+if(!state.events.length){
 
-const isMine=
-event.ownerId===currentUser.id;
+eventsTab.innerHTML=`
 
-const myVote=
-event.rsvp[currentUser.id];
+<div class="glass rounded-[28px] p-5 text-center text-white/50">
 
-const yes=
-Object.values(event.rsvp)
-.filter(v=>v==="yes").length;
+אין אירועים כרגע
 
-const maybe=
-Object.values(event.rsvp)
-.filter(v=>v==="maybe").length;
+</div>
 
-const no=
-Object.values(event.rsvp)
-.filter(v=>v==="no").length;
+`;
 
-const d=
-new Date(`${event.date}T${event.time}`);
+return;
 
-const formatted=
-d.toLocaleDateString("he-IL")+" "+
-d.toLocaleTimeString("he-IL",{
-hour:"2-digit",
-minute:"2-digit"
-});
+}
 
-eventsTab.innerHTML+=`
+state.events.forEach(event=>{
+
+const isMine =
+event.ownerId ===
+state.currentUser.id;
+
+const eventRsvps =
+state.rsvps.filter(
+r=>r.eventId===event.id
+);
+
+const myVote =
+eventRsvps.find(
+r=>r.userId===state.currentUser.id
+)?.status;
+
+const yes =
+eventRsvps.filter(
+r=>r.status==="yes"
+).length;
+
+const maybe =
+eventRsvps.filter(
+r=>r.status==="maybe"
+).length;
+
+const no =
+eventRsvps.filter(
+r=>r.status==="no"
+).length;
+
+eventsTab.innerHTML += `
 
 <div class="event-card glass rounded-[34px] p-5">
 
 <div class="flex gap-4">
 
-<img src="${event.image || 'https://placehold.co/200'}"
+<img src="${
+event.image ||
+'https://placehold.co/200'
+}"
 class="w-20 h-20 rounded-full object-cover border-4 border-white/10">
 
 <div class="flex-1">
 
-<div class="flex justify-between items-start">
-
-<div>
-
 <h3 class="font-black text-lg">
+
 בת מצווה ל${event.girlName} ✨
+
 </h3>
 
 <div class="text-white/50 text-sm mt-1">
-${formatted}
-</div>
+
+${formatDate(event.date,event.time)}
 
 </div>
 
+<div class="mt-2 text-sm">
+
+📍 ${event.location}
+
 </div>
 
-<div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">
+<div class="mt-1 text-xs text-white/60">
+
+${event.address}
+
+</div>
+
+<div class="mt-3 inline-block bg-white/10 px-3 py-1 rounded-full text-xs">
+
 ${event.menu}
-</div>
 
 </div>
 
 </div>
 
-<div class="bg-white/5 rounded-2xl p-4 mt-4 text-sm space-y-2">
-
-<div>📍 ${event.location}</div>
-
-<div>🗺️ ${event.address}</div>
-
 </div>
 
-${!isMine ? `
+${
+!isMine
+?
 
-<div class="grid grid-cols-3 gap-2 mt-4">
+`
+
+<div class="grid grid-cols-3 gap-2 mt-5">
 
 <button onclick="vote('${event.id}','yes')"
-class="${myVote==='yes'
-? 'bg-green-500 active-rsvp'
-: 'bg-green-500/15 text-green-300'}
+class="${
+myVote==="yes"
+?
+'bg-green-500'
+:
+'bg-green-500/15 text-green-300'
+}
 rounded-2xl p-3 font-bold">
 
-מגיע 👍
+👍 מגיע
 
 </button>
 
 <button onclick="vote('${event.id}','maybe')"
-class="${myVote==='maybe'
-? 'bg-yellow-500 text-black active-rsvp'
-: 'bg-yellow-500/15 text-yellow-300'}
+class="${
+myVote==="maybe"
+?
+'bg-yellow-500 text-black'
+:
+'bg-yellow-500/15 text-yellow-300'
+}
 rounded-2xl p-3 font-bold">
 
-אולי 🤔
+🤔 אולי
 
 </button>
 
 <button onclick="vote('${event.id}','no')"
-class="${myVote==='no'
-? 'bg-red-500 active-rsvp'
-: 'bg-red-500/15 text-red-300'}
+class="${
+myVote==="no"
+?
+'bg-red-500'
+:
+'bg-red-500/15 text-red-300'
+}
 rounded-2xl p-3 font-bold">
 
-לא מגיע 👎
+👎 לא
 
 </button>
 
 </div>
 
-` : ''}
+`
+
+:
+`
+
+<div class="mt-4 flex gap-2">
+
+<button onclick="deleteEvent('${event.id}')"
+class="bg-red-500/15 text-red-300 rounded-2xl px-4 py-2 text-sm font-bold">
+
+מחק אירוע
+
+</button>
+
+</div>
+
+`
+
+}
 
 <div class="mt-4 pt-4 border-t border-white/10">
 
-${event.hideGuests
-? `
+${
+event.hideAttendees === true ||
+event.hideAttendees === "TRUE"
+?
+
+`
+
 <div class="text-white/40 text-sm">
-אישורי ההגעה מוסתרים 🔒
+
+אישורי הגעה מוסתרים 🔒
+
 </div>
+
 `
+
 :
+
 `
-<div class="flex gap-4 flex-wrap text-sm">
+
+<div class="flex gap-4 text-sm flex-wrap">
 
 <div class="text-green-300">
+
 מגיעים: ${yes}
+
 </div>
 
 <div class="text-yellow-300">
+
 אולי: ${maybe}
+
 </div>
 
 <div class="text-red-300">
+
 לא מגיעים: ${no}
+
 </div>
 
 </div>
+
 `
+
 }
 
 </div>
@@ -1017,21 +1036,112 @@ ${event.hideGuests
 
 }
 
+// ========================================
+// RSVP
+// ========================================
+
+async function vote(eventId,status){
+
+showLoader();
+
+await api("vote",{
+
+eventId,
+
+userId:
+state.currentUser.id,
+
+userName:
+state.currentUser.parentName,
+
+status
+
+});
+
+toast("אישור ההגעה עודכן");
+
+await fetchData();
+
+hideLoader();
+
+}
+
+// ========================================
+// DELETE EVENT
+// ========================================
+
+async function deleteEvent(eventId){
+
+if(!confirm("למחוק את האירוע?")){
+return;
+}
+
+showLoader();
+
+await api("deleteEvent",{
+eventId
+});
+
+toast("האירוע נמחק");
+
+await fetchData();
+
+hideLoader();
+
+}
+
+// ========================================
 // CALENDAR
+// ========================================
 
 function renderCalendar(){
 
-const now=new Date();
+const month =
+state.month;
 
-const month=now.getMonth();
-const year=now.getFullYear();
+const year =
+state.year;
 
-const days=
+const firstDay =
+new Date(year,month,1).getDay();
+
+const daysInMonth =
 new Date(year,month+1,0).getDate();
 
-calendarTab.innerHTML=`
+let html=`
 
-<div class="grid grid-cols-7 gap-2 text-center text-xs mb-3">
+<div class="flex justify-between items-center mb-4">
+
+<button onclick="changeMonth(-1)"
+class="glass rounded-xl px-4 py-2">
+
+<i class="fa-solid fa-chevron-right"></i>
+
+</button>
+
+<div class="font-black">
+
+${new Intl.DateTimeFormat(
+'he-IL',
+{
+month:'long',
+year:'numeric'
+}
+).format(new Date(year,month))
+}
+
+</div>
+
+<button onclick="changeMonth(1)"
+class="glass rounded-xl px-4 py-2">
+
+<i class="fa-solid fa-chevron-left"></i>
+
+</button>
+
+</div>
+
+<div class="grid grid-cols-7 gap-2 text-center text-xs mb-2">
 
 <div>א</div>
 <div>ב</div>
@@ -1045,37 +1155,49 @@ calendarTab.innerHTML=`
 
 <div class="grid grid-cols-7 gap-2">
 
-${Array.from({length:days}).map((_,i)=>{
-
-const day=i+1;
-
-const currentDate=
-`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-
-const event=
-events.find(e=>e.date===currentDate);
-
-return `
-
-<div class="calendar-day glass rounded-2xl p-2 text-xs">
-
-<div class="font-bold mb-1">
-${day}
-</div>
-
-${event ? `
-
-<div class="bg-pink-500 rounded-xl p-1 text-[10px]">
-${event.girlName}
-</div>
-
-` : ''}
-
-</div>
-
 `;
 
-}).join("")}
+for(let i=0;i<firstDay;i++){
+
+html += `
+<div></div>
+`;
+
+}
+
+for(let day=1;day<=daysInMonth;day++){
+
+const dateStr =
+`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+
+const dayEvents =
+state.events.filter(
+e=>e.date===dateStr
+);
+
+html += `
+
+<div class="calendar-day glass rounded-2xl p-2">
+
+<div class="font-bold text-xs">
+
+${day}
+
+</div>
+
+<div class="mt-2 flex flex-col gap-1">
+
+${dayEvents.map(e=>`
+
+<div class="bg-pink-500 rounded-lg px-1 py-[2px] text-[9px] truncate">
+
+${e.girlName}
+
+</div>
+
+`).join("")}
+
+</div>
 
 </div>
 
@@ -1083,35 +1205,72 @@ ${event.girlName}
 
 }
 
+html += `
+</div>
+`;
+
+calendarTab.innerHTML=html;
+
+}
+
+function changeMonth(dir){
+
+state.month += dir;
+
+if(state.month < 0){
+
+state.month=11;
+state.year--;
+
+}
+
+if(state.month > 11){
+
+state.month=0;
+state.year++;
+
+}
+
+renderCalendar();
+
+}
+
+// ========================================
 // MESSAGES
+// ========================================
 
-function publishMessage(){
+sendMessageBtn.onclick=
+publishMessage;
 
-const text=
+async function publishMessage(){
+
+const text =
 messageInput.value.trim();
 
-if(!text) return;
+if(!text){
+return;
+}
 
-messages.unshift({
+showLoader();
+
+await api("createMessage",{
 
 id:crypto.randomUUID(),
 
-name:currentUser.parentName,
+userName:
+state.currentUser.parentName,
 
-text,
-
-date:new Date().toLocaleString("he-IL")
+messageText:text
 
 });
 
-localStorage.setItem(
-"bm_messages",
-JSON.stringify(messages)
-);
-
 messageInput.value="";
 
-renderMessages();
+toast("ההודעה נשלחה");
+
+await fetchData();
+
+hideLoader();
 
 }
 
@@ -1119,26 +1278,37 @@ function renderMessages(){
 
 messagesContainer.innerHTML="";
 
-messages.forEach(msg=>{
+const sorted =
+[...state.messages]
+.reverse();
 
-messagesContainer.innerHTML+=`
+sorted.forEach(msg=>{
+
+messagesContainer.innerHTML += `
 
 <div class="glass rounded-[28px] p-4">
 
 <div class="flex justify-between items-center mb-2">
 
 <div class="font-black">
-${msg.name}
+
+${msg.userName}
+
 </div>
 
 <div class="text-xs text-white/40">
-${msg.date}
+
+${new Date(msg.timestamp)
+.toLocaleString("he-IL")}
+
 </div>
 
 </div>
 
 <div class="text-sm leading-7">
-${msg.text}
+
+${msg.messageText}
+
 </div>
 
 </div>
@@ -1149,58 +1319,74 @@ ${msg.text}
 
 }
 
+// ========================================
 // TABS
+// ========================================
 
 function switchTab(tab){
 
-document.querySelectorAll(".tab")
-.forEach(t=>t.classList.remove("active"));
+document
+.querySelectorAll(".hiddenTab,.activeTab")
+.forEach(el=>{
+
+el.classList.remove("activeTab");
+el.classList.add("hiddenTab");
+
+});
+
+document
+.querySelectorAll(".navBtn")
+.forEach(btn=>{
+
+btn.classList.remove("text-pink-300");
+btn.classList.add("text-white/40");
+
+});
 
 if(tab==="events"){
 
-eventsTab.classList.add("active");
+eventsTab.classList.add("activeTab");
+eventsTab.classList.remove("hiddenTab");
+
+document
+.querySelectorAll(".navBtn")[0]
+.classList.add("text-pink-300");
 
 }
 
 if(tab==="calendar"){
 
-calendarTab.classList.add("active");
+calendarTab.classList.add("activeTab");
+calendarTab.classList.remove("hiddenTab");
+
+document
+.querySelectorAll(".navBtn")[1]
+.classList.add("text-pink-300");
 
 }
 
 if(tab==="messages"){
 
-messagesTab.classList.add("active");
+messagesTab.classList.add("activeTab");
+messagesTab.classList.remove("hiddenTab");
+
+document
+.querySelectorAll(".navBtn")[2]
+.classList.add("text-pink-300");
 
 }
 
 }
 
-// RSVP
-
-function vote(id,status){
-
-const event=
-events.find(e=>e.id===id);
-
-event.rsvp[currentUser.id]=status;
-
-localStorage.setItem(
-"bm_events",
-JSON.stringify(events)
-);
-
-renderEvents();
-
-}
-
+// ========================================
 // IMAGE
+// ========================================
 
 function toBase64(file){
 
 return new Promise((resolve,reject)=>{
 
-const reader=
+const reader =
 new FileReader();
 
 reader.readAsDataURL(file);
@@ -1215,10 +1401,20 @@ error=>reject(error);
 
 }
 
-<script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRNLuyH_sP-7GJIpvveZWvDdtIu5bj6nfNyVG1G3y7g7rT88SHOtqwyPhWKCBtWpA/exec";
-    
-    // כל שאר הקוד שלך ימשיך כאן למטה...
+// ========================================
+// LOGOUT
+// ========================================
+
+logoutBtn.onclick=()=>{
+
+localStorage.removeItem("bm_user");
+
+location.reload();
+
+};
+
+</script>
+
 </body>
 
 </html>
