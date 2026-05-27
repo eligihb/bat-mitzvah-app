@@ -3,10 +3,10 @@
 
 <head>
 
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 
 <meta name="viewport"
-content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+content="width=device-width, initial-scale=1.0">
 
 <title>אירועי בת מצווה</title>
 
@@ -41,12 +41,29 @@ backdrop-filter:blur(18px);
 border:1px solid rgba(255,255,255,.08);
 }
 
-.hiddenTab{
+.tab{
 display:none;
 }
 
-.activeTab{
+.tab.active{
 display:block;
+}
+
+.phoneCell{
+width:34px;
+height:48px;
+border-radius:14px;
+background:rgba(255,255,255,.08);
+border:1px solid rgba(255,255,255,.08);
+color:white;
+text-align:center;
+font-weight:900;
+outline:none;
+}
+
+.phoneCell:focus{
+border-color:#a855f7;
+box-shadow:0 0 0 3px rgba(168,85,247,.18);
 }
 
 .toast{
@@ -54,12 +71,12 @@ position:fixed;
 top:20px;
 left:50%;
 transform:translateX(-50%);
-z-index:9999;
 padding:14px 22px;
 border-radius:18px;
-font-weight:700;
 background:#111827;
 color:white;
+font-weight:700;
+z-index:9999;
 opacity:0;
 pointer-events:none;
 transition:.3s;
@@ -67,42 +84,26 @@ transition:.3s;
 
 .toast.show{
 opacity:1;
-top:30px;
+top:35px;
 }
 
-.event-card{
-animation:fade .25s ease;
-}
-
-@keyframes fade{
-from{
-opacity:0;
-transform:translateY(10px);
-}
-to{
-opacity:1;
-transform:translateY(0);
-}
-}
-
-.calendar-day{
-min-height:88px;
-position:relative;
-}
-
-.calendar-dot{
-width:8px;
-height:8px;
-border-radius:999px;
-background:#ec4899;
+.loaderScreen{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.7);
+backdrop-filter:blur(8px);
+z-index:999;
+display:none;
+align-items:center;
+justify-content:center;
 }
 
 .loader{
-width:40px;
-height:40px;
+width:46px;
+height:46px;
+border-radius:999px;
 border:4px solid rgba(255,255,255,.15);
 border-top:4px solid white;
-border-radius:50%;
 animation:spin 1s linear infinite;
 }
 
@@ -110,6 +111,10 @@ animation:spin 1s linear infinite;
 100%{
 transform:rotate(360deg);
 }
+}
+
+.calendar-day{
+min-height:90px;
 }
 
 </style>
@@ -121,10 +126,8 @@ transform:rotate(360deg);
 <div id="toast"
 class="toast"></div>
 
-<!-- LOADER -->
-
 <div id="loaderScreen"
-class="fixed inset-0 bg-black/70 backdrop-blur-xl z-[999] hidden items-center justify-center">
+class="loaderScreen">
 
 <div class="loader"></div>
 
@@ -172,15 +175,51 @@ class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none">
 placeholder="שם הילדה"
 class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none">
 
-<input id="phoneInput"
-type="tel"
-inputmode="numeric"
-placeholder="טלפון"
-class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 outline-none">
+<div>
+
+<label class="block text-sm font-bold mb-2">
+טלפון
+</label>
+
+<div class="flex items-center gap-2" dir="ltr">
+
+<select id="phonePrefix"
+class="h-12 px-2 rounded-2xl bg-white/10 border border-white/10 text-white outline-none">
+
+<option>050</option>
+<option>051</option>
+<option>052</option>
+<option>053</option>
+<option>054</option>
+<option>055</option>
+<option>056</option>
+<option>057</option>
+<option>058</option>
+
+</select>
+
+<span class="text-white/40 font-black">-</span>
+
+<div class="flex gap-1">
+
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
+<input maxlength="1" class="phoneCell">
+
+</div>
+
+</div>
+
+</div>
+
 <button
 class="w-full rounded-2xl p-3 font-black bg-gradient-to-r from-pink-500 to-purple-600">
 
-כניסה
+כניסה לישומון
 
 </button>
 
@@ -194,8 +233,6 @@ class="w-full rounded-2xl p-3 font-black bg-gradient-to-r from-pink-500 to-purpl
 
 <div id="appScreen"
 class="hidden pb-28">
-
-<!-- HEADER -->
 
 <header
 class="sticky top-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/5">
@@ -227,10 +264,8 @@ class="text-red-300 text-sm">
 
 </header>
 
-<!-- UPCOMING -->
-
 <div id="upcomingBar"
-class="mx-4 mt-4 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-4 font-bold text-sm shadow-xl">
+class="mx-4 mt-4 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-4 text-sm font-bold">
 
 טוען אירועים...
 
@@ -239,17 +274,17 @@ class="mx-4 mt-4 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-4 fo
 <!-- EVENTS -->
 
 <div id="eventsTab"
-class="activeTab p-4 space-y-4"></div>
+class="tab active p-4 space-y-4"></div>
 
 <!-- CALENDAR -->
 
 <div id="calendarTab"
-class="hiddenTab p-4"></div>
+class="tab p-4"></div>
 
 <!-- MESSAGES -->
 
 <div id="messagesTab"
-class="hiddenTab p-4 space-y-4">
+class="tab p-4 space-y-4">
 
 <div class="glass rounded-[28px] p-4">
 
@@ -273,16 +308,16 @@ class="space-y-3"></div>
 
 </div>
 
-<!-- ADD EVENT BTN -->
+<!-- ADD EVENT -->
 
 <button id="addEventBtn"
-class="fixed bottom-24 left-6 z-50 w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 shadow-2xl text-3xl font-black hidden">
+class="hidden fixed bottom-24 left-6 z-50 w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 shadow-2xl text-3xl font-black">
 
 +
 
 </button>
 
-<!-- EVENT MODAL -->
+<!-- MODAL -->
 
 <div id="eventModal"
 class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4">
@@ -296,7 +331,9 @@ class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4">
 </h3>
 
 <button id="closeModalBtn">
+
 <i class="fa-solid fa-xmark"></i>
+
 </button>
 
 </div>
@@ -363,7 +400,7 @@ class="w-full rounded-2xl p-3 font-black bg-gradient-to-r from-pink-500 to-purpl
 class="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto h-20 bg-black/70 backdrop-blur-2xl border-t border-white/10 flex z-50">
 
 <button onclick="switchTab('events')"
-class="flex-1 flex flex-col items-center justify-center gap-1 text-pink-300 navBtn">
+class="navBtn flex-1 flex flex-col items-center justify-center gap-1 text-pink-300">
 
 <i class="fa-solid fa-list"></i>
 
@@ -374,7 +411,7 @@ class="flex-1 flex flex-col items-center justify-center gap-1 text-pink-300 navB
 </button>
 
 <button onclick="switchTab('calendar')"
-class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40 navBtn">
+class="navBtn flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
 
 <i class="fa-solid fa-calendar-days"></i>
 
@@ -385,7 +422,7 @@ class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40 navB
 </button>
 
 <button onclick="switchTab('messages')"
-class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40 navBtn">
+class="navBtn flex-1 flex flex-col items-center justify-center gap-1 text-white/40">
 
 <i class="fa-solid fa-bell"></i>
 
@@ -399,16 +436,10 @@ class="flex-1 flex flex-col items-center justify-center gap-1 text-white/40 navB
 
 <script>
 
-// ========================================
-// CONFIG
-// ========================================
-
 const SCRIPT_URL =
 "https://script.google.com/macros/s/AKfycbyRNLuyH_sP-7GJIpvveZWvDdtIu5bj6nfNyVG1G3y7g7rT88SHOtqwyPhWKCBtWpA/exec";
 
-// ========================================
 // STATE
-// ========================================
 
 const state = {
 
@@ -426,9 +457,18 @@ year:new Date().getFullYear()
 
 let selectedRole="אמא";
 
-// ========================================
-// HELPERS
-// ========================================
+// DOM
+
+const loginScreen =
+document.getElementById("loginScreen");
+
+const appScreen =
+document.getElementById("appScreen");
+
+const loaderScreen =
+document.getElementById("loaderScreen");
+
+// TOAST
 
 function toast(text){
 
@@ -447,41 +487,161 @@ el.classList.remove("show");
 
 }
 
+// LOADER
+
 function showLoader(){
-
-loaderScreen.classList.add("flex");
-loaderScreen.classList.remove("hidden");
-
+loaderScreen.style.display="flex";
 }
 
 function hideLoader(){
+loaderScreen.style.display="none";
+}
 
-loaderScreen.classList.remove("flex");
-loaderScreen.classList.add("hidden");
+// ROLE
+
+document.querySelectorAll(".roleBtn")
+.forEach(btn=>{
+
+btn.addEventListener("click",()=>{
+
+document.querySelectorAll(".roleBtn")
+.forEach(b=>{
+
+b.classList.remove("bg-purple-600");
+b.classList.add("bg-white/10");
+
+});
+
+btn.classList.remove("bg-white/10");
+btn.classList.add("bg-purple-600");
+
+selectedRole =
+btn.dataset.role;
+
+});
+
+});
+
+// PHONE
+
+document.querySelectorAll(".phoneCell")
+.forEach((cell,index)=>{
+
+cell.addEventListener("input",(e)=>{
+
+e.target.value =
+e.target.value.replace(/[^0-9]/g,'');
+
+if(e.target.value.length===1){
+
+const next =
+document.querySelectorAll(".phoneCell")[index+1];
+
+if(next){
+next.focus();
+}
 
 }
 
-function formatDate(date,time){
+});
 
-const d =
-new Date(`${date}T${time}`);
+});
 
-return new Intl.DateTimeFormat(
-'he-IL',
-{
-day:'2-digit',
-month:'2-digit',
-year:'numeric',
-hour:'2-digit',
-minute:'2-digit'
+// LOGIN
+
+document.getElementById("loginForm")
+.addEventListener("submit",async(e)=>{
+
+e.preventDefault();
+
+const parentName =
+document.getElementById("parentName")
+.value.trim();
+
+const girlName =
+document.getElementById("girlName")
+.value.trim();
+
+if(!parentName || !girlName){
+
+toast("יש למלא את כל השדות");
+
+return;
+
 }
-).format(d);
+
+let digits="";
+
+document.querySelectorAll(".phoneCell")
+.forEach(c=>{
+
+digits += c.value;
+
+});
+
+let phone="";
+
+if(digits.length===7){
+
+phone =
+document.getElementById("phonePrefix").value
++ "-"
++ digits;
 
 }
 
-// ========================================
-// API
-// ========================================
+state.currentUser={
+
+id:crypto.randomUUID(),
+
+parentName,
+
+girlName,
+
+role:selectedRole,
+
+phone
+
+};
+
+localStorage.setItem(
+"bm_user",
+JSON.stringify(state.currentUser)
+);
+
+await init();
+
+});
+
+// INIT
+
+async function init(){
+
+loginScreen.classList.add("hidden");
+
+appScreen.classList.remove("hidden");
+
+renderHeader();
+
+await fetchData();
+
+}
+
+// HEADER
+
+function renderHeader(){
+
+document.getElementById("headerName")
+.innerText =
+state.currentUser.parentName;
+
+document.getElementById("headerSub")
+.innerText =
+`${state.currentUser.role} של ${state.currentUser.girlName}`;
+
+}
+
+// FETCH
 
 async function fetchData(){
 
@@ -512,15 +672,17 @@ updateAddButton();
 
 }catch(err){
 
-toast("שגיאה בטעינת נתונים");
-
 console.error(err);
+
+toast("שגיאה בטעינת נתונים");
 
 }
 
 hideLoader();
 
 }
+
+// API
 
 async function api(action,payload={}){
 
@@ -540,172 +702,49 @@ return await res.json();
 
 }
 
-// ========================================
-// LOGIN
-// ========================================
-
-const loginFormEl =
-document.getElementById("loginForm");
-
-const parentNameEl =
-document.getElementById("parentName");
-
-const girlNameEl =
-document.getElementById("girlName");
-
-const phoneInputEl =
-document.getElementById("phoneInput");
-
-// ROLE
-
-document.querySelectorAll(".roleBtn").forEach(btn=>{
-
-btn.addEventListener("click",()=>{
-
-document.querySelectorAll(".roleBtn").forEach(b=>{
-
-b.classList.remove("bg-purple-600");
-b.classList.add("bg-white/10");
-
-});
-
-btn.classList.remove("bg-white/10");
-btn.classList.add("bg-purple-600");
-
-selectedRole =
-btn.dataset.role;
-
-});
-
-});
-
-// PHONE
-
-phoneInputEl.addEventListener("input",(e)=>{
-
-e.target.value =
-e.target.value.replace(/[^0-9]/g,'');
-
-});
-
-// LOGIN
-
-loginFormEl.addEventListener("submit",(e)=>{
-
-e.preventDefault();
-
-const parentName =
-parentNameEl.value.trim();
-
-const girl =
-girlNameEl.value.trim();
-
-const phone =
-phoneInputEl.value.trim();
-
-if(!parentName || !girl){
-
-toast("יש למלא את כל השדות");
-
-return;
-
-}
-
-state.currentUser={
-
-id:crypto.randomUUID(),
-
-parentName,
-
-girlName:girl,
-
-role:selectedRole,
-
-phone
-
-};
-
-localStorage.setItem(
-"bm_user",
-JSON.stringify(state.currentUser)
-);
-
-toast("התחברת בהצלחה");
-
-init();
-
-});
-
-init();
-
-};
-
-// ========================================
-// INIT
-// ========================================
-
-async function init(){
-
-loginScreen.classList.add("hidden");
-
-appScreen.classList.remove("hidden");
-
-renderHeader();
-
-await fetchData();
-
-}
-
-if(state.currentUser){
-
-init();
-
-}
-
-// ========================================
-// HEADER
-// ========================================
-
-function renderHeader(){
-
-headerName.innerText =
-state.currentUser.parentName;
-
-headerSub.innerText =
-`${state.currentUser.role} של ${state.currentUser.girlName}`;
-
-}
-
-// ========================================
 // UPCOMING
-// ========================================
+
+function formatDate(date,time){
+
+const d =
+new Date(`${date}T${time}`);
+
+return new Intl.DateTimeFormat(
+'he-IL',
+{
+day:'2-digit',
+month:'2-digit',
+year:'numeric',
+hour:'2-digit',
+minute:'2-digit'
+}
+).format(d);
+
+}
 
 function renderUpcoming(){
 
-const now =
-new Date();
-
 const upcoming =
 state.events
-.filter(e=>
-new Date(`${e.date}T${e.time}`)>=now
-)
 .sort((a,b)=>
 new Date(`${a.date}T${a.time}`) -
 new Date(`${b.date}T${b.time}`)
 )
 .slice(0,2);
 
+const bar =
+document.getElementById("upcomingBar");
+
 if(!upcoming.length){
 
-upcomingBar.innerHTML =
+bar.innerHTML=
 "אין אירועים קרובים";
 
 return;
 
 }
 
-upcomingBar.innerHTML =
+bar.innerHTML=
 upcoming.map(e=>`
 
 <div class="mb-2">
@@ -720,9 +759,7 @@ ${formatDate(e.date,e.time)}
 
 }
 
-// ========================================
 // ADD BTN
-// ========================================
 
 function updateAddButton(){
 
@@ -731,59 +768,51 @@ state.events.find(
 e=>e.ownerId===state.currentUser.id
 );
 
+const btn =
+document.getElementById("addEventBtn");
+
 if(exists){
 
-addEventBtn.classList.add("hidden");
+btn.classList.add("hidden");
 
 }else{
 
-addEventBtn.classList.remove("hidden");
+btn.classList.remove("hidden");
 
 }
 
 }
 
-addEventBtn.onclick=()=>{
+document.getElementById("addEventBtn")
+.onclick=()=>{
 
-eventModal.classList.add("flex");
 eventModal.classList.remove("hidden");
+eventModal.classList.add("flex");
 
 };
 
-closeModalBtn.onclick=()=>{
+document.getElementById("closeModalBtn")
+.onclick=()=>{
 
-eventModal.classList.remove("flex");
 eventModal.classList.add("hidden");
+eventModal.classList.remove("flex");
 
 };
 
-// ========================================
-// EVENT CREATE
-// ========================================
+// EVENT
 
-eventForm.onsubmit=async(e)=>{
+document.getElementById("eventForm")
+.addEventListener("submit",async(e)=>{
 
 e.preventDefault();
-
-const exists =
-state.events.find(
-e=>e.ownerId===state.currentUser.id
-);
-
-if(exists){
-
-toast("כבר קיים אירוע");
-
-return;
-
-}
 
 showLoader();
 
 let image="";
 
 const file =
-eventImage.files[0];
+document.getElementById("eventImage")
+.files[0];
 
 if(file){
 
@@ -805,15 +834,20 @@ state.currentUser.parentName,
 girlName:
 state.currentUser.girlName,
 
-date:eventDate.value,
+date:
+eventDate.value,
 
-time:eventTime.value,
+time:
+eventTime.value,
 
-location:eventLocation.value,
+location:
+eventLocation.value,
 
-address:eventAddress.value,
+address:
+eventAddress.value,
 
-menu:eventMenu.value,
+menu:
+eventMenu.value,
 
 hideAttendees:
 hideAttendees.checked,
@@ -828,46 +862,30 @@ state.currentUser.role
 
 });
 
-eventModal.classList.remove("flex");
 eventModal.classList.add("hidden");
+eventModal.classList.remove("flex");
 
-toast("האירוע פורסם 🎉");
+toast("האירוע פורסם");
 
 await fetchData();
 
 hideLoader();
 
-};
+});
 
-// ========================================
 // EVENTS
-// ========================================
 
 function renderEvents(){
 
-eventsTab.innerHTML="";
+const container =
+document.getElementById("eventsTab");
 
-if(!state.events.length){
-
-eventsTab.innerHTML=`
-
-<div class="glass rounded-[28px] p-5 text-center text-white/50">
-
-אין אירועים כרגע
-
-</div>
-
-`;
-
-return;
-
-}
+container.innerHTML="";
 
 state.events.forEach(event=>{
 
 const isMine =
-event.ownerId ===
-state.currentUser.id;
+event.ownerId===state.currentUser.id;
 
 const eventRsvps =
 state.rsvps.filter(
@@ -894,9 +912,9 @@ eventRsvps.filter(
 r=>r.status==="no"
 ).length;
 
-eventsTab.innerHTML += `
+container.innerHTML += `
 
-<div class="event-card glass rounded-[34px] p-5">
+<div class="glass rounded-[34px] p-5">
 
 <div class="flex gap-4">
 
@@ -921,21 +939,11 @@ ${formatDate(event.date,event.time)}
 </div>
 
 <div class="mt-2 text-sm">
-
 📍 ${event.location}
-
 </div>
 
 <div class="mt-1 text-xs text-white/60">
-
 ${event.address}
-
-</div>
-
-<div class="mt-3 inline-block bg-white/10 px-3 py-1 rounded-full text-xs">
-
-${event.menu}
-
 </div>
 
 </div>
@@ -997,9 +1005,10 @@ rounded-2xl p-3 font-bold">
 `
 
 :
+
 `
 
-<div class="mt-4 flex gap-2">
+<div class="mt-4">
 
 <button onclick="deleteEvent('${event.id}')"
 class="bg-red-500/15 text-red-300 rounded-2xl px-4 py-2 text-sm font-bold">
@@ -1025,7 +1034,7 @@ event.hideAttendees === "TRUE"
 
 <div class="text-white/40 text-sm">
 
-אישורי הגעה מוסתרים 🔒
+אישורי ההגעה מוסתרים 🔒
 
 </div>
 
@@ -1038,21 +1047,15 @@ event.hideAttendees === "TRUE"
 <div class="flex gap-4 text-sm flex-wrap">
 
 <div class="text-green-300">
-
 מגיעים: ${yes}
-
 </div>
 
 <div class="text-yellow-300">
-
 אולי: ${maybe}
-
 </div>
 
 <div class="text-red-300">
-
 לא מגיעים: ${no}
-
 </div>
 
 </div>
@@ -1071,9 +1074,7 @@ event.hideAttendees === "TRUE"
 
 }
 
-// ========================================
 // RSVP
-// ========================================
 
 async function vote(eventId,status){
 
@@ -1093,7 +1094,7 @@ status
 
 });
 
-toast("אישור ההגעה עודכן");
+toast("אישור עודכן");
 
 await fetchData();
 
@@ -1101,13 +1102,11 @@ hideLoader();
 
 }
 
-// ========================================
-// DELETE EVENT
-// ========================================
+// DELETE
 
 async function deleteEvent(eventId){
 
-if(!confirm("למחוק את האירוע?")){
+if(!confirm("למחוק אירוע?")){
 return;
 }
 
@@ -1125,9 +1124,7 @@ hideLoader();
 
 }
 
-// ========================================
 // CALENDAR
-// ========================================
 
 function renderCalendar(){
 
@@ -1194,9 +1191,7 @@ class="glass rounded-xl px-4 py-2">
 
 for(let i=0;i<firstDay;i++){
 
-html += `
-<div></div>
-`;
+html += `<div></div>`;
 
 }
 
@@ -1240,11 +1235,10 @@ ${e.girlName}
 
 }
 
-html += `
-</div>
-`;
+html += `</div>`;
 
-calendarTab.innerHTML=html;
+document.getElementById("calendarTab")
+.innerHTML=html;
 
 }
 
@@ -1270,17 +1264,16 @@ renderCalendar();
 
 }
 
-// ========================================
 // MESSAGES
-// ========================================
 
-sendMessageBtn.onclick=
-publishMessage;
+document.getElementById("sendMessageBtn")
+.onclick=publishMessage;
 
 async function publishMessage(){
 
 const text =
-messageInput.value.trim();
+document.getElementById("messageInput")
+.value.trim();
 
 if(!text){
 return;
@@ -1299,7 +1292,8 @@ messageText:text
 
 });
 
-messageInput.value="";
+document.getElementById("messageInput")
+.value="";
 
 toast("ההודעה נשלחה");
 
@@ -1311,15 +1305,16 @@ hideLoader();
 
 function renderMessages(){
 
-messagesContainer.innerHTML="";
+const container =
+document.getElementById("messagesContainer");
 
-const sorted =
+container.innerHTML="";
+
 [...state.messages]
-.reverse();
+.reverse()
+.forEach(msg=>{
 
-sorted.forEach(msg=>{
-
-messagesContainer.innerHTML += `
+container.innerHTML += `
 
 <div class="glass rounded-[28px] p-4">
 
@@ -1354,23 +1349,14 @@ ${msg.messageText}
 
 }
 
-// ========================================
 // TABS
-// ========================================
 
 function switchTab(tab){
 
-document
-.querySelectorAll(".hiddenTab,.activeTab")
-.forEach(el=>{
+document.querySelectorAll(".tab")
+.forEach(t=>t.classList.remove("active"));
 
-el.classList.remove("activeTab");
-el.classList.add("hiddenTab");
-
-});
-
-document
-.querySelectorAll(".navBtn")
+document.querySelectorAll(".navBtn")
 .forEach(btn=>{
 
 btn.classList.remove("text-pink-300");
@@ -1380,42 +1366,34 @@ btn.classList.add("text-white/40");
 
 if(tab==="events"){
 
-eventsTab.classList.add("activeTab");
-eventsTab.classList.remove("hiddenTab");
+eventsTab.classList.add("active");
 
-document
-.querySelectorAll(".navBtn")[0]
+document.querySelectorAll(".navBtn")[0]
 .classList.add("text-pink-300");
 
 }
 
 if(tab==="calendar"){
 
-calendarTab.classList.add("activeTab");
-calendarTab.classList.remove("hiddenTab");
+calendarTab.classList.add("active");
 
-document
-.querySelectorAll(".navBtn")[1]
+document.querySelectorAll(".navBtn")[1]
 .classList.add("text-pink-300");
 
 }
 
 if(tab==="messages"){
 
-messagesTab.classList.add("activeTab");
-messagesTab.classList.remove("hiddenTab");
+messagesTab.classList.add("active");
 
-document
-.querySelectorAll(".navBtn")[2]
+document.querySelectorAll(".navBtn")[2]
 .classList.add("text-pink-300");
 
 }
 
 }
 
-// ========================================
 // IMAGE
-// ========================================
 
 function toBase64(file){
 
@@ -1436,17 +1414,28 @@ error=>reject(error);
 
 }
 
-// ========================================
 // LOGOUT
-// ========================================
 
-logoutBtn.onclick=()=>{
+document.getElementById("logoutBtn")
+.onclick=()=>{
 
 localStorage.removeItem("bm_user");
 
 location.reload();
 
 };
+
+// AUTO INIT
+
+if(state.currentUser){
+
+(async()=>{
+
+await init();
+
+})();
+
+}
 
 </script>
 
