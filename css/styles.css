@@ -270,19 +270,6 @@ body {
   border: 2px solid rgba(37, 99, 235, 0.35);
 }
 
-.phoneCell-light {
-  background: #fff;
-  border: 1.5px solid rgba(236, 72, 153, 0.35);
-  color: #1e1b4b;
-  font-size: 1.125rem;
-  font-weight: 800;
-}
-
-.phoneCell-light:focus {
-  border-color: #ec4899;
-  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.2);
-}
-
 .twin-row {
   display: flex;
   align-items: center;
@@ -365,15 +352,35 @@ body {
   width: 34px;
   height: 48px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: white;
   text-align: center;
   font-weight: 900;
   outline: none;
 }
 
-.phoneCell:focus {
+/* מסך כניסה — חייב אחרי .phoneCell כדי לא לדרוס */
+.phoneCell.phoneCell-light {
+  background: #ffffff;
+  border: 2px solid #ec4899;
+  color: #1e1b4b;
+  font-size: 1.125rem;
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(236, 72, 153, 0.12);
+}
+
+.phoneCell.phoneCell-light:focus {
+  border-color: #db2777;
+  background: #fff;
+  color: #1e1b4b;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.25);
+}
+
+.phoneCell:not(.phoneCell-light) {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.phoneCell:not(.phoneCell-light):focus {
   border-color: #a855f7;
   box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.18);
 }
