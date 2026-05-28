@@ -779,7 +779,12 @@ async function toggleEventGuestsVisibility(eventId) {
     console.error(err);
     event.hideGuests = !nextHide;
     renderEvents();
-    alert("לא הצלחנו לעדכן את מצב ההסתרה.");
+    const msg = String(err?.message || "");
+    if (msg.includes("Unknown action")) {
+      alert("לא הצלחנו לעדכן את מצב ההסתרה. צריך לפרוס מחדש את Google Apps Script עם updateEvent.");
+    } else {
+      alert("לא הצלחנו לעדכן את מצב ההסתרה.");
+    }
   }
 }
 
@@ -861,6 +866,16 @@ function renderEvents() {
     const no = Object.values(event.rsvp).filter((v) => v === "no").length;
 
     const d = new Date(`${event.date}T${event.time}`);
+    const now = new Date();
+    const dayStartNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dayStartEvent = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dayDiff = Math.ceil((dayStartEvent - dayStartNow) / 86400000);
+    const isPastEvent = dayDiff < 0;
+    const countdownLabel = isPastEvent
+      ? "האירוע התקיים"
+      : dayDiff === 0
+        ? "האירוע היום"
+        : `עוד ${dayDiff} ימים`;
     const formattedDate = d.toLocaleDateString("he-IL");
     const formattedTime = d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
 
@@ -869,13 +884,15 @@ function renderEvents() {
     container.insertAdjacentHTML(
       "beforeend",
       `
-      <div class="event-card glass rounded-[34px] p-5">
+      <div class="event-card glass rounded-[34px] p-5 ${isFamily ? "my-event-card" : ""} ${isPastEvent ? "past-event-card" : ""}">
+        ${isFamily ? '<div class="my-event-title">האירוע שלי</div>' : ""}
         <div class="flex gap-3 items-start">
           <div class="flex gap-4 flex-1 min-w-0">
             <img src="${img}" class="w-20 h-20 shrink-0 rounded-full object-cover border-4 border-white/10" alt="">
             <div class="flex-1 min-w-0">
               <h3 class="font-black text-lg">בת מצווה ל${event.girlName} ✨</h3>
               <div class="text-white/50 text-sm mt-1">תאריך: ${formattedDate} • שעה: ${formattedTime}</div>
+              <div class="event-countdown mt-2"><i class="fa-regular fa-clock"></i> ${countdownLabel}</div>
               <div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">${event.menu}</div>
             </div>
           </div>
@@ -1001,7 +1018,7 @@ function renderCalendar() {
             ? dayEvents
                 .map(
                   (e) =>
-                    `<button type="button" class="rounded-xl p-1.5 text-[10px] mb-1 w-full text-right whitespace-normal break-words leading-tight ${calendarGirlColorClass(
+                    `<button type="button" class="rounded-xl p-1 text-[9px] mb-1 w-full text-right whitespace-normal break-words leading-tight ${calendarGirlColorClass(
                       e.girlName
                     )}" data-calendar-event-id="${e.id}">${e.girlName}</button>`
                 )
@@ -1090,13 +1107,13 @@ function bindCredits() {
 function renderCredits() {
   const tab = document.getElementById("creditsTab");
   const allEventOptions = events
-    .map((e) => `<option value="${e.id}">${e.girlName} • ${e.familyName || ""} • ${e.date}</option>`)
+    .map((e) => `<option value="${e.id}">${e.girlName} • ${e.date}${isEventPastByDate(e.date) ? "" : " (טרם התקיים)"}</option>`)
     .join("");
 
   tab.innerHTML = `
     <div class="glass rounded-[28px] p-4">
       <div class="font-black mb-2">הוספת קרדיט ידידותית</div>
-      <div class="text-xs text-white/60 mb-3">בחירת אירוע מתוך הרשימה (אפשר גם אירוע שלא מופיע)</div>
+      <div class="text-xs text-white/60 mb-3">קרדיט ניתן רק לאירוע שכבר התקיים</div>
       <div class="space-y-2">
         <select id="creditEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
           <option value="">בחרי אירוע מתוך הרשימה</option>
@@ -1104,6 +1121,7 @@ function renderCredits() {
           <option value="__manual__">אירוע שלא מופיע ברשימה</option>
         </select>
         <input id="creditManualEvent" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם אירוע ידני (למשל: אופיר • 2026-03-14)" />
+        <div id="creditOwnerBadge" class="hidden text-xs rounded-xl p-2 bg-pink-500/15 border border-pink-500/35 text-pink-200"></div>
         <div id="creditCategoryButtons" class="grid grid-cols-2 gap-2">
           ${["צלמת", "אולם", "בונה מצגות/וידאו", "מפעילה", "קייטרינג", "קינוחים", "אחר"]
             .map(
@@ -1115,8 +1133,12 @@ function renderCredits() {
         <input id="creditCategory" type="hidden" />
         <input id="creditCategoryOther" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="קטגוריה אחרת" />
         <input id="creditName" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם נותן שירות" />
-        <input id="creditPhone" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="טלפון" />
-        <input id="creditLink" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="לינק (אינסטגרם/אתר/וואטסאפ)" />
+        <button id="toggleProviderDetailsBtn" type="button" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">פרטי נותן שירות (לבעל האירוע)</button>
+        <div id="providerDetailsWrap" class="hidden space-y-2">
+          <input id="creditPhone" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="טלפון" />
+          <input id="creditLink" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="לינק (אינסטגרם/אתר/וואטסאפ)" />
+          <textarea id="creditExtraContacts" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[60px]" placeholder="פרטי קשר נוספים (אופציונלי)"></textarea>
+        </div>
         <textarea id="creditNote" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[70px]" placeholder="כמה מילים"></textarea>
         <div class="grid grid-cols-3 gap-2 text-xs">
           ${["מקצועיות", "שירות", "אדיבות", "מהיר", "יחס", "זמין"]
@@ -1129,16 +1151,19 @@ function renderCredits() {
             )
             .join("")}
         </div>
-        <label class="text-xs text-white/70">דירוג כללי: <span id="creditScoreValue">3</span></label>
-        <input id="creditScore" type="range" min="1" max="5" step="1" value="3" class="w-full" />
-        <div class="flex gap-2">
+        <div id="creditScoreWrap">
+          <label class="text-xs text-white/70">דירוג כללי: <span id="creditScoreValue">3</span></label>
+          <input id="creditScore" type="range" min="1" max="5" step="1" value="3" class="w-full" />
+        </div>
+        <div id="creditSentimentWrap" class="flex gap-2">
           <button id="creditLikeBtn" type="button" class="flex-1 rounded-xl bg-green-500/20 border border-green-500/40 p-2 text-sm">אהבתי</button>
           <button id="creditDislikeBtn" type="button" class="flex-1 rounded-xl bg-red-500/20 border border-red-500/40 p-2 text-sm">לא אהבתי</button>
         </div>
         <button id="addCreditBtn" type="button" class="w-full rounded-xl bg-white/10 p-2 text-sm font-bold">הוסף קרדיט</button>
       </div>
     </div>
-    <div id="creditsList" class="space-y-3"></div>
+    <div id="creditsMineList" class="space-y-3"></div>
+    <div id="creditsGuestsList" class="space-y-3"></div>
   `;
 
   document.getElementById("addCreditBtn").onclick = addCreditFromForm;
@@ -1151,50 +1176,80 @@ function renderCredits() {
   };
   document.getElementById("creditLikeBtn").onclick = () => setCreditSentiment("like");
   document.getElementById("creditDislikeBtn").onclick = () => setCreditSentiment("dislike");
+  document.getElementById("toggleProviderDetailsBtn").onclick = () => {
+    document.getElementById("providerDetailsWrap").classList.toggle("hidden");
+  };
   toggleCreditManualEventField();
   toggleCreditCategoryOtherField();
   applyPendingCreditEventSelection();
-  const list = document.getElementById("creditsList");
-  if (!credits.length) {
-    list.innerHTML = '<div class="text-center text-white/40 text-sm">עדיין אין קרדיטים</div>';
-    return;
-  }
+  updateCreditFormMode();
+  const mineList = document.getElementById("creditsMineList");
+  const guestsList = document.getElementById("creditsGuestsList");
+  const myCredits = credits.filter((c) => {
+    const event = events.find((e) => e.id === c.eventId);
+    return event && canManageEvent(event);
+  });
+  const guestCredits = credits.filter((c) => {
+    const event = events.find((e) => e.id === c.eventId);
+    return !event || !canManageEvent(event);
+  });
 
-  list.innerHTML = credits
+  const renderCreditCard = (c) => {
+    const event = events.find((e) => e.id === c.eventId);
+    const isMine = !!event && canManageEvent(event);
+    const likesCount = getProviderLikesCount(c.professionalName, c.category);
+    const manualEventLabel = String(c.eventId || "").startsWith("manual:")
+      ? String(c.eventId).slice("manual:".length)
+      : "";
+    const eventLabel = event ? `${event.girlName} (${event.date})` : (manualEventLabel || "אירוע לא נמצא");
+    const values = Object.values(c.ratings || {}).map(Number).filter(Boolean);
+    const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1) : "—";
+    const sentiment = c.sentiment || "";
+    const tags = Array.isArray(c.tags) ? c.tags : typeof c.tags === "string" && c.tags ? c.tags.split("|") : [];
+    return `
+      <div class="glass rounded-2xl p-3 ${isMine ? "border border-pink-400/40" : ""}">
+        ${isMine ? '<div class="text-[11px] text-pink-200 mb-1">קרדיט אירוע שלי</div>' : '<div class="text-[11px] text-cyan-200 mb-1">קרדיט אורחים</div>'}
+        <div class="font-black text-sm">${c.professionalName}</div>
+        <div class="text-xs text-white/60 mt-1">${c.category} • ${eventLabel}</div>
+        ${isMine ? `<div class="text-xs text-white/70 mt-1">טלפון: ${c.phone || "—"} • לינק: ${c.link || "—"}</div>` : ""}
+        ${c.note ? `<div class="text-xs text-white/80 mt-1">${c.note}</div>` : ""}
+        ${tags.length ? `<div class="text-[11px] text-cyan-200 mt-1">${tags.map((t) => `#${t}`).join(" • ")}</div>` : ""}
+        <div class="text-xs text-green-300 mt-1">אהבו: ${likesCount}</div>
+        <div class="text-xs text-yellow-300 mt-1">דירוג ממוצע: ${avg}</div>
+        ${sentiment ? `<div class="text-xs mt-1 ${sentiment === "like" ? "text-green-300" : "text-red-300"}">${sentiment === "like" ? "אהבתי" : "לא אהבתי"}</div>` : ""}
+        <div class="flex gap-1 mt-2">
+          ${[1, 2, 3, 4, 5]
+            .map(
+              (score) =>
+                `<button type="button" class="event-action-btn" data-rate-credit-id="${c.id}" data-score="${score}" aria-label="דירוג ${score}">${score}</button>`
+            )
+            .join("")}
+        </div>
+        <div class="flex gap-2 mt-2">
+          <button type="button" class="rounded-lg bg-green-500/20 border border-green-500/40 text-green-200 px-2 py-1 text-xs" data-rate-credit-id="${c.id}" data-rate-sentiment="like">אהבתי</button>
+          ${isMine ? '<button type="button" class="rounded-lg bg-red-500/20 border border-red-500/40 text-red-200 px-2 py-1 text-xs" data-rate-credit-id="' + c.id + '" data-rate-sentiment="dislike">לא אהבתי</button>' : ""}
+        </div>
+      </div>`;
+  };
+
+  mineList.innerHTML = `
+    <div class="font-black text-sm mt-2">קרדיטים לאירועים שלי</div>
+    ${myCredits.length ? myCredits.map(renderCreditCard).join("") : '<div class="text-center text-white/40 text-sm">עדיין אין קרדיטים לאירועים שלי</div>'}
+  `;
+  guestsList.innerHTML = `
+    <div class="font-black text-sm mt-2">קרדיטים מאורחים / לאירועים אחרים</div>
+    ${guestCredits.length ? guestCredits.map(renderCreditCard).join("") : '<div class="text-center text-white/40 text-sm">עדיין אין קרדיטי אורחים</div>'}
+  `;
+}
+
+function getProviderLikesCount(professionalName, category) {
+  return credits
     .map((c) => {
-      const event = events.find((e) => e.id === c.eventId);
-      const manualEventLabel = String(c.eventId || "").startsWith("manual:")
-        ? String(c.eventId).slice("manual:".length)
-        : "";
-      const eventLabel = event ? `${event.girlName} (${event.date})` : (manualEventLabel || "אירוע לא נמצא");
-      const values = Object.values(c.ratings || {}).map(Number).filter(Boolean);
-      const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1) : "—";
-      const sentiment = c.sentiment || "";
-      const tags = Array.isArray(c.tags) ? c.tags : typeof c.tags === "string" && c.tags ? c.tags.split("|") : [];
-      return `
-        <div class="glass rounded-2xl p-3">
-          <div class="font-black text-sm">${c.professionalName}</div>
-          <div class="text-xs text-white/60 mt-1">${c.category} • ${eventLabel}</div>
-          <div class="text-xs text-white/70 mt-1">טלפון: ${c.phone || "—"} • לינק: ${c.link || "—"}</div>
-          ${c.note ? `<div class="text-xs text-white/80 mt-1">${c.note}</div>` : ""}
-          ${tags.length ? `<div class="text-[11px] text-cyan-200 mt-1">${tags.map((t) => `#${t}`).join(" • ")}</div>` : ""}
-          ${sentiment ? `<div class="text-xs mt-1 ${sentiment === "like" ? "text-green-300" : "text-red-300"}">${sentiment === "like" ? "אהבתי" : "לא אהבתי"}</div>` : ""}
-          <div class="text-xs text-yellow-300 mt-2">דירוג ממוצע: ${avg}</div>
-          <div class="flex gap-1 mt-2">
-            ${[1, 2, 3, 4, 5]
-              .map(
-                (score) =>
-                  `<button type="button" class="event-action-btn" data-rate-credit-id="${c.id}" data-score="${score}" aria-label="דירוג ${score}">${score}</button>`
-              )
-              .join("")}
-          </div>
-          <div class="flex gap-2 mt-2">
-            <button type="button" class="rounded-lg bg-green-500/20 border border-green-500/40 text-green-200 px-2 py-1 text-xs" data-rate-credit-id="${c.id}" data-rate-sentiment="like">אהבתי</button>
-            <button type="button" class="rounded-lg bg-red-500/20 border border-red-500/40 text-red-200 px-2 py-1 text-xs" data-rate-credit-id="${c.id}" data-rate-sentiment="dislike">לא אהבתי</button>
-          </div>
-        </div>`;
+      if ((c.professionalName || "") !== (professionalName || "")) return 0;
+      if ((c.category || "") !== (category || "")) return 0;
+      return c.sentiment === "like" ? 1 : 0;
     })
-    .join("");
+    .reduce((a, b) => a + b, 0);
 }
 
 async function addCreditFromForm() {
@@ -1215,20 +1270,31 @@ async function addCreditFromForm() {
     showToast("חסר מידע בקרדיט");
     return;
   }
+  const selectedEvent = events.find((e) => e.id === selectedEventId);
+  if (selectedEvent && !isEventPastByDate(selectedEvent.date)) {
+    showToast("אפשר להוסיף קרדיט רק אחרי שהאירוע התקיים");
+    return;
+  }
+  const isMyEvent = !!selectedEvent && canManageEvent(selectedEvent);
+  const extraContacts = (document.getElementById("creditExtraContacts")?.value || "").trim();
+  const finalNote = [note, isMyEvent && extraContacts ? `פרטים נוספים: ${extraContacts}` : ""]
+    .filter(Boolean)
+    .join(" | ");
 
   try {
-    const initialRatings = { [currentUser.id]: score };
+    const initialRatings = isMyEvent ? {} : { [currentUser.id]: Math.max(3, score) };
+    const finalSentiment = isMyEvent ? "" : "like";
     await Api.createCredit({
       id: crypto.randomUUID(),
       eventId,
       category,
       professionalName,
-      phone,
-      link,
-      note,
+      phone: isMyEvent ? phone : "",
+      link: isMyEvent ? link : "",
+      note: finalNote,
       tags: tags.join("|"),
-      sentiment,
-      contact: [phone, link].filter(Boolean).join(" | "),
+      sentiment: finalSentiment || sentiment,
+      contact: isMyEvent ? [phone, link].filter(Boolean).join(" | ") : "",
       ownerUserId: currentUser.id,
       ownerName: currentUser.parentName,
       ratings: JSON.stringify(initialRatings),
@@ -1242,12 +1308,46 @@ async function addCreditFromForm() {
   }
 }
 
+function updateCreditFormMode() {
+  const selectedEventId = document.getElementById("creditEventId")?.value || "";
+  const ownerBadge = document.getElementById("creditOwnerBadge");
+  const scoreWrap = document.getElementById("creditScoreWrap");
+  const sentimentWrap = document.getElementById("creditSentimentWrap");
+  const dislikeBtn = document.getElementById("creditDislikeBtn");
+  const providerBtn = document.getElementById("toggleProviderDetailsBtn");
+  const detailsWrap = document.getElementById("providerDetailsWrap");
+  const selectedEvent = events.find((e) => e.id === selectedEventId);
+  const isMyEvent = !!selectedEvent && canManageEvent(selectedEvent);
+
+  if (ownerBadge) {
+    ownerBadge.classList.toggle("hidden", !selectedEvent);
+    ownerBadge.textContent = isMyEvent
+      ? "קרדיט אירוע שלי — אפשר להוסיף גם פרטי נותן שירות"
+      : "קרדיט אורח — חיובי בלבד וללא פרטי קשר";
+  }
+  if (scoreWrap) scoreWrap.classList.toggle("hidden", isMyEvent);
+  if (sentimentWrap) sentimentWrap.classList.toggle("hidden", isMyEvent);
+  if (dislikeBtn) dislikeBtn.classList.toggle("hidden", !isMyEvent);
+  if (providerBtn) providerBtn.classList.toggle("hidden", !isMyEvent);
+  if (!isMyEvent && detailsWrap) detailsWrap.classList.add("hidden");
+}
+
+function isEventPastByDate(dateString) {
+  if (!dateString) return false;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const date = new Date(`${dateString}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return false;
+  return date <= today;
+}
+
 function toggleCreditManualEventField() {
   const select = document.getElementById("creditEventId");
   const manualInput = document.getElementById("creditManualEvent");
   if (!select || !manualInput) return;
   const manualMode = select.value === "__manual__";
   manualInput.classList.toggle("hidden", !manualMode);
+  updateCreditFormMode();
 }
 
 function toggleCreditCategoryOtherField() {
@@ -1296,6 +1396,7 @@ function applyPendingCreditEventSelection() {
     select.value = pendingCreditEventId;
   }
   pendingCreditEventId = "";
+  updateCreditFormMode();
 }
 
 async function rateCredit(creditId, score) {
@@ -1318,6 +1419,12 @@ async function rateCredit(creditId, score) {
 async function rateCreditSentiment(creditId, sentiment) {
   const credit = credits.find((c) => c.id === creditId);
   if (!credit) return;
+  const event = events.find((e) => e.id === credit.eventId);
+  const isMyEvent = !!event && canManageEvent(event);
+  if (!isMyEvent && sentiment === "dislike") {
+    showToast("בקרדיט אורחים ניתן לתת רק משוב חיובי");
+    return;
+  }
   try {
     await Api.rateCredit({
       creditId,

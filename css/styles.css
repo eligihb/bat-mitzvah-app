@@ -412,6 +412,41 @@ body {
   animation: fade 0.25s ease;
 }
 
+.my-event-card {
+  border: 1px solid rgba(244, 114, 182, 0.55);
+  box-shadow: 0 0 0 1px rgba(244, 114, 182, 0.2), 0 14px 28px rgba(236, 72, 153, 0.18);
+}
+
+.my-event-title {
+  display: inline-block;
+  margin-bottom: 0.6rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(236, 72, 153, 0.2);
+  border: 1px solid rgba(244, 114, 182, 0.45);
+  color: #fbcfe8;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.past-event-card {
+  filter: grayscale(0.7);
+  opacity: 0.78;
+}
+
+.event-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  color: #ddd6fe;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 @keyframes fade {
   from {
     opacity: 0;
