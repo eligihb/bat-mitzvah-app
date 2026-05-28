@@ -21,6 +21,7 @@ let guestCreditSelectedEventId = "";
 let guestCreditManualEventName = "";
 let guestCreditNoteDraft = "";
 let guestCreditTagsSelected = [];
+let guestCreditFreshLoad = true;
 const CREDIT_SERVICE_TYPES = ["צילום", "מקום אירוע", "מצגת/סרטון", "אוכל", "עיצוב", "הפעלה"];
 let selectedRole = APP_CONFIG.defaultRole;
 let hideGuests = false;
@@ -309,6 +310,7 @@ async function showApp() {
   document.getElementById("appScreen").classList.remove("hidden");
   document.getElementById("bottomNav").classList.remove("hidden");
   document.getElementById("navAdmin").classList.toggle("hidden", !currentUser?.isAdmin);
+  guestCreditFreshLoad = true;
 
   switchTab(activeTab, false);
   await syncFromServer({ silent: true });
@@ -908,7 +910,7 @@ function renderEvents() {
         ? d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })
         : event.time || "—";
 
-    const img = event.image || APP_CONFIG.placeholderImage;
+    const img = sanitizeEventImage(event.image);
     const eventRecommendations = credits
       .filter((c) => !isProviderEntry(c) && String(c.eventId || "") === String(event.id))
       .slice(0, 4);
@@ -1332,11 +1334,17 @@ function renderGuestCreditsForm() {
     creditEventSelect.value = pendingCreditEventId;
     guestCreditSelectedEventId = pendingCreditEventId;
     pendingCreditEventId = "";
+  } else if (guestCreditFreshLoad) {
+    // On full page refresh we always start with empty event selection.
+    creditEventSelect.value = "";
+    guestCreditSelectedEventId = "";
+    guestCreditManualEventName = "";
   } else if (guestCreditSelectedEventId && Array.from(creditEventSelect.options).some((o) => o.value === guestCreditSelectedEventId)) {
     creditEventSelect.value = guestCreditSelectedEventId;
   } else if (guestCreditSelectedEventId === "__external__") {
     creditEventSelect.value = "__external__";
   }
+  guestCreditFreshLoad = false;
   const manualInput = document.getElementById("creditManualEvent");
   if (guestCreditManualEventName) manualInput.value = guestCreditManualEventName;
   creditEventSelect.onchange = () => {
@@ -1371,7 +1379,7 @@ function renderGuestCreditsForm() {
 
 function renderOwnerCreditsForm() {
   const tab = document.getElementById("creditsTab");
-  const myEvent = pastEventsSortedDesc().find((e) => canManageEvent(e));
+  const myEvent = detectMyPastEventForOwnerCredit();
   if (!myEvent) {
     tab.innerHTML = `
       ${creditsTopNav("owner")}
@@ -1422,6 +1430,13 @@ function renderOwnerCreditsForm() {
     document.getElementById("providerCategoryOtherInput").classList.toggle("hidden", e.target.value !== "אחר");
   };
   refreshOwnerProviders();
+}
+
+function detectMyPastEventForOwnerCredit() {
+  const sortedPast = pastEventsSortedDesc();
+  const strict = sortedPast.find((e) => String(e.ownerId || "") === String(currentUser?.id || ""));
+  if (strict) return strict;
+  return sortedPast.find((e) => canManageEvent(e));
 }
 
 function renderCreditsBoard() {
@@ -1894,6 +1909,16 @@ function serviceIcon(name) {
 
 function guestProviderStateReset() {
   Object.keys(guestProviderState).forEach((k) => delete guestProviderState[k]);
+}
+
+function sanitizeEventImage(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return APP_CONFIG.placeholderImage;
+  if (raw.startsWith("data:image/")) return raw;
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  if (raw.startsWith("assets/")) return raw;
+  if (raw === "undefined" || raw === "null") return APP_CONFIG.placeholderImage;
+  return APP_CONFIG.placeholderImage;
 }
 
 function isEventPastByDate(dateString) {

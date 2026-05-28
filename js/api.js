@@ -151,26 +151,41 @@ function sheetDate(value) {
   if (!value) return "";
   if (typeof value === "number") {
     const fromSerial = sheetSerialToDate(value);
-    if (fromSerial) return toIsoDate(fromSerial);
+    if (fromSerial) {
+      const y = fromSerial.getFullYear();
+      if (y < 2020 || y > 2100) return "";
+      return toIsoDate(fromSerial);
+    }
   }
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
-    return value.slice(0, 10);
+    const iso = value.slice(0, 10);
+    const year = Number(iso.slice(0, 4));
+    return year >= 2020 && year <= 2100 ? iso : "";
   }
   if (typeof value === "string") {
     const text = value.trim();
+    if (/^\d{1,2}:\d{2}/.test(text)) return "";
     const dmy = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/.exec(text);
     if (dmy) {
       const d = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
-      if (!Number.isNaN(d.getTime())) return toIsoDate(d);
+      if (!Number.isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        return y >= 2020 && y <= 2100 ? toIsoDate(d) : "";
+      }
     }
     const ymdShort = /^(\d{2})-(\d{2})-(\d{2})$/.exec(text);
     if (ymdShort) {
       const d = new Date(2000 + Number(ymdShort[1]), Number(ymdShort[2]) - 1, Number(ymdShort[3]));
-      if (!Number.isNaN(d.getTime())) return toIsoDate(d);
+      if (!Number.isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        return y >= 2020 && y <= 2100 ? toIsoDate(d) : "";
+      }
     }
   }
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
+  const y = d.getFullYear();
+  if (y < 2020 || y > 2100) return "";
   return toIsoDate(d);
 }
 
