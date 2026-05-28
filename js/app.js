@@ -9,7 +9,8 @@ let messages = [];
 let credits = loadJson("bm_credits") || [];
 let experiences = loadJson("bm_experiences") || [];
 let pendingCreditEventId = "";
-let creditFormTab = "guest";
+let creditScreen = "home";
+let creditBoardExpandedProvider = "";
 let selectedRole = APP_CONFIG.defaultRole;
 let hideGuests = false;
 let syncTimer = null;
@@ -1093,10 +1094,20 @@ function renderMessages() {
 // ─── קרדיטים ───────────────────────────────────────────────
 function bindCredits() {
   document.getElementById("creditsTab").addEventListener("click", (e) => {
-    const tabBtn = e.target.closest("[data-credit-form-tab]");
-    if (tabBtn) {
-      creditFormTab = tabBtn.dataset.creditFormTab || "guest";
+    const screenBtn = e.target.closest("[data-credit-screen]");
+    if (screenBtn) {
+      creditScreen = screenBtn.dataset.creditScreen;
       renderCredits();
+      return;
+    }
+    const toggleBtn = e.target.closest("[data-credit-provider-toggle]");
+    if (toggleBtn) {
+      const card = toggleBtn.closest("[data-provider-card]");
+      if (card) {
+        card.classList.toggle("ring-2");
+        card.classList.toggle("ring-pink-400");
+        card.dataset.selected = card.dataset.selected === "1" ? "0" : "1";
+      }
       return;
     }
     const openProviderBtn = e.target.closest("[data-open-provider-modal]");
@@ -1114,76 +1125,173 @@ function bindCredits() {
       addProviderFromModal();
       return;
     }
-    const rateBtn = e.target.closest("[data-rate-credit-id]");
-    if (rateBtn) {
-      const score = Number(rateBtn.dataset.score || 0);
-      rateCredit(rateBtn.dataset.rateCreditId, score);
-    }
-    const sentimentBtn = e.target.closest("[data-rate-sentiment]");
-    if (sentimentBtn) {
-      rateCreditSentiment(sentimentBtn.dataset.rateCreditId, sentimentBtn.dataset.rateSentiment);
+    const boardProviderBtn = e.target.closest("[data-credit-board-provider]");
+    if (boardProviderBtn) {
+      const name = boardProviderBtn.dataset.creditBoardProvider || "";
+      creditBoardExpandedProvider = creditBoardExpandedProvider === name ? "" : name;
+      renderCredits();
+      return;
     }
   });
 }
 
 function renderCredits() {
   const tab = document.getElementById("creditsTab");
-  const allEventOptions = events.map((e) => `<option value="${e.id}">${e.girlName} • ${e.date}</option>`).join("");
-  const activeGuest = creditFormTab === "guest";
-  const formTitle = activeGuest ? "פרגון לאירוע (לאורחים)" : "המלצות בעל אירוע";
-
-  tab.innerHTML = `
-    <div class="glass rounded-[28px] p-4">
-      <div class="flex gap-2 mb-3">
-        <button type="button" data-credit-form-tab="guest" class="flex-1 rounded-xl p-2 text-sm ${activeGuest ? "bg-pink-500/30 border border-pink-400/50" : "bg-white/10 border border-white/10"}">פרגון לאירוע</button>
-        <button type="button" data-credit-form-tab="owner" class="flex-1 rounded-xl p-2 text-sm ${!activeGuest ? "bg-pink-500/30 border border-pink-400/50" : "bg-white/10 border border-white/10"}">המלצות בעל אירוע</button>
+  if (creditScreen === "home") {
+    tab.innerHTML = `
+      <div class="glass rounded-[28px] p-4 space-y-3">
+        <button type="button" data-credit-screen="guest" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 font-black text-white">פרגן לאירוע של...</button>
+        <button type="button" data-credit-screen="owner" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 font-black text-white">תן המלצה (לבעלי האירוע)</button>
+        <button type="button" data-credit-screen="board" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 font-black text-white">לוח קרדיטים</button>
       </div>
-      <div class="font-black mb-1">${formTitle}</div>
-      <div class="text-xs text-white/60 mb-3">קרדיט ניתן רק לאירוע שכבר התקיים</div>
-      <div class="space-y-2">
-        <select id="creditEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
-          <option value="">בחרי אירוע מתוך הרשימה</option>
-          ${allEventOptions}
-          <option value="__external__">אירוע אחר / חיצוני</option>
-        </select>
-        <input id="creditManualEvent" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם האירוע החיצוני" />
-        <select id="creditProviderSelect" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm"></select>
-        <input id="creditProviderManual" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם נותן שירות (ידני)" />
-        <button type="button" data-open-provider-modal class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">+ הוסף נותן שירות חדש</button>
-        <div class="grid grid-cols-3 gap-2 text-xs">
-          ${["מקצועיות", "שירות", "אדיבות", "מהיר", "יחס", "זמין"]
-            .map(
-              (tag) =>
-                `<label class="rounded-lg border border-white/10 bg-white/5 p-2 flex items-center gap-1 justify-center">
-                  <input type="checkbox" class="creditTag" value="${tag}" />
-                  <span>${tag}</span>
-                </label>`
-            )
+    `;
+    return;
+  }
+  if (creditScreen === "board") {
+    renderCreditsBoard();
+    return;
+  }
+  if (creditScreen === "owner") {
+    renderOwnerCreditsForm();
+    return;
+  }
+  renderGuestCreditsForm();
+}
+
+function renderGuestCreditsForm() {
+  const tab = document.getElementById("creditsTab");
+  const options = pastEventsSortedDesc()
+    .map((e) => `<option value="${e.id}">${e.girlName} • ${e.date}</option>`)
+    .join("");
+  tab.innerHTML = `
+    ${creditsTopNav("guest")}
+    <div class="glass rounded-[28px] p-4 space-y-2">
+      <select id="creditEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">
+        <option value="">בחר אירוע</option>
+        ${options}
+      </select>
+      <input id="creditManualEvent" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם אירוע חיצוני" />
+      <div id="guestProvidersWrap" class="space-y-2"></div>
+      <div class="grid grid-cols-3 gap-2 text-xs">
+        ${renderCreditTagsInputs()}
+      </div>
+      <label class="text-xs text-white/80">דירוג אירוע: <span id="guestEventScoreVal">4</span></label>
+      <input id="guestEventScore" type="range" min="1" max="5" step="1" value="4" class="w-full" />
+      <textarea id="guestCreditNote" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[72px]" placeholder="הערה (אופציונלי)"></textarea>
+      <button type="button" id="publishGuestCreditBtn" class="w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">פרסום</button>
+    </div>
+  `;
+  document.getElementById("creditEventId").onchange = refreshGuestProviders;
+  document.getElementById("guestEventScore").oninput = (e) => (document.getElementById("guestEventScoreVal").textContent = e.target.value);
+  document.getElementById("publishGuestCreditBtn").onclick = publishGuestCredits;
+  refreshGuestProviders();
+}
+
+function renderOwnerCreditsForm() {
+  const tab = document.getElementById("creditsTab");
+  const options = pastEventsSortedDesc()
+    .filter((e) => canManageEvent(e))
+    .map((e) => `<option value="${e.id}">${e.girlName} • ${e.date}</option>`)
+    .join("");
+  tab.innerHTML = `
+    ${creditsTopNav("owner")}
+    <div class="glass rounded-[28px] p-4 space-y-2">
+      <select id="creditEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">
+        <option value="">בחר אירוע שלי</option>
+        ${options}
+      </select>
+      <div id="ownerProvidersWrap" class="space-y-2"></div>
+      <button type="button" data-open-provider-modal class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">+ הוסף נותן שירות חדש</button>
+      <textarea id="ownerCreditNote" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[110px]" placeholder="המלצה מפורטת"></textarea>
+      <label class="text-xs text-white/80">דירוג כללי: <span id="ownerEventScoreVal">4</span></label>
+      <input id="ownerEventScore" type="range" min="1" max="5" step="1" value="4" class="w-full" />
+      <button type="button" id="publishOwnerCreditBtn" class="w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">פרסום</button>
+    </div>
+    ${providerModalTemplate()}
+  `;
+  document.getElementById("creditEventId").onchange = refreshOwnerProviders;
+  document.getElementById("ownerEventScore").oninput = (e) => (document.getElementById("ownerEventScoreVal").textContent = e.target.value);
+  document.getElementById("publishOwnerCreditBtn").onclick = publishOwnerCredits;
+  document.getElementById("providerCategoryInput").onchange = (e) => {
+    document.getElementById("providerCategoryOtherInput").classList.toggle("hidden", e.target.value !== "אחר");
+  };
+  refreshOwnerProviders();
+}
+
+function renderCreditsBoard() {
+  const tab = document.getElementById("creditsTab");
+  const byEvent = new Map();
+  credits.filter((c) => !isProviderEntry(c)).forEach((c) => {
+    if (!byEvent.has(c.eventId)) byEvent.set(c.eventId, []);
+    byEvent.get(c.eventId).push(c);
+  });
+  const blocks = Array.from(byEvent.entries())
+    .map(([eventId, list]) => {
+      const event = events.find((e) => e.id === eventId);
+      const title = event ? `האירוע של ${event.girlName}` : manualEventLabelFromCredit({ eventId });
+      const providers = aggregateProviderScores(list);
+      return `
+        <div class="glass rounded-2xl p-3">
+          <div class="font-black text-sm mb-2">${title}</div>
+          ${providers
+            .map((p) => {
+              const open = creditBoardExpandedProvider === p.name;
+              return `
+                <button type="button" data-credit-board-provider="${escapeHtmlAttr(p.name)}" class="w-full text-right rounded-xl bg-white/5 border border-white/10 p-2 text-sm mb-1">${p.name} • ${p.count} דירוגים</button>
+                ${open ? `<div class="text-xs text-white/70 mb-2">ממוצע: ${p.avg} • אהבו: ${p.likes}</div>` : ""}
+              `;
+            })
             .join("")}
         </div>
-        <label class="text-xs text-white/70">דירוג כללי: <span id="creditScoreValue">4</span></label>
-        <input id="creditScore" type="range" min="1" max="5" step="1" value="4" class="w-full" />
-        <textarea id="creditNote" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[${activeGuest ? "64" : "110"}px]" placeholder="${activeGuest ? "כמה מילים טובות..." : "המלצה מפורטת של בעל האירוע"}"></textarea>
-        <div class="flex gap-2 ${activeGuest ? "hidden" : ""}" id="creditSentimentWrap">
-          <button id="creditLikeBtn" type="button" class="flex-1 rounded-xl bg-green-500/20 border border-green-500/40 p-2 text-sm">אהבתי</button>
-          <button id="creditDislikeBtn" type="button" class="flex-1 rounded-xl bg-red-500/20 border border-red-500/40 p-2 text-sm">לא אהבתי</button>
-        </div>
-        <button id="addCreditBtn" type="button" class="w-full rounded-xl bg-gradient-to-r from-pink-500/80 to-purple-600/80 p-2 text-sm font-bold">פרסום</button>
-      </div>
+      `;
+    })
+    .join("");
+  tab.innerHTML = `
+    ${creditsTopNav("board")}
+    <div class="space-y-3">${blocks || '<div class="text-center text-white/40 text-sm">עדיין אין נתוני קרדיטים</div>'}</div>
+  `;
+}
+
+function creditsTopNav(active) {
+  return `
+    <div class="glass rounded-2xl p-2 mb-3 grid grid-cols-3 gap-2">
+      <button type="button" data-credit-screen="guest" class="rounded-xl p-2 text-xs ${active === "guest" ? "bg-pink-500/30 border border-pink-400/50" : "bg-white/10"}">פרגן לאירוע</button>
+      <button type="button" data-credit-screen="owner" class="rounded-xl p-2 text-xs ${active === "owner" ? "bg-pink-500/30 border border-pink-400/50" : "bg-white/10"}">המלצת בעל אירוע</button>
+      <button type="button" data-credit-screen="board" class="rounded-xl p-2 text-xs ${active === "board" ? "bg-pink-500/30 border border-pink-400/50" : "bg-white/10"}">לוח קרדיטים</button>
     </div>
+  `;
+}
+
+function onCreditEventSelectionChange() {
+  if (creditScreen === "owner") {
+    refreshOwnerProviders();
+    return;
+  }
+  refreshGuestProviders();
+}
+
+function renderCreditTagsInputs() {
+  return ["מקצועיות", "שירות", "אדיבות", "זמינות", "מהיר", "מחיר הוגן"]
+    .map(
+      (tag) => `
+        <label class="rounded-lg border border-white/10 bg-white/5 p-2 flex items-center gap-1 justify-center">
+          <input type="checkbox" class="creditTag" value="${tag}" />
+          <span>${tag}</span>
+        </label>
+      `
+    )
+    .join("");
+}
+
+function providerModalTemplate() {
+  return `
     <div class="glass rounded-[24px] p-3 hidden" id="providerModal">
       <div class="font-black mb-2">נותן שירות חדש</div>
       <input id="providerNameInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="שם נותן השירות" />
       <input id="providerPhoneInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="טלפון" />
       <input id="providerEmailInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="אימייל" />
       <select id="providerCategoryInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2">
-        <option value="צלמת">צלמת</option>
-        <option value="אולם">אולם</option>
-        <option value="בונה מצגות/וידאו">בונה מצגות/וידאו</option>
-        <option value="מפעילה">מפעילה</option>
-        <option value="קייטרינג">קייטרינג</option>
-        <option value="קינוחים">קינוחים</option>
-        <option value="אחר">אחר</option>
+        <option value="צלמת">צלמת</option><option value="אולם">אולם</option><option value="בונה מצגות/וידאו">בונה מצגות/וידאו</option><option value="מפעילה">מפעילה</option><option value="קייטרינג">קייטרינג</option><option value="קינוחים">קינוחים</option><option value="אחר">אחר</option>
       </select>
       <input id="providerCategoryOtherInput" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="קטגוריה אחרת" />
       <div class="flex gap-2">
@@ -1191,130 +1299,175 @@ function renderCredits() {
         <button type="button" data-close-provider-modal class="flex-1 rounded-xl bg-white/5 border border-white/10 p-2 text-sm">סגירה</button>
       </div>
     </div>
-    <div id="creditsFeedList" class="space-y-3"></div>
   `;
+}
 
-  document.getElementById("addCreditBtn").onclick = addCreditFromForm;
-  document.getElementById("creditEventId").onchange = onCreditEventSelectionChange;
-  document.getElementById("creditScore").oninput = (e) => {
-    document.getElementById("creditScoreValue").textContent = e.target.value;
-  };
-  const likeBtn = document.getElementById("creditLikeBtn");
-  const dislikeBtn = document.getElementById("creditDislikeBtn");
-  if (likeBtn) likeBtn.onclick = () => setCreditSentiment("like");
-  if (dislikeBtn) dislikeBtn.onclick = () => setCreditSentiment("dislike");
-  document.getElementById("providerCategoryInput").onchange = (e) => {
-    document.getElementById("providerCategoryOtherInput").classList.toggle("hidden", e.target.value !== "אחר");
-  };
-  applyPendingCreditEventSelection();
-  onCreditEventSelectionChange();
+function pastEventsSortedDesc() {
+  return events
+    .filter((e) => isEventPastByDate(e.date))
+    .sort((a, b) => new Date(`${b.date}T${b.time || "00:00"}`) - new Date(`${a.date}T${a.time || "00:00"}`));
+}
 
-  const feedList = document.getElementById("creditsFeedList");
-  const feedCredits = credits.filter((c) => !isProviderEntry(c)).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  feedList.innerHTML = feedCredits.length
-    ? feedCredits
-        .map((c) => {
-          const event = events.find((e) => e.id === c.eventId);
-          const isOwnerRec = isOwnerRecommendation(c);
-          const likesCount = getProviderLikesCount(c.professionalName, c.category);
-          const eventLabel = event ? `${event.girlName} (${event.date})` : manualEventLabelFromCredit(c);
-          const tags = extractUserTags(c.tags);
-          const values = Object.values(c.ratings || {}).map(Number).filter(Boolean);
-          const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1) : "—";
-          return `
-            <div class="glass rounded-2xl p-3">
-              <div class="flex items-center justify-between gap-2">
-                <div class="font-black text-sm">${c.professionalName || "נותן שירות"}</div>
-                <div class="text-[11px] px-2 py-0.5 rounded-full ${isOwnerRec ? "bg-pink-500/25 text-pink-100" : "bg-cyan-500/20 text-cyan-100"}">${isOwnerRec ? "המלצת בעל אירוע" : "פרגון אורחים"}</div>
-              </div>
-              <div class="text-xs text-white/60 mt-1">${c.category || "שירות"} • ${eventLabel || "אירוע חיצוני"}</div>
-              ${c.note ? `<div class="text-xs text-white/85 mt-2 leading-6">${c.note}</div>` : ""}
-              ${tags.length ? `<div class="text-[11px] text-cyan-200 mt-1">${tags.map((t) => `#${t}`).join(" • ")}</div>` : ""}
-              <div class="text-xs text-green-300 mt-1">אהבו: ${likesCount}</div>
-              <div class="text-xs text-yellow-300 mt-1">דירוג ממוצע: ${avg}</div>
-            </div>`;
-        })
+function refreshGuestProviders() {
+  const eventId = document.getElementById("creditEventId")?.value || "";
+  const wrap = document.getElementById("guestProvidersWrap");
+  if (!wrap) return;
+  document.getElementById("creditManualEvent")?.classList.toggle("hidden", eventId !== "__external__");
+  const providers = collectProvidersForEvent(eventId);
+  wrap.innerHTML = providers.length
+    ? providers
+        .map(
+          (p, i) => `
+            <div class="rounded-xl border border-white/10 bg-white/5 p-2" data-provider-card data-selected="0">
+              <button type="button" data-credit-provider-toggle class="w-full text-right text-sm font-bold">${p.name}${p.category ? ` • ${p.category}` : ""}</button>
+              <label class="text-xs text-white/70">דירוג: <span id="guestProviderScoreVal_${i}">4</span></label>
+              <input id="guestProviderScore_${i}" data-provider-name="${escapeHtmlAttr(p.name)}" data-provider-category="${escapeHtmlAttr(p.category || "")}" type="range" min="1" max="5" step="1" value="4" class="w-full mt-1" />
+            </div>
+          `
+        )
         .join("")
-    : '<div class="text-center text-white/40 text-sm">עדיין אין פרגונים והמלצות</div>';
+    : '<div class="text-xs text-white/50">אין נותני שירות לאירוע זה. אפשר להוסיף ידנית.</div>';
+  providers.forEach((_, i) => {
+    const slider = document.getElementById(`guestProviderScore_${i}`);
+    if (slider) slider.oninput = (e) => (document.getElementById(`guestProviderScoreVal_${i}`).textContent = e.target.value);
+  });
 }
 
-function getProviderLikesCount(professionalName, category) {
-  return credits
-    .map((c) => {
-      if (isProviderEntry(c)) return 0;
-      if ((c.professionalName || "") !== (professionalName || "")) return 0;
-      if ((c.category || "") !== (category || "")) return 0;
-      return c.sentiment === "like" ? 1 : 0;
-    })
-    .reduce((a, b) => a + b, 0);
+function refreshOwnerProviders() {
+  const eventId = document.getElementById("creditEventId")?.value || "";
+  const wrap = document.getElementById("ownerProvidersWrap");
+  if (!wrap) return;
+  const providers = collectProvidersForEvent(eventId);
+  wrap.innerHTML = providers.length
+    ? providers
+        .map(
+          (p, i) => `
+            <div class="rounded-xl border border-white/10 bg-white/5 p-2" data-provider-card data-selected="0">
+              <button type="button" data-credit-provider-toggle class="w-full text-right text-sm font-bold">${p.name}${p.category ? ` • ${p.category}` : ""}</button>
+              <label class="text-xs text-white/70">דירוג ספק: <span id="ownerProviderScoreVal_${i}">4</span></label>
+              <input id="ownerProviderScore_${i}" data-provider-name="${escapeHtmlAttr(p.name)}" data-provider-category="${escapeHtmlAttr(p.category || "")}" type="range" min="1" max="5" step="1" value="4" class="w-full mt-1" />
+            </div>
+          `
+        )
+        .join("")
+    : '<div class="text-xs text-white/50">אין ספקים לאירוע זה. הוסיפי ספק חדש.</div>';
+  providers.forEach((_, i) => {
+    const slider = document.getElementById(`ownerProviderScore_${i}`);
+    if (slider) slider.oninput = (e) => (document.getElementById(`ownerProviderScoreVal_${i}`).textContent = e.target.value);
+  });
 }
 
-async function addCreditFromForm() {
+async function publishGuestCredits() {
   const selectedEventId = document.getElementById("creditEventId").value;
   const manualEvent = document.getElementById("creditManualEvent").value.trim();
-  const providerValue = document.getElementById("creditProviderSelect").value;
-  const providerManual = document.getElementById("creditProviderManual").value.trim();
-  const professionalName = providerValue === "__manual_provider__" ? providerManual : providerValue;
-  const note = document.getElementById("creditNote").value.trim();
-  const tags = Array.from(document.querySelectorAll(".creditTag:checked")).map((el) => el.value);
-  const score = Number(document.getElementById("creditScore").value || 4);
-  const sentiment = creditFormTab === "owner" ? getSelectedCreditSentiment() : "like";
   const eventId = selectedEventId === "__external__" ? `manual:${manualEvent}` : selectedEventId;
-  if (!eventId || !professionalName || (selectedEventId === "__external__" && !manualEvent)) {
-    showToast("חסר מידע לפרסום הקרדיט");
+  if (!eventId || (selectedEventId === "__external__" && !manualEvent)) {
+    showToast("בחרי אירוע");
     return;
   }
   const selectedEvent = events.find((e) => e.id === selectedEventId);
   if (selectedEvent && !isEventPastByDate(selectedEvent.date)) {
-    showToast("אפשר להוסיף קרדיט רק אחרי שהאירוע התקיים");
+    showToast("אפשר לפרגן רק אחרי שהאירוע התקיים");
     return;
   }
-  if (creditFormTab === "owner" && selectedEvent && !canManageEvent(selectedEvent)) {
-    showToast("המלצות בעל אירוע זמינות רק לאירוע שלך");
+  const selectedCards = Array.from(document.querySelectorAll("#guestProvidersWrap [data-provider-card][data-selected='1']"));
+  if (!selectedCards.length) {
+    showToast("בחרי לפחות נותן שירות אחד");
     return;
   }
-
+  const note = document.getElementById("guestCreditNote").value.trim();
+  const eventScore = Number(document.getElementById("guestEventScore").value || 4);
+  const tags = Array.from(document.querySelectorAll(".creditTag:checked")).map((el) => el.value);
   try {
-    await Api.createCredit({
-      id: crypto.randomUUID(),
-      eventId,
-      category: "",
-      professionalName,
-      phone: "",
-      link: "",
-      note,
-      tags: [creditFormTab === "owner" ? "__owner__" : "__guest__", ...tags].join("|"),
-      sentiment,
-      contact: "",
-      ownerUserId: currentUser.id,
-      ownerName: currentUser.parentName,
-      ratings: JSON.stringify({ [currentUser.id]: score }),
-      createdAt: new Date().toISOString(),
-    });
+    for (const card of selectedCards) {
+      const slider = card.querySelector("input[type='range']");
+      const providerName = slider.dataset.providerName || "";
+      const category = slider.dataset.providerCategory || "";
+      const score = Number(slider.value || 4);
+      await Api.createCredit({
+        id: crypto.randomUUID(),
+        eventId,
+        category,
+        professionalName: providerName,
+        note,
+        tags: ["__guest__", ...tags].join("|"),
+        sentiment: "like",
+        ownerUserId: currentUser.id,
+        ownerName: currentUser.parentName,
+        ratings: JSON.stringify({ [currentUser.id]: score, [`${currentUser.id}_event`]: eventScore }),
+        createdAt: new Date().toISOString(),
+      });
+    }
     await syncFromServer({ silent: true });
     showToast("הפרגון פורסם");
+    creditScreen = "board";
     renderCredits();
   } catch (err) {
     console.error(err);
-    showToast("לא הצלחנו לשמור קרדיט בשרת");
+    showToast("לא הצלחנו לפרסם פרגון");
   }
 }
 
-function onCreditEventSelectionChange() {
-  const select = document.getElementById("creditEventId");
-  const manualEventInput = document.getElementById("creditManualEvent");
-  const providerSelect = document.getElementById("creditProviderSelect");
-  if (!select || !manualEventInput || !providerSelect) return;
-  manualEventInput.classList.toggle("hidden", select.value !== "__external__");
-  const providers = collectProvidersForEvent(select.value);
-  providerSelect.innerHTML = `
-    <option value="">בחר נותן שירות</option>
-    ${providers.map((p) => `<option value="${escapeHtmlAttr(p.name)}">${p.name}${p.category ? ` • ${p.category}` : ""}</option>`).join("")}
-    <option value="__manual_provider__">נותן שירות אחר</option>
-  `;
-  providerSelect.onchange = () => {
-    document.getElementById("creditProviderManual").classList.toggle("hidden", providerSelect.value !== "__manual_provider__");
-  };
+async function publishOwnerCredits() {
+  const eventId = document.getElementById("creditEventId").value;
+  if (!eventId) {
+    showToast("בחרי אירוע");
+    return;
+  }
+  const event = events.find((e) => e.id === eventId);
+  if (!event || !canManageEvent(event)) {
+    showToast("ניתן להמליץ רק על האירוע שלך");
+    return;
+  }
+  const selectedCards = Array.from(document.querySelectorAll("#ownerProvidersWrap [data-provider-card][data-selected='1']"));
+  if (!selectedCards.length) {
+    showToast("בחרי לפחות נותן שירות אחד");
+    return;
+  }
+  const note = document.getElementById("ownerCreditNote").value.trim();
+  const eventScore = Number(document.getElementById("ownerEventScore").value || 4);
+  try {
+    for (const card of selectedCards) {
+      const slider = card.querySelector("input[type='range']");
+      const providerName = slider.dataset.providerName || "";
+      const category = slider.dataset.providerCategory || "";
+      const score = Number(slider.value || 4);
+      await Api.createCredit({
+        id: crypto.randomUUID(),
+        eventId,
+        category,
+        professionalName: providerName,
+        note,
+        tags: "__owner__",
+        sentiment: "like",
+        ownerUserId: currentUser.id,
+        ownerName: currentUser.parentName,
+        ratings: JSON.stringify({ [currentUser.id]: score, [`${currentUser.id}_event`]: eventScore }),
+        createdAt: new Date().toISOString(),
+      });
+    }
+    await syncFromServer({ silent: true });
+    showToast("ההמלצה פורסמה");
+    creditScreen = "board";
+    renderCredits();
+  } catch (err) {
+    console.error(err);
+    showToast("לא הצלחנו לפרסם המלצה");
+  }
+}
+
+function aggregateProviderScores(list) {
+  const map = new Map();
+  list.forEach((c) => {
+    const key = `${c.professionalName}@@${c.category || ""}`;
+    if (!map.has(key)) map.set(key, { name: c.professionalName, category: c.category || "", total: 0, count: 0, likes: 0 });
+    const item = map.get(key);
+    const values = Object.values(c.ratings || {}).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    item.total += values.reduce((a, b) => a + b, 0);
+    item.count += values.length;
+    if (c.sentiment === "like") item.likes += 1;
+  });
+  return Array.from(map.values()).map((x) => ({ ...x, avg: x.count ? (x.total / x.count).toFixed(1) : "—" }));
 }
 
 function collectProvidersForEvent(eventId) {
@@ -1323,9 +1476,7 @@ function collectProvidersForEvent(eventId) {
     if (String(c.eventId || "") !== String(eventId || "")) return;
     if (!c.professionalName) return;
     const key = c.professionalName.trim();
-    if (!providers.has(key)) {
-      providers.set(key, { name: key, category: c.category || "" });
-    }
+    if (!providers.has(key)) providers.set(key, { name: key, category: c.category || "" });
   });
   return Array.from(providers.values());
 }
@@ -1361,7 +1512,7 @@ async function addProviderFromModal() {
     });
     await syncFromServer({ silent: true });
     document.getElementById("providerModal").classList.add("hidden");
-    showToast("נותן השירות נוסף ומוכן להמלצה");
+    showToast("נותן השירות נוסף");
     renderCredits();
   } catch (err) {
     console.error(err);
@@ -1406,14 +1557,6 @@ function isEventPastByDate(dateString) {
   return date <= today;
 }
 
-function toggleCreditManualEventField() {
-  const select = document.getElementById("creditEventId");
-  const manualInput = document.getElementById("creditManualEvent");
-  if (!select || !manualInput) return;
-  const manualMode = select.value === "__external__";
-  manualInput.classList.toggle("hidden", !manualMode);
-}
-
 function setCreditSentiment(type) {
   const likeBtn = document.getElementById("creditLikeBtn");
   const dislikeBtn = document.getElementById("creditDislikeBtn");
@@ -1436,9 +1579,7 @@ function applyPendingCreditEventSelection() {
   const select = document.getElementById("creditEventId");
   if (!select || !pendingCreditEventId) return;
   const exists = Array.from(select.options).some((o) => o.value === pendingCreditEventId);
-  if (exists) {
-    select.value = pendingCreditEventId;
-  }
+  if (exists) select.value = pendingCreditEventId;
   pendingCreditEventId = "";
   onCreditEventSelectionChange();
 }
