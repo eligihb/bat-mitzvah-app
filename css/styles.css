@@ -244,30 +244,41 @@ body {
   background: #fff;
 }
 
+.role-switch {
+  display: flex;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.role-btn-base {
+  width: 46%;
+  max-width: 8.9rem;
+}
+
 .role-mom-active {
-  background: linear-gradient(135deg, #f472b6, #ec4899);
+  background: linear-gradient(135deg, #ff8bc3, #ec4899);
   color: white;
-  box-shadow: 0 6px 16px rgba(236, 72, 153, 0.35);
+  box-shadow: 0 6px 16px rgba(236, 72, 153, 0.28);
   border: 2px solid #ec4899;
 }
 
 .role-mom-idle {
-  background: rgba(252, 231, 243, 0.9);
+  background: rgba(255, 255, 255, 0.45);
   color: #be185d;
-  border: 2px solid rgba(236, 72, 153, 0.35);
+  border: 2px solid rgba(236, 72, 153, 0.22);
 }
 
 .role-dad-active {
-  background: linear-gradient(135deg, #60a5fa, #2563eb);
+  background: linear-gradient(135deg, #7ab8ff, #2563eb);
   color: white;
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
   border: 2px solid #2563eb;
 }
 
 .role-dad-idle {
-  background: rgba(219, 234, 254, 0.95);
+  background: rgba(255, 255, 255, 0.45);
   color: #1d4ed8;
-  border: 2px solid rgba(37, 99, 235, 0.35);
+  border: 2px solid rgba(37, 99, 235, 0.24);
 }
 
 .twin-row {
@@ -340,6 +351,18 @@ body {
   letter-spacing: 0.08em;
 }
 
+.login-footer-inline {
+  margin-top: 0.95rem;
+  text-align: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: rgba(107, 33, 168, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.45;
+}
+
 .twin-field-wrap.is-hidden {
   display: none;
 }
@@ -350,7 +373,7 @@ body {
 
 .phoneCell {
   width: 34px;
-  height: 48px;
+  height: 42px;
   border-radius: 14px;
   text-align: center;
   font-weight: 900;
@@ -360,9 +383,9 @@ body {
 /* מסך כניסה — חייב אחרי .phoneCell כדי לא לדרוס */
 .phoneCell.phoneCell-light {
   background: #ffffff;
-  border: 2px solid #ec4899;
+  border: 1.5px solid #ec4899;
   color: #1e1b4b;
-  font-size: 1.125rem;
+  font-size: 1.02rem;
   font-weight: 800;
   box-shadow: 0 2px 6px rgba(236, 72, 153, 0.12);
 }
