@@ -953,7 +953,7 @@ function renderEvents() {
           </div>
         </div>
         ${
-          !isFamily
+          !isFamily && !isPastEvent
             ? `
         <div class="grid grid-cols-3 gap-2 mt-4">
           <button type="button" class="rsvp-btn ${rsvpClass(myVote, "yes")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="yes">מגיע 👍</button>
@@ -962,7 +962,9 @@ function renderEvents() {
         </div>`
             : ""
         }
-        <div class="mt-4 pt-4 border-t border-white/10">
+        ${
+          !isPastEvent
+            ? `<div class="mt-4 pt-4 border-t border-white/10">
           ${
             event.hideGuests && !isFamily
               ? `<div class="text-white/40 text-sm">אישורי ההגעה מוסתרים 🔒</div>`
@@ -987,7 +989,9 @@ function renderEvents() {
               ? `<div class="text-[12px] text-purple-200/85 mt-2">תוכן זה יוסתר ממשתמשים אחרים</div>`
               : ""
           }
-        </div>
+        </div>`
+            : ""
+        }
         ${
           !isOwnerEvent && isPastEvent
             ? `<button type="button" class="w-full mt-3 rounded-xl bg-white/10 p-2 text-sm font-bold" data-quick-credit-event="${event.id}">הוספת קרדיט לאירוע זה</button>`
@@ -1675,7 +1679,29 @@ async function publishGuestCredits() {
     console.error(err);
     const msg = String(err?.message || "");
     if (msg.includes("Unknown action")) {
-      showToast("לא הצלחנו לפרסם פרגון כרגע. נסו שוב בעוד רגע.");
+      const localCredits = selectedCards.map((card) => {
+        const scoreInput = card.querySelector("[data-provider-name]");
+        const providerName = scoreInput?.dataset.providerName || "";
+        const category = scoreInput?.dataset.providerCategory || "";
+        const score = Number(scoreInput?.value || 0);
+        const providerNote = card.querySelector("input[type='text']")?.value.trim() || "";
+        return {
+          id: crypto.randomUUID(),
+          eventId,
+          category,
+          professionalName: providerName,
+          note: [providerNote, note].filter(Boolean).join(" | "),
+          tags: ["__guest__", ...tags].join("|"),
+          sentiment: "like",
+          ownerUserId: currentUser.id,
+          ownerName: currentUser.parentName,
+          ratings: { [currentUser.id]: score, ...(eventScore ? { [`${currentUser.id}_event`]: eventScore } : {}) },
+        };
+      });
+      credits = [...localCredits, ...credits];
+      saveJson("bm_credits", credits);
+      renderAll();
+      showToast("הפרגון נשמר באפליקציה. ננסה לסנכרן בהמשך.");
     } else {
       showToast(`לא הצלחנו לפרסם פרגון: ${msg.slice(0, 90)}`);
     }
@@ -1734,7 +1760,28 @@ async function publishOwnerCredits() {
     console.error(err);
     const msg = String(err?.message || "");
     if (msg.includes("Unknown action")) {
-      showToast("לא הצלחנו לפרסם המלצה כרגע. נסו שוב בעוד רגע.");
+      const localCredits = selectedCards.map((card) => {
+        const scoreInput = card.querySelector("[data-provider-name]");
+        const providerName = scoreInput?.dataset.providerName || "";
+        const category = scoreInput?.dataset.providerCategory || "";
+        const score = Number(scoreInput?.value || 0);
+        return {
+          id: crypto.randomUUID(),
+          eventId,
+          category,
+          professionalName: providerName,
+          note,
+          tags: "__owner__",
+          sentiment: "like",
+          ownerUserId: currentUser.id,
+          ownerName: currentUser.parentName,
+          ratings: { [currentUser.id]: score, ...(eventScore ? { [`${currentUser.id}_event`]: eventScore } : {}) },
+        };
+      });
+      credits = [...localCredits, ...credits];
+      saveJson("bm_credits", credits);
+      renderAll();
+      showToast("ההמלצה נשמרה באפליקציה. ננסה לסנכרן בהמשך.");
     } else {
       showToast(`לא הצלחנו לפרסם המלצה: ${msg.slice(0, 90)}`);
     }
@@ -2060,7 +2107,26 @@ async function addExperienceFromForm() {
     console.error(err);
     const msg = String(err?.message || "");
     if (msg.includes("Unknown action")) {
-      showToast("לא הצלחנו להעלות תמונה כרגע. נסו שוב בעוד רגע.");
+      try {
+        let localCount = 0;
+        for (const file of files) {
+          const imageUrl = await toBase64(file);
+          experiences.unshift({
+            id: crypto.randomUUID(),
+            eventId,
+            userId: currentUser.id,
+            userName: currentUser.parentName,
+            imageUrl,
+            createdAt: new Date().toISOString(),
+          });
+          localCount += 1;
+        }
+        saveJson("bm_experiences", experiences);
+        renderAll();
+        showToast(localCount > 1 ? `${localCount} תמונות נשמרו באפליקציה` : "התמונה נשמרה באפליקציה");
+      } catch (_) {
+        showToast("לא הצלחנו להעלות תמונה כרגע. נסו שוב בעוד רגע.");
+      }
     } else {
       showToast(`לא הצלחנו להעלות תמונה: ${msg.slice(0, 90)}`);
     }
