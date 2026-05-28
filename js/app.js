@@ -16,6 +16,23 @@ let editingEventImage = "";
 let isSavingEvent = false;
 let selectedEventMenuChoice = "";
 
+function normalizePhone(phone) {
+  return (phone || "").replace(/[^0-9]/g, "");
+}
+
+function isAdminByPhoneAndPass(phone, pass) {
+  const normalized = normalizePhone(phone);
+  if (!normalized || pass !== APP_CONFIG.adminPassword) return false;
+
+  const key = APP_CONFIG.storageKeys.adminPhone;
+  const savedAdminPhone = localStorage.getItem(key);
+  if (!savedAdminPhone) {
+    localStorage.setItem(key, normalized);
+    return true;
+  }
+  return savedAdminPhone === normalized;
+}
+
 // ─── הפעלה ─────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   bindPhoneCells();
@@ -98,6 +115,7 @@ function renderAll() {
   renderEvents();
   renderCalendar();
   renderMessages();
+  renderAdminPanel();
   updateAddButton();
 }
 
@@ -109,6 +127,7 @@ function bindLogin() {
     const parentName = document.getElementById("parentName").value.trim();
     const girlName = document.getElementById("girlName").value.trim();
     const twinName = document.getElementById("twinName").value.trim();
+    const adminPass = document.getElementById("adminPass").value.trim();
 
     if (!parentName || !girlName) {
       alert("יש למלא את כל שדות החובה");
@@ -137,6 +156,7 @@ function bindLogin() {
       girlName,
       twinName: twinName || "",
       phone,
+      isAdmin: isAdminByPhoneAndPass(phone, adminPass),
     };
 
     saveJson(APP_CONFIG.storage.user, currentUser);
@@ -208,6 +228,7 @@ async function showApp() {
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("appScreen").classList.remove("hidden");
   document.getElementById("bottomNav").classList.remove("hidden");
+  document.getElementById("navAdmin").classList.toggle("hidden", !currentUser?.isAdmin);
 
   switchTab(activeTab, false);
   await syncFromServer();
@@ -243,6 +264,7 @@ function logout() {
   setTwinFieldOpen(false);
 
   document.getElementById("addBtn").classList.add("hidden");
+  document.getElementById("navAdmin").classList.add("hidden");
 
   switchTab("events", false);
 }
@@ -250,6 +272,10 @@ function logout() {
 // ─── כותרת ─────────────────────────────────────────────────
 function renderHeader() {
   document.getElementById("headerName").textContent = currentUser.parentName;
+  if (currentUser.isAdmin) {
+    document.getElementById("headerRole").textContent = "מנהל מערכת";
+    return;
+  }
   const girls = currentUser.twinName
     ? `${currentUser.girlName} ו${currentUser.twinName}`
     : currentUser.girlName;
@@ -338,6 +364,7 @@ function setEventMenuValue(value) {
 }
 
 function canManageEvent(event) {
+  if (currentUser?.isAdmin) return true;
   return event.girlName === currentUser.girlName;
 }
 
@@ -538,6 +565,45 @@ async function toggleEventGuestsVisibility(eventId) {
     renderEvents();
     alert("לא הצלחנו לעדכן את מצב ההסתרה.");
   }
+}
+
+function renderAdminPanel() {
+  const tab = document.getElementById("adminTab");
+  if (!tab) return;
+  if (!currentUser?.isAdmin) {
+    tab.innerHTML = "";
+    return;
+  }
+
+  const sorted = [...events].sort((a, b) =>
+    `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
+  );
+
+  tab.innerHTML = `
+    <div class="glass rounded-[28px] p-4 mb-4">
+      <div class="font-black mb-2">פאנל ניהול</div>
+      <div class="text-sm text-white/60 mb-3">אירועים: ${events.length} | הודעות: ${messages.length}</div>
+      <button type="button" id="adminRefreshBtn" class="w-full rounded-xl bg-white/10 p-2 text-sm font-bold">רענון נתונים</button>
+    </div>
+    <div class="space-y-3">
+      ${sorted
+        .map(
+          (event) => `
+        <div class="glass rounded-2xl p-3">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="font-black text-sm">בת מצווה ל${event.girlName}</div>
+              <div class="text-xs text-white/50 mt-1">${event.date} • ${event.time}</div>
+            </div>
+            <button type="button" class="event-action-btn delete" data-admin-delete-id="${event.id}" aria-label="מחיקת אירוע">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>`
+        )
+        .join("")}
+    </div>
+  `;
 }
 
 // ─── רשימת אירועים ─────────────────────────────────────────
@@ -757,13 +823,30 @@ function bindNavigation() {
     if (!btn) return;
     vote(btn.dataset.eventId, btn.dataset.vote);
   });
+
+  document.getElementById("adminTab").addEventListener("click", async (e) => {
+    const delBtn = e.target.closest("[data-admin-delete-id]");
+    if (delBtn) {
+      await deleteEventById(delBtn.dataset.adminDeleteId);
+      return;
+    }
+
+    if (e.target.closest("#adminRefreshBtn")) {
+      await syncFromServer();
+    }
+  });
 }
 
 function switchTab(tab, shouldSync = true) {
+  if (tab === "admin" && !currentUser?.isAdmin) {
+    tab = "events";
+  }
+
   const map = {
     events: "eventsTab",
     calendar: "calendarTab",
     messages: "messagesTab",
+    admin: "adminTab",
   };
 
   if (!map[tab]) return;

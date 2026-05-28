@@ -7,7 +7,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=8" />
+  <link rel="stylesheet" href="css/styles.css?v=9" />
 </head>
 <body>
 
@@ -94,6 +94,11 @@
                 </div>
               </div>
 
+              <div>
+                <label class="login-label" for="adminPass">קוד מנהל (אופציונלי)</label>
+                <input id="adminPass" type="password" class="login-input" placeholder="למנהל בלבד" />
+              </div>
+
               <button type="submit" class="login-submit w-full rounded-2xl p-3 font-black text-white">
                 כניסה לישומון
               </button>
@@ -142,6 +147,7 @@
 
       <div id="eventsTab" class="tab p-4 space-y-4"></div>
       <div id="calendarTab" class="tab p-4"></div>
+      <div id="adminTab" class="tab p-4"></div>
 
       <div id="messagesTab" class="tab p-4 space-y-4">
         <div class="glass rounded-[28px] p-4">
@@ -244,6 +250,10 @@
         <i class="fa-solid fa-bell text-lg"></i>
         <span class="text-[11px]">הודעות</span>
       </button>
+      <button type="button" id="navAdmin" data-tab="admin" class="hidden nav-tab nav-tab-idle flex-1 flex flex-col items-center justify-center gap-1">
+        <i class="fa-solid fa-user-shield text-lg"></i>
+        <span class="text-[11px]">ניהול</span>
+      </button>
       <button type="button" id="navAdd" class="nav-tab nav-tab-idle flex-1 flex flex-col items-center justify-center gap-1">
         <i class="fa-solid fa-plus text-lg"></i>
         <span class="text-[11px]">הוסף</span>
@@ -252,8 +262,8 @@
 
   </div>
 
-  <script src="js/config.js?v=8"></script>
-  <script src="js/api.js?v=8"></script>
-  <script src="js/app.js?v=8"></script>
+  <script src="js/config.js?v=9"></script>
+  <script src="js/api.js?v=9"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 </html>

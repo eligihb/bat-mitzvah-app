@@ -21,4 +21,8 @@ const APP_CONFIG = {
   defaultRole: "אמא",
   placeholderImage: "assets/default-girl12.svg",
   syncIntervalMs: 30000,
+  adminPassword: "1234",
+  storageKeys: {
+    adminPhone: "bm_admin_phone",
+  },
 };
