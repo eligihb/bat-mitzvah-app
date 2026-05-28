@@ -916,9 +916,22 @@ function renderEvents() {
     container.insertAdjacentHTML(
       "beforeend",
       `
-      <div class="event-card glass rounded-[34px] p-5 ${isOwnerEvent ? "my-event-card" : ""} ${isPastEvent ? "past-event-card" : ""}">
+      <div class="event-card event-card-shell glass rounded-[34px] p-5 ${isOwnerEvent ? "my-event-card" : ""} ${isPastEvent ? "past-event-card" : ""}">
         ${isTomorrowEvent ? '<div class="my-event-title" style="background:rgba(244,63,94,.22);border-color:rgba(251,113,133,.7);color:#ffe4e6;">האירוע מתקיים בעוד יום</div>' : ""}
         ${isOwnerEvent ? '<div class="my-event-title">האירוע שלי</div>' : ""}
+        ${
+          isFamily
+            ? `
+        <div class="event-actions event-actions-top-left">
+          <button type="button" class="event-action-btn compact edit" data-edit-id="${event.id}" aria-label="עריכה">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button type="button" class="event-action-btn compact delete" data-delete-id="${event.id}" aria-label="מחיקה">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>`
+            : ""
+        }
         <div class="flex gap-3 items-start">
           <div class="flex gap-4 flex-1 min-w-0">
             <img src="${img}" class="w-20 h-20 shrink-0 rounded-full object-cover border-4 border-white/10" alt="">
@@ -929,19 +942,6 @@ function renderEvents() {
               <div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">${event.menu}</div>
             </div>
           </div>
-          ${
-            isFamily
-              ? `
-          <div class="event-actions">
-            <button type="button" class="event-action-btn edit" data-edit-id="${event.id}" aria-label="עריכה">
-              <i class="fa-solid fa-pen"></i>
-            </button>
-            <button type="button" class="event-action-btn delete" data-delete-id="${event.id}" aria-label="מחיקה">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>`
-              : ""
-          }
         </div>
         <div class="bg-white/5 rounded-2xl p-4 mt-4 text-sm space-y-2">
           <div>📍 ${event.location}</div>
@@ -1647,7 +1647,8 @@ async function publishGuestCredits() {
         return;
       }
       const providerNote = card.querySelector("input[type='text']")?.value.trim() || "";
-      await Api.createCredit({
+      await retryApiCall(() =>
+        Api.createCredit({
         id: crypto.randomUUID(),
         eventId,
         category,
@@ -1659,7 +1660,8 @@ async function publishGuestCredits() {
         ownerName: currentUser.parentName,
         ratings: JSON.stringify({ [currentUser.id]: score, ...(eventScore ? { [`${currentUser.id}_event`]: eventScore } : {}) }),
         createdAt: new Date().toISOString(),
-      });
+      })
+      );
     }
     await syncFromServer({ silent: true });
     showToast("הפרגון פורסם");
@@ -1708,7 +1710,8 @@ async function publishOwnerCredits() {
         showToast(`חסר דירוג לספק: ${providerName || category || "ספק"}`);
         return;
       }
-      await Api.createCredit({
+      await retryApiCall(() =>
+        Api.createCredit({
         id: crypto.randomUUID(),
         eventId,
         category,
@@ -1720,7 +1723,8 @@ async function publishOwnerCredits() {
         ownerName: currentUser.parentName,
         ratings: JSON.stringify({ [currentUser.id]: score, ...(eventScore ? { [`${currentUser.id}_event`]: eventScore } : {}) }),
         createdAt: new Date().toISOString(),
-      });
+      })
+      );
     }
     await syncFromServer({ silent: true });
     showToast("ההמלצה פורסמה");
@@ -1973,8 +1977,8 @@ function renderExperiences() {
         <option value="__external__">אירוע אחר / חיצוני</option>
       </select>
       <input id="expEventManual" class="hidden w-full mt-2 rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם אירוע חיצוני" />
-      <input id="expImageFile" type="file" accept="image/*" class="w-full mt-2 text-sm" />
-      <button id="addExperienceBtn" type="button" class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">העלי תמונה לאלבום</button>
+      <input id="expImageFile" type="file" accept="image/*" multiple class="w-full mt-2 text-sm" />
+      <button id="addExperienceBtn" type="button" class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">העלה/י תמונה לאלבום המשותף</button>
     </div>
     <div id="experiencesList" class="space-y-4"></div>
   `;
@@ -2018,42 +2022,47 @@ async function addExperienceFromForm() {
   const selected = document.getElementById("expEventId").value;
   const manualEvent = document.getElementById("expEventManual").value.trim();
   const eventId = selected === "__external__" ? `manual:${manualEvent}` : selected;
-  let imageUrl = "";
-  const file = document.getElementById("expImageFile").files[0];
-  if (!eventId || (selected === "__external__" && !manualEvent) || !file) {
+  const files = Array.from(document.getElementById("expImageFile").files || []);
+  if (!eventId || (selected === "__external__" && !manualEvent) || !files.length) {
     showToast("בחר/י אירוע והעלה/י תמונה");
     return;
   }
   try {
-    const dataUrl = await toBase64(file);
-    const parts = splitDataUrl(dataUrl);
-    const upload = await Api.uploadExperienceImage({
-      fileName: file.name || `exp_${Date.now()}.jpg`,
-      mimeType: file.type || parts.mimeType,
-      base64Data: parts.base64,
-    });
-    imageUrl = upload.imageUrl || imageUrl;
-    if (!imageUrl) {
-      throw new Error("לא התקבל קישור תמונה מהשרת");
-    }
+    let uploadedCount = 0;
+    for (const file of files) {
+      const dataUrl = await toBase64(file);
+      const parts = splitDataUrl(dataUrl);
+      const upload = await retryApiCall(() =>
+        Api.uploadExperienceImage({
+          fileName: file.name || `exp_${Date.now()}.jpg`,
+          mimeType: file.type || parts.mimeType,
+          base64Data: parts.base64,
+        })
+      );
+      const imageUrl = upload.imageUrl || "";
+      if (!imageUrl) throw new Error("לא התקבל קישור תמונה מהשרת");
 
-    await Api.createExperience({
-      id: crypto.randomUUID(),
-      eventId,
-      userId: currentUser.id,
-      userName: currentUser.parentName,
-      imageUrl,
-      createdAt: new Date().toISOString(),
-    });
+      await retryApiCall(() =>
+        Api.createExperience({
+          id: crypto.randomUUID(),
+          eventId,
+          userId: currentUser.id,
+          userName: currentUser.parentName,
+          imageUrl,
+          createdAt: new Date().toISOString(),
+        })
+      );
+      uploadedCount += 1;
+    }
     await syncFromServer({ silent: true });
-    showToast("החוויה פורסמה");
+    showToast(uploadedCount > 1 ? `${uploadedCount} תמונות עלו לאלבום` : "התמונה עלתה לאלבום המשותף");
   } catch (err) {
     console.error(err);
     const msg = String(err?.message || "");
     if (msg.includes("Unknown action")) {
       showToast("לא הצלחנו להעלות תמונה כרגע. נסו שוב בעוד רגע.");
     } else {
-      showToast(`לא הצלחנו לפרסם חוויה: ${msg.slice(0, 90)}`);
+      showToast(`לא הצלחנו להעלות תמונה: ${msg.slice(0, 90)}`);
     }
   }
 }
@@ -2207,4 +2216,19 @@ function splitDataUrl(dataUrl) {
     mimeType: mimeMatch ? mimeMatch[1] : "image/jpeg",
     base64: base64 || "",
   };
+}
+
+async function retryApiCall(fn, retries = 1) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 450));
+      }
+    }
+  }
+  throw lastErr;
 }

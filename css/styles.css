@@ -688,6 +688,19 @@ body {
   flex-shrink: 0;
 }
 
+.event-card-shell {
+  position: relative;
+}
+
+.event-actions-top-left {
+  position: absolute;
+  top: 0.8rem;
+  left: 0.8rem;
+  flex-direction: row;
+  gap: 0.35rem;
+  z-index: 2;
+}
+
 .event-action-btn {
   width: 2.25rem;
   height: 2.25rem;
@@ -699,6 +712,13 @@ body {
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
+}
+
+.event-action-btn.compact {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.6rem;
+  font-size: 0.75rem;
 }
 
 .event-action-btn:hover {

@@ -149,19 +149,39 @@ function toBool(value) {
 
 function sheetDate(value) {
   if (!value) return "";
+  if (typeof value === "number") {
+    const fromSerial = sheetSerialToDate(value);
+    if (fromSerial) return toIsoDate(fromSerial);
+  }
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
     return value.slice(0, 10);
   }
+  if (typeof value === "string") {
+    const text = value.trim();
+    const dmy = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/.exec(text);
+    if (dmy) {
+      const d = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
+      if (!Number.isNaN(d.getTime())) return toIsoDate(d);
+    }
+    const ymdShort = /^(\d{2})-(\d{2})-(\d{2})$/.exec(text);
+    if (ymdShort) {
+      const d = new Date(2000 + Number(ymdShort[1]), Number(ymdShort[2]) - 1, Number(ymdShort[3]));
+      if (!Number.isNaN(d.getTime())) return toIsoDate(d);
+    }
+  }
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return toIsoDate(d);
 }
 
 function sheetTime(value) {
   if (!value) return "";
+  if (typeof value === "number" && value > 0 && value < 1) {
+    const totalMinutes = Math.round(value * 24 * 60);
+    const h = String(Math.floor(totalMinutes / 60) % 24).padStart(2, "0");
+    const m = String(totalMinutes % 60).padStart(2, "0");
+    return `${h}:${m}`;
+  }
   if (typeof value === "string" && /^\d{1,2}:\d{2}/.test(value)) {
     const [h, m] = value.split(":");
     return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
@@ -180,4 +200,20 @@ function formatTimestamp(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleString("he-IL");
+}
+
+function sheetSerialToDate(serial) {
+  const n = Number(serial);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const base = Date.UTC(1899, 11, 30);
+  const ms = base + Math.round(n * 86400000);
+  const d = new Date(ms);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toIsoDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
