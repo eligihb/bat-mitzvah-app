@@ -8,6 +8,7 @@ let events = [];
 let messages = [];
 let credits = loadJson("bm_credits") || [];
 let experiences = loadJson("bm_experiences") || [];
+let pendingCreditEventId = "";
 let selectedRole = APP_CONFIG.defaultRole;
 let hideGuests = false;
 let syncTimer = null;
@@ -92,8 +93,8 @@ async function syncFromServer({ silent = false } = {}) {
     );
     events = normalized.events;
     messages = normalized.messages;
-    if (normalized.credits?.length) credits = normalized.credits;
-    if (normalized.experiences?.length) experiences = normalized.experiences;
+    credits = normalized.credits || [];
+    experiences = normalized.experiences || [];
     saveJson("bm_credits", credits);
     saveJson("bm_experiences", experiences);
     renderAll();
@@ -338,7 +339,7 @@ function logout() {
 function renderHeader() {
   const hour = new Date().getHours();
   const greet = hour < 12 ? "בוקר טוב" : hour < 18 ? "צהריים טובים" : "ערב טוב";
-  document.getElementById("headerGreeting").textContent = `${greet} ${currentUser.parentName}`;
+  document.getElementById("headerGreeting").textContent = greet;
   if (currentUser.isAdmin) {
     document.getElementById("headerRole").textContent = "מנהל מערכת";
     setContactActions();
@@ -360,6 +361,9 @@ function setContactActions() {
 
   callBtn.classList.toggle("opacity-40", !enabled);
   waBtn.classList.toggle("opacity-40", !enabled);
+  callBtn.classList.toggle("text-emerald-300", enabled);
+  waBtn.classList.toggle("text-green-400", enabled);
+  waBtn.classList.toggle("bg-green-500/20", enabled);
   callBtn.disabled = !enabled;
   waBtn.disabled = !enabled;
 
@@ -518,6 +522,7 @@ function setEventMenuValue(value) {
 
 function canManageEvent(event) {
   if (currentUser?.isAdmin) return true;
+  if (event.ownerId && currentUser?.id && String(event.ownerId) === String(currentUser.id)) return true;
   return (
     event.girlName === currentUser.girlName &&
     (event.familyName || "") === (currentUser.familyName || "")
@@ -912,16 +917,32 @@ function renderEvents() {
             event.hideGuests && !isFamily
               ? `<div class="text-white/40 text-sm">אישורי ההגעה מוסתרים 🔒</div>`
               : `
-          <div class="flex items-center justify-between gap-2 text-sm">
-            ${isFamily ? `<button type="button" class="hide-rsvp-btn" data-toggle-hide-id="${event.id}"><i class="fa-solid fa-eye-slash"></i>${event.hideGuests ? "הצג" : "הסתר"}</button>` : "<span></span>"}
-            <div class="flex gap-4 flex-wrap">
+          <div class="rsvp-summary-row text-sm">
+            <div class="flex gap-4 flex-wrap rsvp-summary-counts">
             <div class="text-green-300">מגיעים: ${yes}</div>
             <div class="text-yellow-300">אולי: ${maybe}</div>
             <div class="text-red-300">לא מגיעים: ${no}</div>
             </div>
+            ${
+              isFamily
+                ? `<button type="button" class="hide-rsvp-btn" data-toggle-hide-id="${event.id}" title="הסתר ממשתמשים אחרים" aria-label="הסתר תוכן ממשתמשים אחרים">
+                    <i class="fa-solid fa-eye-slash"></i>
+                  </button>`
+                : ""
+            }
           </div>`
           }
+          ${
+            isFamily && event.hideGuests
+              ? `<div class="text-[12px] text-purple-200/85 mt-2">תוכן זה יוסתר ממשתמשים אחרים</div>`
+              : ""
+          }
         </div>
+        ${
+          isFamily
+            ? `<button type="button" class="w-full mt-3 rounded-xl bg-white/10 p-2 text-sm font-bold" data-quick-credit-event="${event.id}">הוספת קרדיט לאירוע זה</button>`
+            : ""
+        }
       </div>`
     );
   });
@@ -980,7 +1001,9 @@ function renderCalendar() {
             ? dayEvents
                 .map(
                   (e) =>
-                    `<button type="button" class="bg-pink-500 rounded-xl p-1 text-[10px] mb-1 w-full text-right" data-calendar-event-id="${e.id}">${e.girlName}</button>`
+                    `<button type="button" class="rounded-xl p-1.5 text-[10px] mb-1 w-full text-right whitespace-normal break-words leading-tight ${calendarGirlColorClass(
+                      e.girlName
+                    )}" data-calendar-event-id="${e.id}">${e.girlName}</button>`
                 )
                 .join("")
             : `<div class="calendar-no-event">אין אירועים</div>`
@@ -993,6 +1016,14 @@ function renderCalendar() {
       ${weekdays.map((d) => `<div>${d}</div>`).join("")}
     </div>
     <div class="grid grid-cols-7 gap-2">${cells}</div>`;
+}
+
+function calendarGirlColorClass(girlName) {
+  const palette = ["bg-pink-500", "bg-purple-500", "bg-fuchsia-500", "bg-rose-500", "bg-indigo-500", "bg-violet-500"];
+  const str = String(girlName || "");
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i);
+  return `${palette[Math.abs(hash) % palette.length]} text-white`;
 }
 
 // ─── הודעות ────────────────────────────────────────────────
@@ -1049,24 +1080,61 @@ function bindCredits() {
       const score = Number(rateBtn.dataset.score || 0);
       rateCredit(rateBtn.dataset.rateCreditId, score);
     }
+    const sentimentBtn = e.target.closest("[data-rate-sentiment]");
+    if (sentimentBtn) {
+      rateCreditSentiment(sentimentBtn.dataset.rateCreditId, sentimentBtn.dataset.rateSentiment);
+    }
   });
 }
 
 function renderCredits() {
   const tab = document.getElementById("creditsTab");
-  const myEvents = events.filter((e) => canManageEvent(e));
+  const allEventOptions = events
+    .map((e) => `<option value="${e.id}">${e.girlName} • ${e.familyName || ""} • ${e.date}</option>`)
+    .join("");
 
   tab.innerHTML = `
     <div class="glass rounded-[28px] p-4">
-      <div class="font-black mb-3">הוספת בעל מקצוע</div>
+      <div class="font-black mb-2">הוספת קרדיט ידידותית</div>
+      <div class="text-xs text-white/60 mb-3">בחירת אירוע מתוך הרשימה (אפשר גם אירוע שלא מופיע)</div>
       <div class="space-y-2">
         <select id="creditEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
-          <option value="">בחר אירוע</option>
-          ${myEvents.map((e) => `<option value="${e.id}">${e.girlName} • ${e.date}</option>`).join("")}
+          <option value="">בחרי אירוע מתוך הרשימה</option>
+          ${allEventOptions}
+          <option value="__manual__">אירוע שלא מופיע ברשימה</option>
         </select>
-        <input id="creditCategory" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="תחום (צלם/קייטרינג/מפעילה...)" />
-        <input id="creditName" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם בעל המקצוע" />
-        <input id="creditContact" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="טלפון / וואטסאפ / לינק" />
+        <input id="creditManualEvent" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם אירוע ידני (למשל: אופיר • 2026-03-14)" />
+        <div id="creditCategoryButtons" class="grid grid-cols-2 gap-2">
+          ${["צלמת", "אולם", "בונה מצגות/וידאו", "מפעילה", "קייטרינג", "קינוחים", "אחר"]
+            .map(
+              (cat) =>
+                `<button type="button" class="credit-cat-btn rounded-xl bg-white/10 border border-white/10 p-2 text-sm" data-credit-category="${cat}">${cat}</button>`
+            )
+            .join("")}
+        </div>
+        <input id="creditCategory" type="hidden" />
+        <input id="creditCategoryOther" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="קטגוריה אחרת" />
+        <input id="creditName" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם נותן שירות" />
+        <input id="creditPhone" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="טלפון" />
+        <input id="creditLink" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="לינק (אינסטגרם/אתר/וואטסאפ)" />
+        <textarea id="creditNote" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[70px]" placeholder="כמה מילים"></textarea>
+        <div class="grid grid-cols-3 gap-2 text-xs">
+          ${["מקצועיות", "שירות", "אדיבות", "מהיר", "יחס", "זמין"]
+            .map(
+              (tag) =>
+                `<label class="rounded-lg border border-white/10 bg-white/5 p-2 flex items-center gap-1 justify-center">
+                  <input type="checkbox" class="creditTag" value="${tag}" />
+                  <span>${tag}</span>
+                </label>`
+            )
+            .join("")}
+        </div>
+        <label class="text-xs text-white/70">דירוג כללי: <span id="creditScoreValue">3</span></label>
+        <input id="creditScore" type="range" min="1" max="5" step="1" value="3" class="w-full" />
+        <div class="flex gap-2">
+          <button id="creditLikeBtn" type="button" class="flex-1 rounded-xl bg-green-500/20 border border-green-500/40 p-2 text-sm">אהבתי</button>
+          <button id="creditDislikeBtn" type="button" class="flex-1 rounded-xl bg-red-500/20 border border-red-500/40 p-2 text-sm">לא אהבתי</button>
+        </div>
         <button id="addCreditBtn" type="button" class="w-full rounded-xl bg-white/10 p-2 text-sm font-bold">הוסף קרדיט</button>
       </div>
     </div>
@@ -1074,6 +1142,18 @@ function renderCredits() {
   `;
 
   document.getElementById("addCreditBtn").onclick = addCreditFromForm;
+  document.getElementById("creditEventId").onchange = toggleCreditManualEventField;
+  document.querySelectorAll(".credit-cat-btn").forEach((btn) => {
+    btn.onclick = () => setCreditCategory(btn.dataset.creditCategory || "");
+  });
+  document.getElementById("creditScore").oninput = (e) => {
+    document.getElementById("creditScoreValue").textContent = e.target.value;
+  };
+  document.getElementById("creditLikeBtn").onclick = () => setCreditSentiment("like");
+  document.getElementById("creditDislikeBtn").onclick = () => setCreditSentiment("dislike");
+  toggleCreditManualEventField();
+  toggleCreditCategoryOtherField();
+  applyPendingCreditEventSelection();
   const list = document.getElementById("creditsList");
   if (!credits.length) {
     list.innerHTML = '<div class="text-center text-white/40 text-sm">עדיין אין קרדיטים</div>';
@@ -1083,13 +1163,22 @@ function renderCredits() {
   list.innerHTML = credits
     .map((c) => {
       const event = events.find((e) => e.id === c.eventId);
+      const manualEventLabel = String(c.eventId || "").startsWith("manual:")
+        ? String(c.eventId).slice("manual:".length)
+        : "";
+      const eventLabel = event ? `${event.girlName} (${event.date})` : (manualEventLabel || "אירוע לא נמצא");
       const values = Object.values(c.ratings || {}).map(Number).filter(Boolean);
       const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1) : "—";
+      const sentiment = c.sentiment || "";
+      const tags = Array.isArray(c.tags) ? c.tags : typeof c.tags === "string" && c.tags ? c.tags.split("|") : [];
       return `
         <div class="glass rounded-2xl p-3">
           <div class="font-black text-sm">${c.professionalName}</div>
-          <div class="text-xs text-white/60 mt-1">${c.category} • ${event ? `${event.girlName} (${event.date})` : "אירוע לא נמצא"}</div>
-          <div class="text-xs text-white/70 mt-1">יצירת קשר: ${c.contact || "—"}</div>
+          <div class="text-xs text-white/60 mt-1">${c.category} • ${eventLabel}</div>
+          <div class="text-xs text-white/70 mt-1">טלפון: ${c.phone || "—"} • לינק: ${c.link || "—"}</div>
+          ${c.note ? `<div class="text-xs text-white/80 mt-1">${c.note}</div>` : ""}
+          ${tags.length ? `<div class="text-[11px] text-cyan-200 mt-1">${tags.map((t) => `#${t}`).join(" • ")}</div>` : ""}
+          ${sentiment ? `<div class="text-xs mt-1 ${sentiment === "like" ? "text-green-300" : "text-red-300"}">${sentiment === "like" ? "אהבתי" : "לא אהבתי"}</div>` : ""}
           <div class="text-xs text-yellow-300 mt-2">דירוג ממוצע: ${avg}</div>
           <div class="flex gap-1 mt-2">
             ${[1, 2, 3, 4, 5]
@@ -1099,44 +1188,148 @@ function renderCredits() {
               )
               .join("")}
           </div>
+          <div class="flex gap-2 mt-2">
+            <button type="button" class="rounded-lg bg-green-500/20 border border-green-500/40 text-green-200 px-2 py-1 text-xs" data-rate-credit-id="${c.id}" data-rate-sentiment="like">אהבתי</button>
+            <button type="button" class="rounded-lg bg-red-500/20 border border-red-500/40 text-red-200 px-2 py-1 text-xs" data-rate-credit-id="${c.id}" data-rate-sentiment="dislike">לא אהבתי</button>
+          </div>
         </div>`;
     })
     .join("");
 }
 
-function addCreditFromForm() {
-  const eventId = document.getElementById("creditEventId").value;
-  const category = document.getElementById("creditCategory").value.trim();
+async function addCreditFromForm() {
+  const selectedEventId = document.getElementById("creditEventId").value;
+  const manualEvent = document.getElementById("creditManualEvent").value.trim();
+  const selectedCategory = document.getElementById("creditCategory").value.trim();
+  const otherCategory = document.getElementById("creditCategoryOther").value.trim();
+  const category = selectedCategory === "אחר" ? otherCategory : selectedCategory;
   const professionalName = document.getElementById("creditName").value.trim();
-  const contact = document.getElementById("creditContact").value.trim();
-  if (!eventId || !category || !professionalName) {
+  const phone = document.getElementById("creditPhone").value.trim();
+  const link = document.getElementById("creditLink").value.trim();
+  const note = document.getElementById("creditNote").value.trim();
+  const tags = Array.from(document.querySelectorAll(".creditTag:checked")).map((el) => el.value);
+  const score = Number(document.getElementById("creditScore").value || 3);
+  const sentiment = getSelectedCreditSentiment();
+  const eventId = selectedEventId === "__manual__" ? `manual:${manualEvent}` : selectedEventId;
+  if (!eventId || !category || !professionalName || (selectedEventId === "__manual__" && !manualEvent)) {
     showToast("חסר מידע בקרדיט");
     return;
   }
 
-  credits.unshift({
-    id: crypto.randomUUID(),
-    eventId,
-    category,
-    professionalName,
-    contact,
-    ownerUserId: currentUser.id,
-    ownerName: currentUser.parentName,
-    ratings: {},
-  });
-  saveJson("bm_credits", credits);
-  renderCredits();
-  showToast("הקרדיט נוסף");
+  try {
+    const initialRatings = { [currentUser.id]: score };
+    await Api.createCredit({
+      id: crypto.randomUUID(),
+      eventId,
+      category,
+      professionalName,
+      phone,
+      link,
+      note,
+      tags: tags.join("|"),
+      sentiment,
+      contact: [phone, link].filter(Boolean).join(" | "),
+      ownerUserId: currentUser.id,
+      ownerName: currentUser.parentName,
+      ratings: JSON.stringify(initialRatings),
+      createdAt: new Date().toISOString(),
+    });
+    await syncFromServer({ silent: true });
+    showToast("הקרדיט נוסף");
+  } catch (err) {
+    console.error(err);
+    showToast("לא הצלחנו לשמור קרדיט בשרת");
+  }
 }
 
-function rateCredit(creditId, score) {
+function toggleCreditManualEventField() {
+  const select = document.getElementById("creditEventId");
+  const manualInput = document.getElementById("creditManualEvent");
+  if (!select || !manualInput) return;
+  const manualMode = select.value === "__manual__";
+  manualInput.classList.toggle("hidden", !manualMode);
+}
+
+function toggleCreditCategoryOtherField() {
+  const select = document.getElementById("creditCategory");
+  const otherInput = document.getElementById("creditCategoryOther");
+  if (!select || !otherInput) return;
+  otherInput.classList.toggle("hidden", select.value !== "אחר");
+}
+
+function setCreditCategory(category) {
+  const input = document.getElementById("creditCategory");
+  if (!input) return;
+  input.value = category;
+  document.querySelectorAll(".credit-cat-btn").forEach((btn) => {
+    const active = btn.dataset.creditCategory === category;
+    btn.classList.toggle("ring-2", active);
+    btn.classList.toggle("ring-pink-400", active);
+    btn.classList.toggle("bg-pink-500/20", active);
+  });
+  toggleCreditCategoryOtherField();
+}
+
+function setCreditSentiment(type) {
+  const likeBtn = document.getElementById("creditLikeBtn");
+  const dislikeBtn = document.getElementById("creditDislikeBtn");
+  if (!likeBtn || !dislikeBtn) return;
+  likeBtn.dataset.active = type === "like" ? "1" : "0";
+  dislikeBtn.dataset.active = type === "dislike" ? "1" : "0";
+  likeBtn.classList.toggle("ring-2", type === "like");
+  dislikeBtn.classList.toggle("ring-2", type === "dislike");
+}
+
+function getSelectedCreditSentiment() {
+  const likeActive = document.getElementById("creditLikeBtn")?.dataset.active === "1";
+  const dislikeActive = document.getElementById("creditDislikeBtn")?.dataset.active === "1";
+  if (likeActive) return "like";
+  if (dislikeActive) return "dislike";
+  return "";
+}
+
+function applyPendingCreditEventSelection() {
+  const select = document.getElementById("creditEventId");
+  if (!select || !pendingCreditEventId) return;
+  const exists = Array.from(select.options).some((o) => o.value === pendingCreditEventId);
+  if (exists) {
+    select.value = pendingCreditEventId;
+  }
+  pendingCreditEventId = "";
+}
+
+async function rateCredit(creditId, score) {
   const credit = credits.find((c) => c.id === creditId);
   if (!credit) return;
-  credit.ratings = credit.ratings || {};
-  credit.ratings[currentUser.id] = score;
-  saveJson("bm_credits", credits);
-  renderCredits();
-  showToast("הדירוג נשמר");
+  const ratings = { ...(credit.ratings || {}), [currentUser.id]: score };
+  try {
+    await Api.rateCredit({
+      creditId,
+      ratings: JSON.stringify(ratings),
+    });
+    await syncFromServer({ silent: true });
+    showToast("הדירוג נשמר");
+  } catch (err) {
+    console.error(err);
+    showToast("לא הצלחנו לשמור דירוג");
+  }
+}
+
+async function rateCreditSentiment(creditId, sentiment) {
+  const credit = credits.find((c) => c.id === creditId);
+  if (!credit) return;
+  try {
+    await Api.rateCredit({
+      creditId,
+      ratings: JSON.stringify(credit.ratings || {}),
+      sentiment,
+    });
+    await syncFromServer({ silent: true });
+    showToast("העדפה נשמרה");
+  } catch (err) {
+    console.error(err);
+    showToast("לא הצלחנו לשמור העדפה");
+  }
 }
 
 // ─── חוויות ────────────────────────────────────────────────
@@ -1146,57 +1339,89 @@ function bindExperiences() {
 
 function renderExperiences() {
   const tab = document.getElementById("experiencesTab");
+  const eventOptions = events
+    .map((e) => `<option value="${e.id}">${e.girlName} • ${e.familyName || ""} • ${e.date}</option>`)
+    .join("");
+  const grouped = experiences.reduce((acc, item) => {
+    const key = item.eventId || "unknown";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+
   tab.innerHTML = `
     <div class="glass rounded-[28px] p-4">
-      <div class="font-black mb-3">שיתוף חוויה</div>
-      <textarea id="expText" class="w-full bg-white/10 rounded-2xl p-3 outline-none min-h-[90px]" placeholder="איך היה באירוע? מה היה מוצלח?"></textarea>
-      <input id="expImageUrl" class="w-full mt-2 rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="קישור לתמונה (אפשר מגוגל דרייב)" />
+      <div class="font-black mb-3">אלבום תמונות משותף</div>
+      <select id="expEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
+        <option value="">בחרי אירוע</option>
+        ${eventOptions}
+      </select>
       <input id="expImageFile" type="file" accept="image/*" class="w-full mt-2 text-sm" />
-      <button id="addExperienceBtn" type="button" class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">פרסם חוויה</button>
+      <button id="addExperienceBtn" type="button" class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">העלי תמונה לאלבום</button>
     </div>
-    <div id="experiencesList" class="space-y-3"></div>
+    <div id="experiencesList" class="space-y-4"></div>
   `;
 
   document.getElementById("addExperienceBtn").onclick = addExperienceFromForm;
   const list = document.getElementById("experiencesList");
-  list.innerHTML = experiences.length
-    ? experiences
-        .map(
-          (exp) => `
-      <div class="glass rounded-2xl p-3">
-        <div class="font-black text-sm">${exp.userName}</div>
-        <div class="text-xs text-white/45 mt-1">${new Date(exp.createdAt).toLocaleString("he-IL")}</div>
-        <div class="text-sm mt-2">${exp.text}</div>
-        ${exp.imageUrl ? `<img src="${exp.imageUrl}" class="mt-3 w-full rounded-xl object-cover max-h-64" alt="">` : ""}
-      </div>`
-        )
+  const keys = Object.keys(grouped);
+  list.innerHTML = keys.length
+    ? keys
+        .map((eventId) => {
+          const event = events.find((e) => e.id === eventId);
+          const title = event ? `האירוע של ${event.girlName} — צפו או העלו תמונות` : "אלבום כללי";
+          const cards = grouped[eventId]
+            .filter((exp) => exp.imageUrl)
+            .map(
+              (exp) => `
+                <img src="${exp.imageUrl}" class="w-full rounded-xl object-cover max-h-64" alt="">
+                <div class="text-[11px] text-white/50 mt-1 mb-2">${exp.userName} • ${new Date(exp.createdAt).toLocaleString("he-IL")}</div>
+              `
+            )
+            .join("");
+          return `
+            <div class="glass rounded-2xl p-3">
+              <div class="font-black text-sm mb-2">${title}</div>
+              <div>${cards || '<div class="text-white/50 text-sm">עדיין אין תמונות</div>'}</div>
+            </div>
+          `;
+        })
         .join("")
-    : '<div class="text-center text-white/40 text-sm">עדיין אין חוויות</div>';
+    : '<div class="text-center text-white/40 text-sm">עדיין אין תמונות באלבומים</div>';
 }
 
 async function addExperienceFromForm() {
-  const text = document.getElementById("expText").value.trim();
-  let imageUrl = document.getElementById("expImageUrl").value.trim();
+  const eventId = document.getElementById("expEventId").value;
+  let imageUrl = "";
   const file = document.getElementById("expImageFile").files[0];
-  if (!text && !imageUrl && !file) {
-    showToast("צריך טקסט או תמונה");
+  if (!eventId || !file) {
+    showToast("בחרי אירוע והעלי תמונה");
     return;
   }
-  if (file) {
-    imageUrl = await toBase64(file);
-  }
+  try {
+    const dataUrl = await toBase64(file);
+    const parts = splitDataUrl(dataUrl);
+    const upload = await Api.uploadExperienceImage({
+      fileName: file.name || `exp_${Date.now()}.jpg`,
+      mimeType: file.type || parts.mimeType,
+      base64Data: parts.base64,
+    });
+    imageUrl = upload.imageUrl || imageUrl;
 
-  experiences.unshift({
-    id: crypto.randomUUID(),
-    userId: currentUser.id,
-    userName: currentUser.parentName,
-    text,
-    imageUrl,
-    createdAt: new Date().toISOString(),
-  });
-  saveJson("bm_experiences", experiences);
-  renderExperiences();
-  showToast("החוויה פורסמה");
+    await Api.createExperience({
+      id: crypto.randomUUID(),
+      eventId,
+      userId: currentUser.id,
+      userName: currentUser.parentName,
+      imageUrl,
+      createdAt: new Date().toISOString(),
+    });
+    await syncFromServer({ silent: true });
+    showToast("החוויה פורסמה");
+  } catch (err) {
+    console.error(err);
+    showToast("לא הצלחנו לפרסם חוויה");
+  }
 }
 
 // ─── ניווט ─────────────────────────────────────────────────
@@ -1222,6 +1447,13 @@ function bindNavigation() {
     const toggleHideBtn = e.target.closest("[data-toggle-hide-id]");
     if (toggleHideBtn) {
       toggleEventGuestsVisibility(toggleHideBtn.dataset.toggleHideId);
+      return;
+    }
+
+    const quickCreditBtn = e.target.closest("[data-quick-credit-event]");
+    if (quickCreditBtn) {
+      pendingCreditEventId = quickCreditBtn.dataset.quickCreditEvent || "";
+      switchTab("credits", false);
       return;
     }
 
@@ -1322,4 +1554,13 @@ function toBase64(file) {
     reader.onload = () => resolve(reader.result);
     reader.onerror = reject;
   });
+}
+
+function splitDataUrl(dataUrl) {
+  const [meta, base64] = String(dataUrl).split(",");
+  const mimeMatch = /data:(.*?);base64/.exec(meta || "");
+  return {
+    mimeType: mimeMatch ? mimeMatch[1] : "image/jpeg",
+    base64: base64 || "",
+  };
 }

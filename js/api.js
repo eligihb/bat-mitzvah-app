@@ -35,6 +35,22 @@ const Api = {
     return this.post({ action: "createMessage", id, userName, messageText });
   },
 
+  createCredit(payload) {
+    return this.post({ action: "createCredit", ...payload });
+  },
+
+  rateCredit(payload) {
+    return this.post({ action: "rateCredit", ...payload });
+  },
+
+  createExperience(payload) {
+    return this.post({ action: "createExperience", ...payload });
+  },
+
+  uploadExperienceImage(payload) {
+    return this.post({ action: "uploadExperienceImage", ...payload });
+  },
+
   deleteMessage(messageId) {
     return this.post({ action: "deleteMessage", messageId });
   },
@@ -82,20 +98,39 @@ const Api = {
       }))
       .sort((a, b) => b.sortKey - a.sortKey);
 
-    const credits = (creditsRaw || []).map((row) => ({
-      id: String(row.id || crypto.randomUUID()),
-      eventId: String(row.eventId || ""),
-      category: row.category || "",
-      professionalName: row.professionalName || "",
-      contact: row.contact || "",
-      ownerUserId: String(row.ownerUserId || ""),
-      ownerName: row.ownerName || "",
-      ratings: typeof row.ratings === "string" && row.ratings ? JSON.parse(row.ratings) : row.ratings || {},
-    }));
+    const credits = (creditsRaw || []).map((row) => {
+      let ratings = {};
+      if (typeof row.ratings === "string" && row.ratings) {
+        try {
+          ratings = JSON.parse(row.ratings);
+        } catch (_) {
+          ratings = {};
+        }
+      } else {
+        ratings = row.ratings || {};
+      }
+
+      return {
+        id: String(row.id || crypto.randomUUID()),
+        eventId: String(row.eventId || ""),
+        category: row.category || "",
+        professionalName: row.professionalName || "",
+        contact: row.contact || "",
+        phone: row.phone || "",
+        link: row.link || "",
+        note: row.note || "",
+        tags: row.tags || "",
+        sentiment: row.sentiment || "",
+        ownerUserId: String(row.ownerUserId || ""),
+        ownerName: row.ownerName || "",
+        ratings,
+      };
+    });
 
     const experiences = (experiencesRaw || [])
       .map((row) => ({
         id: String(row.id || crypto.randomUUID()),
+        eventId: String(row.eventId || ""),
         userId: String(row.userId || ""),
         userName: row.userName || "",
         text: row.text || "",

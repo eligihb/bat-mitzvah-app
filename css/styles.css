@@ -52,9 +52,9 @@ body {
 /* ─── מסך כניסה ─── */
 .login-screen {
   background:
-    radial-gradient(circle at 20% 15%, rgba(236, 72, 153, 0.12), transparent 40%),
-    radial-gradient(circle at 85% 80%, rgba(168, 85, 247, 0.14), transparent 45%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.15));
+    radial-gradient(circle at 20% 15%, rgba(236, 72, 153, 0.18), transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(168, 85, 247, 0.2), transparent 45%),
+    linear-gradient(180deg, #16111f 0%, #0d0a13 48%, #08070d 100%);
 }
 
 .login-bg {
@@ -147,15 +147,15 @@ body {
 .login-card {
   background: linear-gradient(
     145deg,
-    rgba(255, 240, 248, 0.92) 0%,
-    rgba(252, 231, 243, 0.88) 45%,
-    rgba(245, 225, 255, 0.9) 100%
+    rgba(255, 240, 248, 0.9) 0%,
+    rgba(252, 231, 243, 0.84) 45%,
+    rgba(245, 225, 255, 0.86) 100%
   );
   backdrop-filter: blur(20px);
   border: 1px solid rgba(236, 72, 153, 0.22);
   box-shadow:
-    0 24px 60px rgba(236, 72, 153, 0.16),
-    0 4px 20px rgba(168, 85, 247, 0.1),
+    0 24px 60px rgba(0, 0, 0, 0.42),
+    0 4px 20px rgba(168, 85, 247, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
@@ -597,15 +597,30 @@ body {
 .hide-rsvp-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  margin-left: auto;
-  padding: 0.4rem 0.7rem;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
   border-radius: 0.8rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.08);
   color: #f3e8ff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+}
+
+.rsvp-summary-row {
+  direction: rtl;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.rsvp-summary-counts {
+  text-align: right;
+  justify-content: flex-start;
+  flex: 1;
 }
 
 .toast {

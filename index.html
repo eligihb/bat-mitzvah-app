@@ -7,7 +7,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=12" />
+  <link rel="stylesheet" href="css/styles.css?v=14" />
 </head>
 <body>
 
@@ -52,22 +52,22 @@
                   <label class="login-label" for="girlName">שם הילדה <span class="req">*</span></label>
                   <input id="girlName" class="login-input" placeholder="שם פרטי" />
                 </div>
-              </div>
-
-              <div>
-                <label class="login-label" for="familyName">שם משפחה <span class="req">*</span></label>
-                <input id="familyName" class="login-input" placeholder="שם משפחה" />
-              </div>
-
-              <div class="twin-row">
-                <span class="twin-row-label">אחות תאומה</span>
-                <button type="button" id="toggleTwin" class="twin-add-btn" aria-label="הוספת אחות תאומה" aria-expanded="false">
-                  <i class="fa-solid fa-plus text-xs"></i>
-                </button>
-              </div>
-              <div id="twinFieldWrap" class="twin-field-wrap is-hidden">
-                <label class="login-label" for="twinName">שם אחות התאומה</label>
-                <input id="twinName" class="login-input" placeholder="שם פרטי של אחות התאומה" />
+                <div>
+                  <label class="login-label" for="familyName">שם משפחה <span class="req">*</span></label>
+                  <input id="familyName" class="login-input" placeholder="שם משפחה" />
+                </div>
+                <div>
+                  <div class="twin-row">
+                    <span class="twin-row-label">אחות תאומה</span>
+                    <button type="button" id="toggleTwin" class="twin-add-btn" aria-label="הוספת אחות תאומה" aria-expanded="false">
+                      <i class="fa-solid fa-plus text-xs"></i>
+                    </button>
+                  </div>
+                  <div id="twinFieldWrap" class="twin-field-wrap is-hidden">
+                    <label class="login-label" for="twinName">שם אחות התאומה</label>
+                    <input id="twinName" class="login-input" placeholder="שם פרטי של אחות התאומה" />
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -109,7 +109,7 @@
               </button>
 
               <div class="login-footer-inline">
-                <span>יישומון זה נבנה על ידי <span class="login-footer-brand">YE</span> ™ (לא להעתקה)</span>
+                <span>יישומון זה נבנה על ידי <span class="login-footer-brand">YE</span> ©</span>
               </div>
             </form>
           </div>
@@ -131,8 +131,8 @@
                 <button id="waBtn" type="button" class="w-8 h-8 shrink-0 rounded-full bg-white/10 text-white/40 flex items-center justify-center" aria-label="וואטסאפ">
                   <i class="fa-brands fa-whatsapp"></i>
                 </button>
-                <button id="editProfileBtn" type="button" class="w-7 h-7 shrink-0 rounded-full bg-white/10 text-white/70 flex items-center justify-center" aria-label="עריכת פרופיל">
-                  <i class="fa-solid fa-pen text-[11px]"></i>
+                <button id="editProfileBtn" type="button" class="w-8 h-8 shrink-0 rounded-full bg-white/10 text-white/80 flex items-center justify-center" aria-label="פרופיל משתמש">
+                  <i class="fa-solid fa-user text-[12px]"></i>
                 </button>
               </div>
               <div class="flex items-center gap-2 mt-1">
@@ -278,8 +278,8 @@
 
   <div id="toastMsg" class="toast hidden"></div>
 
-  <script src="js/config.js?v=13"></script>
-  <script src="js/api.js?v=13"></script>
-  <script src="js/app.js?v=13"></script>
+  <script src="js/config.js?v=14"></script>
+  <script src="js/api.js?v=14"></script>
+  <script src="js/app.js?v=14"></script>
 </body>
 </html>
