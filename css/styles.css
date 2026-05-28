@@ -554,6 +554,15 @@ body {
   box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.2);
 }
 
+#creditsTab select {
+  color: #f8fafc;
+}
+
+#creditsTab select option {
+  color: #111827;
+  background: #f3f4f6;
+}
+
 .event-progress {
   margin-top: 0.4rem;
 }
