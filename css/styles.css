@@ -363,6 +363,14 @@ body {
   line-height: 1.45;
 }
 
+.login-version {
+  margin-top: 0.2rem;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: rgba(107, 33, 168, 0.78);
+}
+
 .twin-field-wrap.is-hidden {
   display: none;
 }
@@ -485,6 +493,53 @@ body {
   font-size: 10px;
 }
 
+.credit-main-btn {
+  border: 1px solid rgba(244, 114, 182, 0.35);
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.25), rgba(168, 85, 247, 0.25));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.credit-provider-card {
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.credit-provider-card.is-selected {
+  border-color: rgba(244, 114, 182, 0.58);
+  background: linear-gradient(140deg, rgba(236, 72, 153, 0.18), rgba(168, 85, 247, 0.16));
+  box-shadow: 0 0 0 1px rgba(244, 114, 182, 0.2);
+}
+
+.credit-provider-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45rem;
+}
+
+.credit-provider-icon {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.credit-stars-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.credit-score-star,
+.provider-star {
+  background: transparent;
+  border: 0;
+  padding: 0 0.06rem;
+  cursor: pointer;
+}
+
 /* ניווט תחתון וכפתור + — מיושרים למעטפת הממורכזת */
 #bottomNav {
   position: fixed;
@@ -559,6 +614,15 @@ body {
 }
 
 #creditsTab select option {
+  color: #111827;
+  background: #f3f4f6;
+}
+
+#experiencesTab select {
+  color: #f8fafc;
+}
+
+#experiencesTab select option {
   color: #111827;
   background: #f3f4f6;
 }

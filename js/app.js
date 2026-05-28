@@ -11,6 +11,12 @@ let experiences = loadJson("bm_experiences") || [];
 let pendingCreditEventId = "";
 let creditScreen = "home";
 let creditBoardExpandedProvider = "";
+let guestEventScoreSelected = 0;
+let ownerEventScoreSelected = 0;
+let experiencesSelectedEventId = "";
+let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+const guestProviderState = {};
+const ownerProviderState = {};
 const CREDIT_SERVICE_TYPES = ["צילום", "מקום אירוע", "מצגת/סרטון", "אוכל", "עיצוב", "הפעלה"];
 let selectedRole = APP_CONFIG.defaultRole;
 let hideGuests = false;
@@ -863,6 +869,7 @@ function renderEvents() {
 
   events.forEach((event) => {
     const isFamily = canManageEvent(event);
+    const isOwnerEvent = String(event.ownerId || "") === String(currentUser?.id || "");
     const myVote = event.rsvp[currentUser.id];
     const yes = Object.values(event.rsvp).filter((v) => v === "yes").length;
     const maybe = Object.values(event.rsvp).filter((v) => v === "maybe").length;
@@ -874,6 +881,7 @@ function renderEvents() {
     const dayStartEvent = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const dayDiff = Math.ceil((dayStartEvent - dayStartNow) / 86400000);
     const isPastEvent = dayDiff < 0;
+    const isTomorrowEvent = dayDiff === 1;
     const countdownLabel = isPastEvent
       ? "האירוע התקיים"
       : dayDiff === 0
@@ -890,8 +898,9 @@ function renderEvents() {
     container.insertAdjacentHTML(
       "beforeend",
       `
-      <div class="event-card glass rounded-[34px] p-5 ${isFamily ? "my-event-card" : ""} ${isPastEvent ? "past-event-card" : ""}">
-        ${isFamily ? '<div class="my-event-title">האירוע שלי</div>' : ""}
+      <div class="event-card glass rounded-[34px] p-5 ${isOwnerEvent ? "my-event-card" : ""} ${isPastEvent ? "past-event-card" : ""}">
+        ${isTomorrowEvent ? '<div class="my-event-title" style="background:rgba(244,63,94,.22);border-color:rgba(251,113,133,.7);color:#ffe4e6;">האירוע מתקיים בעוד יום</div>' : ""}
+        ${isOwnerEvent ? '<div class="my-event-title">האירוע שלי</div>' : ""}
         <div class="flex gap-3 items-start">
           <div class="flex gap-4 flex-1 min-w-0">
             <img src="${img}" class="w-20 h-20 shrink-0 rounded-full object-cover border-4 border-white/10" alt="">
@@ -1020,9 +1029,10 @@ async function vote(eventId, status) {
 // ─── לוח שנה ───────────────────────────────────────────────
 function renderCalendar() {
   const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
-  const todayDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const month = calendarCursor.getMonth();
+  const year = calendarCursor.getFullYear();
+  const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
   const days = new Date(year, month + 1, 0).getDate();
   const weekdays = ["א", "ב", "ג", "ד", "ה", "ו", "ש"];
 
@@ -1049,6 +1059,19 @@ function renderCalendar() {
   }).join("");
 
   document.getElementById("calendarTab").innerHTML = `
+    <div class="glass rounded-2xl p-2 mb-3">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1">
+          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="year-prev">שנה -</button>
+          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="month-prev">חודש -</button>
+        </div>
+        <div class="text-sm font-black">${monthNames[month]} ${year}</div>
+        <div class="flex items-center gap-1">
+          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="month-next">חודש +</button>
+          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="year-next">שנה +</button>
+        </div>
+      </div>
+    </div>
     <div class="grid grid-cols-7 gap-2 text-center text-xs mb-3">
       ${weekdays.map((d) => `<div>${d}</div>`).join("")}
     </div>
@@ -1125,6 +1148,54 @@ function bindCredits() {
         card.classList.toggle("ring-2");
         card.classList.toggle("ring-pink-400");
         card.dataset.selected = card.dataset.selected === "1" ? "0" : "1";
+        card.classList.toggle("is-selected", card.dataset.selected === "1");
+        const providerKey = card.dataset.providerKey || "";
+        if (providerKey) {
+          if (creditScreen === "guest") {
+            guestProviderState[providerKey] = {
+              ...(guestProviderState[providerKey] || { selected: false, score: 4, note: "" }),
+              selected: card.dataset.selected === "1",
+            };
+          } else if (creditScreen === "owner") {
+            ownerProviderState[providerKey] = {
+              ...(ownerProviderState[providerKey] || { selected: false, score: 4 }),
+              selected: card.dataset.selected === "1",
+            };
+          }
+        }
+      }
+      return;
+    }
+    const providerStarBtn = e.target.closest("[data-provider-star]");
+    if (providerStarBtn) {
+      const score = Number(providerStarBtn.dataset.providerStar || 0);
+      const scoreInputId = providerStarBtn.dataset.providerScoreId || "";
+      const scoreInput = document.getElementById(scoreInputId);
+      if (scoreInput && score >= 1 && score <= 5) {
+        scoreInput.value = String(score);
+        const starWrap = providerStarBtn.closest(".credit-stars-wrap");
+        if (starWrap) {
+          starWrap.querySelectorAll("[data-provider-star]").forEach((starEl) => {
+            const starScore = Number(starEl.dataset.providerStar || 0);
+            starEl.classList.toggle("text-yellow-300", starScore <= score);
+            starEl.classList.toggle("text-white/35", starScore > score);
+          });
+        }
+        const card = providerStarBtn.closest("[data-provider-card]");
+        const providerKey = card?.dataset.providerKey || "";
+        if (providerKey) {
+          if (creditScreen === "guest") {
+            guestProviderState[providerKey] = {
+              ...(guestProviderState[providerKey] || { selected: false, score: 4, note: "" }),
+              score,
+            };
+          } else if (creditScreen === "owner") {
+            ownerProviderState[providerKey] = {
+              ...(ownerProviderState[providerKey] || { selected: false, score: 4 }),
+              score,
+            };
+          }
+        }
       }
       return;
     }
@@ -1164,10 +1235,10 @@ function renderCredits() {
     tab.innerHTML = `
       <div class="glass rounded-[28px] p-4">
         <div class="grid grid-cols-2 gap-2 mb-2">
-          <button type="button" data-credit-screen="guest" class="rounded-2xl bg-white/10 border border-white/10 p-3 font-black text-white text-sm">פרגן לאירוע של...</button>
-          <button type="button" data-credit-screen="owner" class="rounded-2xl bg-white/10 border border-white/10 p-3 font-black text-white text-sm">תן המלצה (לבעלי האירוע)</button>
+          <button type="button" data-credit-screen="guest" class="credit-main-btn rounded-2xl p-3 font-black text-white text-sm">פרגן לאירוע של...</button>
+          <button type="button" data-credit-screen="owner" class="credit-main-btn rounded-2xl p-3 font-black text-white text-sm">תן המלצה (לבעלי האירוע)</button>
         </div>
-        <button type="button" data-credit-screen="board" class="w-full rounded-2xl bg-pink-500/20 border border-pink-400/40 p-3 font-black text-white text-sm">לוח קרדיטים</button>
+        <button type="button" data-credit-screen="board" class="credit-main-btn w-full rounded-2xl p-3 font-black text-white text-sm">לוח קרדיטים</button>
       </div>
     `;
     return;
@@ -1194,6 +1265,7 @@ function renderGuestCreditsForm() {
       <select id="creditEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">
         <option value="">בחר אירוע</option>
         ${options}
+        <option value="__external__">אירוע אחר / הוספה ידנית</option>
       </select>
       <input id="creditManualEvent" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם אירוע חיצוני" />
       <div class="text-xs text-white/70">פרגון לנותני שירות (אפשר לבחור כמה)</div>
@@ -1204,14 +1276,30 @@ function renderGuestCreditsForm() {
       <div class="grid grid-cols-3 gap-2 text-xs">
         ${renderCreditTagsInputs()}
       </div>
-      <label class="text-xs text-white/80">דירוג אירוע: <span id="guestEventScoreVal">4</span></label>
-      <input id="guestEventScore" type="range" min="1" max="5" step="1" value="4" class="w-full" />
+      <div class="text-xs text-white/80">דירוג אירוע כללי</div>
+      ${renderStarRating("guestEventScoreWrap", "credit-score-star", "data-credit-score", guestEventScoreSelected)}
       <textarea id="guestCreditNote" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[72px]" placeholder="הערה (אופציונלי)"></textarea>
       <button type="button" id="publishGuestCreditBtn" class="w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">פרסום</button>
     </div>
   `;
-  document.getElementById("creditEventId").onchange = refreshGuestProviders;
-  document.getElementById("guestEventScore").oninput = (e) => (document.getElementById("guestEventScoreVal").textContent = e.target.value);
+  const creditEventSelect = document.getElementById("creditEventId");
+  if (pendingCreditEventId && Array.from(creditEventSelect.options).some((o) => o.value === pendingCreditEventId)) {
+    creditEventSelect.value = pendingCreditEventId;
+    pendingCreditEventId = "";
+  }
+  creditEventSelect.onchange = refreshGuestProviders;
+  document.querySelectorAll("[data-credit-score]").forEach((btn) => {
+    btn.onclick = () => {
+      const score = Number(btn.dataset.creditScore || 0);
+      if (guestEventScoreSelected === score) {
+        guestEventScoreSelected = 0;
+      } else {
+        guestEventScoreSelected = score;
+      }
+      updateCreditScoreChips("guestEventScoreWrap", guestEventScoreSelected);
+    };
+  });
+  updateCreditScoreChips("guestEventScoreWrap", guestEventScoreSelected);
   document.getElementById("publishGuestCreditBtn").onclick = publishGuestCredits;
   refreshGuestProviders();
 }
@@ -1247,12 +1335,23 @@ function renderOwnerCreditsForm() {
         <button type="button" data-save-provider class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm font-bold">אישור הוספה</button>
       </div>
       <textarea id="ownerCreditNote" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[110px]" placeholder="המלצה מפורטת"></textarea>
-      <label class="text-xs text-white/80">דירוג כללי: <span id="ownerEventScoreVal">4</span></label>
-      <input id="ownerEventScore" type="range" min="1" max="5" step="1" value="4" class="w-full" />
+      <div class="text-xs text-white/80">דירוג כללי</div>
+      ${renderStarRating("ownerEventScoreWrap", "owner-credit-score-star", "data-owner-credit-score", ownerEventScoreSelected)}
       <button type="button" id="publishOwnerCreditBtn" class="w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">פרסום</button>
     </div>
   `;
-  document.getElementById("ownerEventScore").oninput = (e) => (document.getElementById("ownerEventScoreVal").textContent = e.target.value);
+  document.querySelectorAll("[data-owner-credit-score]").forEach((btn) => {
+    btn.onclick = () => {
+      const score = Number(btn.dataset.ownerCreditScore || 0);
+      if (ownerEventScoreSelected === score) {
+        ownerEventScoreSelected = 0;
+      } else {
+        ownerEventScoreSelected = score;
+      }
+      updateCreditScoreChips("ownerEventScoreWrap", ownerEventScoreSelected);
+    };
+  });
+  updateCreditScoreChips("ownerEventScoreWrap", ownerEventScoreSelected);
   document.getElementById("publishOwnerCreditBtn").onclick = publishOwnerCredits;
   document.getElementById("providerCategoryInput").onchange = (e) => {
     document.getElementById("providerCategoryOtherInput").classList.toggle("hidden", e.target.value !== "אחר");
@@ -1313,7 +1412,7 @@ function onCreditEventSelectionChange() {
 }
 
 function renderCreditTagsInputs() {
-  return ["מקצועיות", "שירות", "אדיבות", "זמינות", "מהיר", "מחיר הוגן"]
+  return ["מקצועיות", "שירות", "אדיבות"]
     .map(
       (tag) => `
         <label class="rounded-lg border border-white/10 bg-white/5 p-2 flex items-center gap-1 justify-center">
@@ -1323,6 +1422,24 @@ function renderCreditTagsInputs() {
       `
     )
     .join("");
+}
+
+function updateCreditScoreChips(containerId, selectedScore) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  wrap.querySelectorAll("button").forEach((btn) => {
+    const score = Number(btn.dataset.creditScore || btn.dataset.ownerCreditScore || 0);
+    const active = selectedScore === score;
+    btn.classList.toggle("text-yellow-300", active);
+    btn.classList.toggle("text-white/35", !active);
+  });
+}
+
+function renderStarRating(containerId, starClass, dataAttr, selectedScore) {
+  const stars = [1, 2, 3, 4, 5]
+    .map((n) => `<button type="button" class="${starClass} text-xl ${selectedScore >= n ? "text-yellow-300" : "text-white/35"}" ${dataAttr}="${n}" aria-label="דירוג ${n}">★</button>`)
+    .join("");
+  return `<div id="${containerId}" class="credit-stars-wrap">${stars}</div>`;
 }
 
 function providerModalTemplate() {
@@ -1356,20 +1473,39 @@ function refreshGuestProviders() {
   if (!wrap) return;
   document.getElementById("creditManualEvent")?.classList.toggle("hidden", eventId !== "__external__");
   wrap.innerHTML = CREDIT_SERVICE_TYPES
-    .map(
-      (service, i) => `
-        <div class="rounded-xl border border-white/10 bg-white/5 p-2" data-provider-card data-selected="0">
-          <button type="button" data-credit-provider-toggle class="w-full text-right text-sm font-bold">${service}</button>
-          <label class="text-xs text-white/70">דירוג: <span id="guestProviderScoreVal_${i}">4</span></label>
-          <input id="guestProviderScore_${i}" data-provider-name="${escapeHtmlAttr(service)}" data-provider-category="${escapeHtmlAttr(service)}" type="range" min="1" max="5" step="1" value="4" class="w-full mt-1" />
-          <input id="guestProviderNote_${i}" class="w-full mt-1 rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs" placeholder="מילה טובה על ${service}" />
+    .map((service, i) => {
+      const st = guestProviderState[service] || { selected: false, score: 4, note: "" };
+      return `
+        <div class="credit-provider-card rounded-xl border border-white/10 bg-white/5 p-2 ${st.selected ? "is-selected" : ""}" data-provider-card data-selected="${st.selected ? "1" : "0"}" data-provider-key="${escapeHtmlAttr(service)}">
+          <button type="button" data-credit-provider-toggle class="credit-provider-toggle w-full text-right text-sm font-bold">
+            <span class="credit-provider-icon">${serviceIcon(service)}</span>
+            <span>${service}</span>
+          </button>
+          <div class="text-xs text-white/70 mt-1">בחרי ואז דרגי בכוכבים</div>
+          <div id="guestProviderStars_${i}" class="credit-stars-wrap mt-1">
+            ${[1, 2, 3, 4, 5]
+              .map(
+                (n) =>
+                  `<button type="button" class="provider-star text-xl ${st.score >= n ? "text-yellow-300" : "text-white/35"}" data-provider-star="${n}" data-provider-score-id="guestProviderScore_${i}" aria-label="דירוג ${n}">★</button>`
+              )
+              .join("")}
+          </div>
+          <input id="guestProviderScore_${i}" data-provider-name="${escapeHtmlAttr(service)}" data-provider-category="${escapeHtmlAttr(service)}" type="hidden" value="${st.score}" />
+          <input id="guestProviderNote_${i}" class="w-full mt-1 rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs" placeholder="מילה טובה על ${service}" value="${escapeHtmlAttr(st.note)}" />
         </div>
-      `
-    )
+      `;
+    })
     .join("");
-  CREDIT_SERVICE_TYPES.forEach((_, i) => {
-    const slider = document.getElementById(`guestProviderScore_${i}`);
-    if (slider) slider.oninput = (e) => (document.getElementById(`guestProviderScoreVal_${i}`).textContent = e.target.value);
+  CREDIT_SERVICE_TYPES.forEach((service, i) => {
+    const noteInput = document.getElementById(`guestProviderNote_${i}`);
+    if (noteInput) {
+      noteInput.oninput = () => {
+        guestProviderState[service] = {
+          ...(guestProviderState[service] || { selected: false, score: 4, note: "" }),
+          note: noteInput.value || "",
+        };
+      };
+    }
   });
 }
 
@@ -1381,20 +1517,30 @@ function refreshOwnerProviders() {
   wrap.innerHTML = providers.length
     ? providers
         .map(
-          (p, i) => `
-            <div class="rounded-xl border border-white/10 bg-white/5 p-2" data-provider-card data-selected="0">
-              <button type="button" data-credit-provider-toggle class="w-full text-right text-sm font-bold">${p.name}${p.category ? ` • ${p.category}` : ""}</button>
-              <label class="text-xs text-white/70">דירוג ספק: <span id="ownerProviderScoreVal_${i}">4</span></label>
-              <input id="ownerProviderScore_${i}" data-provider-name="${escapeHtmlAttr(p.name)}" data-provider-category="${escapeHtmlAttr(p.category || "")}" type="range" min="1" max="5" step="1" value="4" class="w-full mt-1" />
+          (p, i) => {
+            const key = `${p.name}@@${p.category || ""}`;
+            const st = ownerProviderState[key] || { selected: false, score: 4 };
+            return `
+            <div class="credit-provider-card rounded-xl border border-white/10 bg-white/5 p-2 ${st.selected ? "is-selected" : ""}" data-provider-card data-selected="${st.selected ? "1" : "0"}" data-provider-key="${escapeHtmlAttr(key)}">
+              <button type="button" data-credit-provider-toggle class="credit-provider-toggle w-full text-right text-sm font-bold">
+                <span class="credit-provider-icon">${serviceIcon(p.category || p.name)}</span>
+                <span>${p.name}${p.category ? ` • ${p.category}` : ""}</span>
+              </button>
+              <div id="ownerProviderStars_${i}" class="credit-stars-wrap mt-1">
+                ${[1, 2, 3, 4, 5]
+                  .map(
+                    (n) =>
+                      `<button type="button" class="provider-star text-xl ${st.score >= n ? "text-yellow-300" : "text-white/35"}" data-provider-star="${n}" data-provider-score-id="ownerProviderScore_${i}" aria-label="דירוג ${n}">★</button>`
+                  )
+                  .join("")}
+              </div>
+              <input id="ownerProviderScore_${i}" data-provider-name="${escapeHtmlAttr(p.name)}" data-provider-category="${escapeHtmlAttr(p.category || "")}" type="hidden" value="${st.score}" />
             </div>
-          `
+          `;
+          }
         )
         .join("")
     : '<div class="text-xs text-white/50">אין ספקים לאירוע זה. הוסיפי ספק חדש.</div>';
-  providers.forEach((_, i) => {
-    const slider = document.getElementById(`ownerProviderScore_${i}`);
-    if (slider) slider.oninput = (e) => (document.getElementById(`ownerProviderScoreVal_${i}`).textContent = e.target.value);
-  });
 }
 
 async function publishGuestCredits() {
@@ -1416,14 +1562,14 @@ async function publishGuestCredits() {
     return;
   }
   const note = document.getElementById("guestCreditNote").value.trim();
-  const eventScore = Number(document.getElementById("guestEventScore").value || 4);
+  const eventScore = guestEventScoreSelected;
   const tags = Array.from(document.querySelectorAll(".creditTag:checked")).map((el) => el.value);
   try {
     for (const card of selectedCards) {
-      const slider = card.querySelector("input[type='range']");
-      const providerName = slider.dataset.providerName || "";
-      const category = slider.dataset.providerCategory || "";
-      const score = Number(slider.value || 4);
+      const scoreInput = card.querySelector("[data-provider-name]");
+      const providerName = scoreInput?.dataset.providerName || "";
+      const category = scoreInput?.dataset.providerCategory || "";
+      const score = Number(scoreInput?.value || 4);
       const providerNote = card.querySelector("input[type='text']")?.value.trim() || "";
       await Api.createCredit({
         id: crypto.randomUUID(),
@@ -1435,7 +1581,7 @@ async function publishGuestCredits() {
         sentiment: "like",
         ownerUserId: currentUser.id,
         ownerName: currentUser.parentName,
-        ratings: JSON.stringify({ [currentUser.id]: score, [`${currentUser.id}_event`]: eventScore }),
+        ratings: JSON.stringify({ [currentUser.id]: score, ...(eventScore ? { [`${currentUser.id}_event`]: eventScore } : {}) }),
         createdAt: new Date().toISOString(),
       });
     }
@@ -1445,7 +1591,12 @@ async function publishGuestCredits() {
     renderCredits();
   } catch (err) {
     console.error(err);
-    showToast("לא הצלחנו לפרסם פרגון");
+    const msg = String(err?.message || "");
+    if (msg.includes("Unknown action")) {
+      showToast("שגיאת שרת בקרדיטים. צריך לפרוס מחדש Apps Script עם createCredit/rateCredit.");
+    } else {
+      showToast(`לא הצלחנו לפרסם פרגון: ${msg.slice(0, 90)}`);
+    }
   }
 }
 
@@ -1466,13 +1617,13 @@ async function publishOwnerCredits() {
     return;
   }
   const note = document.getElementById("ownerCreditNote").value.trim();
-  const eventScore = Number(document.getElementById("ownerEventScore").value || 4);
+  const eventScore = ownerEventScoreSelected;
   try {
     for (const card of selectedCards) {
-      const slider = card.querySelector("input[type='range']");
-      const providerName = slider.dataset.providerName || "";
-      const category = slider.dataset.providerCategory || "";
-      const score = Number(slider.value || 4);
+      const scoreInput = card.querySelector("[data-provider-name]");
+      const providerName = scoreInput?.dataset.providerName || "";
+      const category = scoreInput?.dataset.providerCategory || "";
+      const score = Number(scoreInput?.value || 4);
       await Api.createCredit({
         id: crypto.randomUUID(),
         eventId,
@@ -1483,7 +1634,7 @@ async function publishOwnerCredits() {
         sentiment: "like",
         ownerUserId: currentUser.id,
         ownerName: currentUser.parentName,
-        ratings: JSON.stringify({ [currentUser.id]: score, [`${currentUser.id}_event`]: eventScore }),
+        ratings: JSON.stringify({ [currentUser.id]: score, ...(eventScore ? { [`${currentUser.id}_event`]: eventScore } : {}) }),
         createdAt: new Date().toISOString(),
       });
     }
@@ -1493,7 +1644,12 @@ async function publishOwnerCredits() {
     renderCredits();
   } catch (err) {
     console.error(err);
-    showToast("לא הצלחנו לפרסם המלצה");
+    const msg = String(err?.message || "");
+    if (msg.includes("Unknown action")) {
+      showToast("שגיאת שרת בקרדיטים. צריך לפרוס מחדש Apps Script עם createCredit/rateCredit.");
+    } else {
+      showToast(`לא הצלחנו לפרסם המלצה: ${msg.slice(0, 90)}`);
+    }
   }
 }
 
@@ -1588,6 +1744,17 @@ function escapeHtmlAttr(text) {
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function serviceIcon(name) {
+  const v = String(name || "");
+  if (v.includes("צילום")) return "🖼️";
+  if (v.includes("מקום") || v.includes("אולם")) return "🏛️";
+  if (v.includes("מצגת") || v.includes("וידאו")) return "🎬";
+  if (v.includes("אוכל") || v.includes("קייטרינג")) return "🍽️";
+  if (v.includes("עיצוב")) return "🎀";
+  if (v.includes("הפעלה")) return "🎉";
+  return "✨";
 }
 
 function isEventPastByDate(dateString) {
@@ -1689,13 +1856,22 @@ function renderExperiences() {
       <select id="expEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
         <option value="">בחרי אירוע</option>
         ${eventOptions}
+        <option value="__external__">אירוע אחר / חיצוני</option>
       </select>
+      <input id="expEventManual" class="hidden w-full mt-2 rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם אירוע חיצוני" />
       <input id="expImageFile" type="file" accept="image/*" class="w-full mt-2 text-sm" />
       <button id="addExperienceBtn" type="button" class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">העלי תמונה לאלבום</button>
     </div>
     <div id="experiencesList" class="space-y-4"></div>
   `;
 
+  const select = document.getElementById("expEventId");
+  if (experiencesSelectedEventId) select.value = experiencesSelectedEventId;
+  select.onchange = () => {
+    experiencesSelectedEventId = select.value;
+    document.getElementById("expEventManual").classList.toggle("hidden", select.value !== "__external__");
+  };
+  document.getElementById("expEventManual").classList.toggle("hidden", select.value !== "__external__");
   document.getElementById("addExperienceBtn").onclick = addExperienceFromForm;
   const list = document.getElementById("experiencesList");
   const keys = Object.keys(grouped);
@@ -1725,10 +1901,12 @@ function renderExperiences() {
 }
 
 async function addExperienceFromForm() {
-  const eventId = document.getElementById("expEventId").value;
+  const selected = document.getElementById("expEventId").value;
+  const manualEvent = document.getElementById("expEventManual").value.trim();
+  const eventId = selected === "__external__" ? `manual:${manualEvent}` : selected;
   let imageUrl = "";
   const file = document.getElementById("expImageFile").files[0];
-  if (!eventId || !file) {
+  if (!eventId || (selected === "__external__" && !manualEvent) || !file) {
     showToast("בחרי אירוע והעלי תמונה");
     return;
   }
@@ -1812,6 +1990,16 @@ function bindNavigation() {
   });
 
   document.getElementById("calendarTab").addEventListener("click", (e) => {
+    const navBtn = e.target.closest("[data-cal-nav]");
+    if (navBtn) {
+      const action = navBtn.dataset.calNav || "";
+      if (action === "month-prev") calendarCursor.setMonth(calendarCursor.getMonth() - 1);
+      if (action === "month-next") calendarCursor.setMonth(calendarCursor.getMonth() + 1);
+      if (action === "year-prev") calendarCursor.setFullYear(calendarCursor.getFullYear() - 1);
+      if (action === "year-next") calendarCursor.setFullYear(calendarCursor.getFullYear() + 1);
+      renderCalendar();
+      return;
+    }
     const eventBtn = e.target.closest("[data-calendar-event-id]");
     if (!eventBtn) return;
     const eventId = eventBtn.dataset.calendarEventId;
