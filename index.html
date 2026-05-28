@@ -7,7 +7,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=11" />
+  <link rel="stylesheet" href="css/styles.css?v=12" />
 </head>
 <body>
 
@@ -52,6 +52,11 @@
                   <label class="login-label" for="girlName">שם הילדה <span class="req">*</span></label>
                   <input id="girlName" class="login-input" placeholder="שם פרטי" />
                 </div>
+              </div>
+
+              <div>
+                <label class="login-label" for="familyName">שם משפחה <span class="req">*</span></label>
+                <input id="familyName" class="login-input" placeholder="שם משפחה" />
               </div>
 
               <div class="twin-row">
@@ -119,19 +124,19 @@
           <div class="flex items-center justify-between gap-2">
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
-                <h2 id="headerName" class="font-black text-lg truncate"></h2>
+                <h2 id="headerGreeting" class="font-black text-sm sm:text-base truncate"></h2>
                 <button id="callBtn" type="button" class="w-8 h-8 shrink-0 rounded-full bg-white/10 text-white/40 flex items-center justify-center" aria-label="התקשרות">
                   <i class="fa-solid fa-phone"></i>
                 </button>
                 <button id="waBtn" type="button" class="w-8 h-8 shrink-0 rounded-full bg-white/10 text-white/40 flex items-center justify-center" aria-label="וואטסאפ">
                   <i class="fa-brands fa-whatsapp"></i>
                 </button>
+                <button id="editProfileBtn" type="button" class="w-7 h-7 shrink-0 rounded-full bg-white/10 text-white/70 flex items-center justify-center" aria-label="עריכת פרופיל">
+                  <i class="fa-solid fa-pen text-[11px]"></i>
+                </button>
               </div>
               <div class="flex items-center gap-2 mt-1">
                 <div id="headerRole" class="text-sm text-purple-200"></div>
-                <button id="switchRoleBtn" type="button" class="text-xs text-white/50" aria-label="החלפת תפקיד">
-                  <i class="fa-solid fa-pen"></i>
-                </button>
               </div>
             </div>
             <button id="logoutBtn" type="button" class="shrink-0 text-xs text-red-300 font-bold px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20">
@@ -147,6 +152,8 @@
       <div id="eventsTab" class="tab p-4 space-y-4"></div>
       <div id="calendarTab" class="tab p-4"></div>
       <div id="adminTab" class="tab p-4"></div>
+      <div id="creditsTab" class="tab p-4 space-y-4"></div>
+      <div id="experiencesTab" class="tab p-4 space-y-4"></div>
 
       <div id="messagesTab" class="tab p-4 space-y-4">
         <div class="glass rounded-[28px] p-4">
@@ -249,6 +256,14 @@
         <i class="fa-solid fa-bell text-lg"></i>
         <span class="text-[11px]">הודעות</span>
       </button>
+      <button type="button" data-tab="credits" class="nav-tab nav-tab-idle flex-1 flex flex-col items-center justify-center gap-1">
+        <i class="fa-solid fa-award text-lg"></i>
+        <span class="text-[11px]">קרדיטים</span>
+      </button>
+      <button type="button" data-tab="experiences" class="nav-tab nav-tab-idle flex-1 flex flex-col items-center justify-center gap-1">
+        <i class="fa-solid fa-images text-lg"></i>
+        <span class="text-[11px]">חוויות</span>
+      </button>
       <button type="button" id="navAdmin" data-tab="admin" class="hidden nav-tab nav-tab-idle flex-1 flex flex-col items-center justify-center gap-1">
         <i class="fa-solid fa-user-shield text-lg"></i>
         <span class="text-[11px]">ניהול</span>
@@ -261,8 +276,10 @@
 
   </div>
 
-  <script src="js/config.js?v=11"></script>
-  <script src="js/api.js?v=11"></script>
-  <script src="js/app.js?v=11"></script>
+  <div id="toastMsg" class="toast hidden"></div>
+
+  <script src="js/config.js?v=13"></script>
+  <script src="js/api.js?v=13"></script>
+  <script src="js/app.js?v=13"></script>
 </body>
 </html>

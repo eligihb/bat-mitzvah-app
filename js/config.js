@@ -20,7 +20,7 @@ const APP_CONFIG = {
 
   defaultRole: "אמא",
   placeholderImage: "assets/default-girl12.svg",
-  syncIntervalMs: 30000,
+  syncIntervalMs: 60000,
   adminPassword: "1234",
   adminPhone: "054-2452100",
 };

@@ -35,6 +35,10 @@ const Api = {
     return this.post({ action: "createMessage", id, userName, messageText });
   },
 
+  deleteMessage(messageId) {
+    return this.post({ action: "deleteMessage", messageId });
+  },
+
   deleteEvent(eventId) {
     return this.post({ action: "deleteEvent", eventId });
   },
@@ -44,7 +48,7 @@ const Api = {
   },
 
   /** המרת נתונים מהגיליון לפורמט האפליקציה */
-  normalizePayload(eventsRaw, rsvpsRaw, messagesRaw) {
+  normalizePayload(eventsRaw, rsvpsRaw, messagesRaw, creditsRaw = [], experiencesRaw = []) {
     const rsvpByEvent = {};
     (rsvpsRaw || []).forEach((row) => {
       const eventId = String(row.eventId);
@@ -57,6 +61,7 @@ const Api = {
       ownerId: String(row.ownerId),
       ownerName: row.ownerName || "",
       girlName: row.girlName || "",
+      familyName: row.familyName || "",
       date: sheetDate(row.date),
       time: sheetTime(row.time),
       location: row.location || "",
@@ -77,7 +82,29 @@ const Api = {
       }))
       .sort((a, b) => b.sortKey - a.sortKey);
 
-    return { events, messages };
+    const credits = (creditsRaw || []).map((row) => ({
+      id: String(row.id || crypto.randomUUID()),
+      eventId: String(row.eventId || ""),
+      category: row.category || "",
+      professionalName: row.professionalName || "",
+      contact: row.contact || "",
+      ownerUserId: String(row.ownerUserId || ""),
+      ownerName: row.ownerName || "",
+      ratings: typeof row.ratings === "string" && row.ratings ? JSON.parse(row.ratings) : row.ratings || {},
+    }));
+
+    const experiences = (experiencesRaw || [])
+      .map((row) => ({
+        id: String(row.id || crypto.randomUUID()),
+        userId: String(row.userId || ""),
+        userName: row.userName || "",
+        text: row.text || "",
+        imageUrl: row.imageUrl || "",
+        createdAt: row.createdAt || row.timestamp || "",
+      }))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return { events, messages, credits, experiences };
   },
 };
 

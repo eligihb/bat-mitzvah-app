@@ -440,6 +440,16 @@ body {
   min-height: 72px;
 }
 
+.calendar-day.today {
+  border: 1px solid rgba(244, 114, 182, 0.8);
+  box-shadow: 0 0 0 2px rgba(244, 114, 182, 0.22);
+}
+
+.calendar-no-event {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 10px;
+}
+
 /* ניווט תחתון וכפתור + — מיושרים למעטפת הממורכזת */
 #bottomNav {
   position: fixed;
@@ -582,4 +592,33 @@ body {
 .event-action-btn.edit {
   color: #c4b5fd;
   border-color: rgba(168, 85, 247, 0.25);
+}
+
+.hide-rsvp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3e8ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.toast {
+  position: fixed;
+  bottom: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  background: rgba(24, 24, 27, 0.92);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 0.5rem 0.9rem;
+  font-size: 12px;
+  white-space: nowrap;
 }
