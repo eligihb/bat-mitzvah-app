@@ -22,15 +22,7 @@ function normalizePhone(phone) {
 
 function isAdminByPhoneAndPass(phone, pass) {
   const normalized = normalizePhone(phone);
-  if (!normalized || pass !== APP_CONFIG.adminPassword) return false;
-
-  const key = APP_CONFIG.storageKeys.adminPhone;
-  const savedAdminPhone = localStorage.getItem(key);
-  if (!savedAdminPhone) {
-    localStorage.setItem(key, normalized);
-    return true;
-  }
-  return savedAdminPhone === normalized;
+  return normalized === normalizePhone(APP_CONFIG.adminPhone) && pass === APP_CONFIG.adminPassword;
 }
 
 // ─── הפעלה ─────────────────────────────────────────────────
@@ -38,6 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindPhoneCells();
   bindRoleButtons();
   bindTwinToggle();
+  bindAdminAccessGate();
   bindLogin();
   bindModal();
   bindEventMenuControls();
@@ -219,8 +212,33 @@ function bindPhoneCells() {
       if (e.target.value.length === 1) {
         document.querySelectorAll(".phoneCell")[index + 1]?.focus();
       }
+      updateAdminFieldVisibility();
     });
   });
+}
+
+function bindAdminAccessGate() {
+  document.getElementById("phonePrefix").addEventListener("change", updateAdminFieldVisibility);
+  updateAdminFieldVisibility();
+}
+
+function getEnteredPhone() {
+  let digits = "";
+  document.querySelectorAll(".phoneCell").forEach((c) => {
+    digits += c.value;
+  });
+  if (digits.length !== 7) return "";
+  return `${document.getElementById("phonePrefix").value}-${digits}`;
+}
+
+function updateAdminFieldVisibility() {
+  const wrap = document.getElementById("adminPassWrap");
+  const input = document.getElementById("adminPass");
+  const isAdminPhone = normalizePhone(getEnteredPhone()) === normalizePhone(APP_CONFIG.adminPhone);
+  wrap.classList.toggle("hidden", !isAdminPhone);
+  if (!isAdminPhone) {
+    input.value = "";
+  }
 }
 
 // ─── מסכים ──────────────────────────────────────────────────
@@ -262,6 +280,8 @@ function logout() {
 
   document.getElementById("twinName").value = "";
   setTwinFieldOpen(false);
+  document.getElementById("adminPass").value = "";
+  updateAdminFieldVisibility();
 
   document.getElementById("addBtn").classList.add("hidden");
   document.getElementById("navAdmin").classList.add("hidden");
