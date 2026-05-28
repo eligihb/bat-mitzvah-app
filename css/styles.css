@@ -532,12 +532,25 @@ body {
   gap: 0.2rem;
 }
 
+.credit-main-stars {
+  justify-content: center;
+  gap: 0.35rem;
+}
+
 .credit-score-star,
 .provider-star {
   background: transparent;
   border: 0;
   padding: 0 0.06rem;
   cursor: pointer;
+}
+
+.credit-score-star {
+  font-size: 1.55rem;
+}
+
+.credit-score-star.text-yellow-300 {
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.55);
 }
 
 /* ניווט תחתון וכפתור + — מיושרים למעטפת הממורכזת */
