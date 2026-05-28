@@ -14,6 +14,7 @@ let activeTab = sessionStorage.getItem("bm_active_tab") || "events";
 let editingEventId = null;
 let editingEventImage = "";
 let isSavingEvent = false;
+let selectedEventMenuChoice = "";
 
 // ─── הפעלה ─────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -22,6 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindTwinToggle();
   bindLogin();
   bindModal();
+  bindEventMenuControls();
   bindEventForm();
   bindNavigation();
   bindMessages();
@@ -156,8 +158,8 @@ function updateRoleButtonStyles(role) {
   const dad = document.querySelector('.roleBtn[data-role="אבא"]');
   if (!mom || !dad) return;
 
-  mom.className = `roleBtn rounded-2xl p-3 font-bold ${role === "אמא" ? "role-mom-active" : "role-mom-idle"}`;
-  dad.className = `roleBtn rounded-2xl p-3 font-bold ${role === "אבא" ? "role-dad-active" : "role-dad-idle"}`;
+  mom.className = `roleBtn role-btn-base rounded-2xl p-3 font-bold ${role === "אמא" ? "role-mom-active" : "role-mom-idle"}`;
+  dad.className = `roleBtn role-btn-base rounded-2xl p-3 font-bold ${role === "אבא" ? "role-dad-active" : "role-dad-idle"}`;
 }
 
 function bindTwinToggle() {
@@ -297,6 +299,44 @@ function bindModal() {
   document.getElementById("closeModal").addEventListener("click", closeModal);
 }
 
+function bindEventMenuControls() {
+  document.querySelectorAll(".menu-choice-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedEventMenuChoice = btn.dataset.menuChoice || "";
+      document.getElementById("eventMenuOther").value = "";
+      renderMenuChoiceState();
+    });
+  });
+
+  document.getElementById("eventMenuOther").addEventListener("input", (e) => {
+    if (e.target.value.trim()) {
+      selectedEventMenuChoice = "";
+    }
+    renderMenuChoiceState();
+  });
+}
+
+function renderMenuChoiceState() {
+  document.querySelectorAll(".menu-choice-btn").forEach((btn) => {
+    const isActive = selectedEventMenuChoice === (btn.dataset.menuChoice || "");
+    btn.classList.toggle("active", isActive);
+  });
+}
+
+function getEventMenuValue() {
+  const other = document.getElementById("eventMenuOther").value.trim();
+  if (other) return other;
+  return selectedEventMenuChoice;
+}
+
+function setEventMenuValue(value) {
+  const normalized = (value || "").trim();
+  const preset = ["חלבי 🥛", "בשרי 🥩"].includes(normalized) ? normalized : "";
+  selectedEventMenuChoice = preset;
+  document.getElementById("eventMenuOther").value = preset ? "" : normalized;
+  renderMenuChoiceState();
+}
+
 function canManageEvent(event) {
   return event.girlName === currentUser.girlName;
 }
@@ -306,6 +346,7 @@ function resetEventForm() {
   editingEventId = null;
   editingEventImage = "";
   hideGuests = false;
+  setEventMenuValue("");
   document.getElementById("currentImageHint").classList.add("hidden");
   document.getElementById("modalTitle").textContent = "הוספת אירוע";
   document.getElementById("eventSubmitBtn").textContent = "פרסום אירוע 🚀";
@@ -331,7 +372,7 @@ function openModalForEdit(eventId) {
   document.getElementById("eventTime").value = event.time;
   document.getElementById("eventLocation").value = event.location;
   document.getElementById("eventAddress").value = event.address;
-  document.getElementById("eventMenu").value = event.menu;
+  setEventMenuValue(event.menu);
 
   hideGuests = event.hideGuests;
 
@@ -356,10 +397,15 @@ function closeModal() {
 
 function setEventSubmitLoading(loading) {
   const btn = document.getElementById("eventSubmitBtn");
+  const progress = document.getElementById("eventProgressWrap");
+  const progressText = document.getElementById("eventProgressText");
   btn.disabled = loading;
+  progress.classList.toggle("hidden", !loading);
+
   if (loading) {
     btn.dataset.originalText = btn.textContent;
     btn.textContent = "שומר...";
+    progressText.textContent = editingEventId ? "מעדכן אירוע..." : "יוצר אירוע...";
   } else if (btn.dataset.originalText) {
     btn.textContent = btn.dataset.originalText;
     delete btn.dataset.originalText;
@@ -380,7 +426,7 @@ function bindEventForm() {
     const time = document.getElementById("eventTime").value;
     const location = document.getElementById("eventLocation").value.trim();
     const address = document.getElementById("eventAddress").value.trim();
-    const menu = document.getElementById("eventMenu").value;
+    const menu = getEventMenuValue();
 
     if (!date || !time || !location || !address || !menu) {
       alert("יש למלא את כל השדות");
@@ -399,6 +445,9 @@ function bindEventForm() {
     const file = document.getElementById("girlImage").files[0];
     if (file) {
       image = await toBase64(file);
+    }
+    if (!image) {
+      image = APP_CONFIG.placeholderImage;
     }
 
     try {
@@ -462,6 +511,35 @@ async function deleteEventById(eventId) {
   }
 }
 
+async function toggleEventGuestsVisibility(eventId) {
+  const event = events.find((e) => e.id === eventId);
+  if (!event || !canManageEvent(event)) return;
+
+  const nextHide = !event.hideGuests;
+  event.hideGuests = nextHide;
+  renderEvents();
+
+  try {
+    setSyncStatus(nextHide ? "מסתיר אישורים..." : "מציג אישורים...");
+    await Api.updateEvent({
+      eventId: event.id,
+      date: event.date,
+      time: event.time,
+      location: event.location,
+      address: event.address,
+      menu: event.menu,
+      hideAttendees: nextHide,
+      image: event.image || "",
+    });
+    await syncFromServer();
+  } catch (err) {
+    console.error(err);
+    event.hideGuests = !nextHide;
+    renderEvents();
+    alert("לא הצלחנו לעדכן את מצב ההסתרה.");
+  }
+}
+
 // ─── רשימת אירועים ─────────────────────────────────────────
 function renderEvents() {
   const container = document.getElementById("eventsTab");
@@ -481,10 +559,8 @@ function renderEvents() {
     const no = Object.values(event.rsvp).filter((v) => v === "no").length;
 
     const d = new Date(`${event.date}T${event.time}`);
-    const formatted =
-      d.toLocaleDateString("he-IL") +
-      " " +
-      d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    const formattedDate = d.toLocaleDateString("he-IL");
+    const formattedTime = d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
 
     const img = event.image || APP_CONFIG.placeholderImage;
 
@@ -497,7 +573,7 @@ function renderEvents() {
             <img src="${img}" class="w-20 h-20 shrink-0 rounded-full object-cover border-4 border-white/10" alt="">
             <div class="flex-1 min-w-0">
               <h3 class="font-black text-lg">בת מצווה ל${event.girlName} ✨</h3>
-              <div class="text-white/50 text-sm mt-1">${formatted}</div>
+              <div class="text-white/50 text-sm mt-1">תאריך: ${formattedDate} • שעה: ${formattedTime}</div>
               <div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">${event.menu}</div>
             </div>
           </div>
@@ -530,8 +606,9 @@ function renderEvents() {
             : ""
         }
         <div class="mt-4 pt-4 border-t border-white/10">
+          ${isFamily ? `<button type="button" class="event-action-btn ${event.hideGuests ? "edit" : ""}" data-toggle-hide-id="${event.id}" style="margin-bottom:8px;">${event.hideGuests ? "הצג אישורים לאחרים" : "הסתר אישורים לאחרים"}</button>` : ""}
           ${
-            event.hideGuests
+            event.hideGuests && !isFamily
               ? `<div class="text-white/40 text-sm">אישורי ההגעה מוסתרים 🔒</div>`
               : `
           <div class="flex gap-4 flex-wrap text-sm">
@@ -667,6 +744,12 @@ function bindNavigation() {
     const deleteBtn = e.target.closest("[data-delete-id]");
     if (deleteBtn) {
       deleteEventById(deleteBtn.dataset.deleteId);
+      return;
+    }
+
+    const toggleHideBtn = e.target.closest("[data-toggle-hide-id]");
+    if (toggleHideBtn) {
+      toggleEventGuestsVisibility(toggleHideBtn.dataset.toggleHideId);
       return;
     }
 

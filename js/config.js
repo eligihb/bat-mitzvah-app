@@ -19,6 +19,6 @@ const APP_CONFIG = {
   ],
 
   defaultRole: "אמא",
-  placeholderImage: "https://placehold.co/200",
+  placeholderImage: "assets/default-girl12.svg",
   syncIntervalMs: 30000,
 };

@@ -7,7 +7,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=6" />
+  <link rel="stylesheet" href="css/styles.css?v=8" />
 </head>
 <body>
 
@@ -38,9 +38,9 @@
             </div>
 
             <form id="loginForm" class="space-y-3">
-              <div class="grid grid-cols-2 gap-3">
-                <button type="button" class="roleBtn role-mom-active rounded-2xl p-3 font-bold" data-role="אמא">אמא 👩</button>
-                <button type="button" class="roleBtn role-dad-idle rounded-2xl p-3 font-bold" data-role="אבא">אבא 👨</button>
+              <div class="role-switch">
+                <button type="button" class="roleBtn role-btn-base role-mom-active rounded-2xl p-3 font-bold" data-role="אמא">אמא 👩</button>
+                <button type="button" class="roleBtn role-btn-base role-dad-idle rounded-2xl p-3 font-bold" data-role="אבא">אבא 👨</button>
               </div>
 
               <div class="grid grid-cols-2 gap-3">
@@ -97,14 +97,15 @@
               <button type="submit" class="login-submit w-full rounded-2xl p-3 font-black text-white">
                 כניסה לישומון
               </button>
+
+              <div class="login-footer-inline">
+                <i class="fa-regular fa-copyright"></i>
+                כל הזכויות שמורות • <span class="login-footer-brand">YE</span>
+              </div>
             </form>
           </div>
         </div>
       </div>
-
-      <footer class="login-footer relative z-10">
-        בונה היישומון <span class="login-footer-brand">YE</span>
-      </footer>
     </div>
 
     <!-- אפליקציה -->
@@ -187,12 +188,22 @@
           </div>
 
           <div>
-            <label class="block text-sm font-bold mb-1" for="eventMenu">תפריט *</label>
-            <select id="eventMenu" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3" required>
-              <option value="">בחר תפריט</option>
-              <option value="חלבי 🥛">חלבי 🥛</option>
-              <option value="בשרי 🥩">בשרי 🥩</option>
-            </select>
+            <label class="block text-sm font-bold mb-1">תפריט *</label>
+            <div class="menu-row">
+              <button type="button" class="menu-choice-btn" data-menu-choice="חלבי 🥛">
+                חלבי 🥛
+              </button>
+              <button type="button" class="menu-choice-btn" data-menu-choice="בשרי 🥩">
+                בשרי 🥩
+              </button>
+              <input
+                id="eventMenuOther"
+                type="text"
+                class="menu-other-input"
+                placeholder="אחר"
+                aria-label="תפריט אחר"
+              />
+            </div>
           </div>
 
           <div>
@@ -208,6 +219,13 @@
           <button type="submit" id="eventSubmitBtn" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-3 font-black disabled:opacity-50 disabled:cursor-not-allowed">
             פרסום אירוע 🚀
           </button>
+
+          <div id="eventProgressWrap" class="event-progress hidden">
+            <div class="event-progress-track">
+              <div id="eventProgressBar" class="event-progress-bar"></div>
+            </div>
+            <div id="eventProgressText" class="text-xs text-white/60 mt-2">יוצר אירוע...</div>
+          </div>
         </form>
       </div>
     </div>
@@ -234,8 +252,8 @@
 
   </div>
 
-  <script src="js/config.js?v=6"></script>
-  <script src="js/api.js?v=6"></script>
-  <script src="js/app.js?v=6"></script>
+  <script src="js/config.js?v=8"></script>
+  <script src="js/api.js?v=8"></script>
+  <script src="js/app.js?v=8"></script>
 </body>
 </html>
