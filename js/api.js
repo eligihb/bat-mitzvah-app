@@ -67,76 +67,103 @@ const Api = {
   normalizePayload(eventsRaw, rsvpsRaw, messagesRaw, creditsRaw = [], experiencesRaw = []) {
     const rsvpByEvent = {};
     (rsvpsRaw || []).forEach((row) => {
-      const eventId = String(row.eventId);
+      const rr = normalizeRowKeys(row);
+      const eventId = String(readField(rr, ["eventid"]) || "");
       if (!rsvpByEvent[eventId]) rsvpByEvent[eventId] = {};
-      rsvpByEvent[eventId][String(row.userId)] = row.status;
+      rsvpByEvent[eventId][String(readField(rr, ["userid"]) || "")] = readField(rr, ["status"]) || "";
     });
 
-    const events = (eventsRaw || []).map((row) => ({
-      id: String(row.id),
-      ownerId: String(row.ownerId),
-      ownerName: row.ownerName || "",
-      girlName: row.girlName || "",
-      familyName: row.familyName || "",
-      date: sheetDate(row.date),
-      time: sheetTime(row.time),
-      location: row.location || "",
-      address: row.address || "",
-      menu: row.menu || "",
-      image: row.image || "",
-      hideGuests: toBool(row.hideAttendees),
-      rsvp: rsvpByEvent[String(row.id)] || {},
-    }));
+    const events = (eventsRaw || []).map((row) => {
+      const rr = normalizeRowKeys(row);
+      let familyName = readField(rr, ["familyname"]) || "";
+      let date = sheetDate(readField(rr, ["date"]));
+      let time = sheetTime(readField(rr, ["time"]));
+
+      // Repair rows written by outdated Apps Script that shifted date/time columns.
+      const familyDateCandidate = sheetDate(readField(rr, ["familyname"]));
+      if (!date && familyDateCandidate) {
+        date = familyDateCandidate;
+        if (!time && /^\d{1,2}:\d{2}/.test(String(readField(rr, ["date"]) || ""))) {
+          time = sheetTime(readField(rr, ["date"]));
+        }
+        familyName = "";
+      }
+
+      return {
+        id: String(readField(rr, ["id"]) || ""),
+        ownerId: String(readField(rr, ["ownerid"]) || ""),
+        ownerName: readField(rr, ["ownername"]) || "",
+        girlName: readField(rr, ["girlname"]) || "",
+        familyName,
+        date,
+        time,
+        location: readField(rr, ["location"]) || "",
+        address: readField(rr, ["address"]) || "",
+        menu: readField(rr, ["menu"]) || "",
+        image: readField(rr, ["image"]) || "",
+        hideGuests: toBool(readField(rr, ["hideattendees"])),
+        rsvp: rsvpByEvent[String(readField(rr, ["id"]) || "")] || {},
+      };
+    });
 
     const messages = (messagesRaw || [])
-      .map((row) => ({
-        id: String(row.id),
-        name: row.userName || "",
-        text: row.messageText || "",
-        date: formatTimestamp(row.timestamp),
-        sortKey: new Date(row.timestamp).getTime() || 0,
-      }))
+      .map((row) => {
+        const rr = normalizeRowKeys(row);
+        const ts = readField(rr, ["timestamp", "createdat"]) || "";
+        return {
+          id: String(readField(rr, ["id"]) || ""),
+          name: readField(rr, ["username"]) || "",
+          text: readField(rr, ["messagetext"]) || "",
+          date: formatTimestamp(ts),
+          sortKey: new Date(ts).getTime() || 0,
+        };
+      })
       .sort((a, b) => b.sortKey - a.sortKey);
 
     const credits = (creditsRaw || []).map((row) => {
+      const rr = normalizeRowKeys(row);
       let ratings = {};
-      if (typeof row.ratings === "string" && row.ratings) {
+      const ratingsRaw = readField(rr, ["ratings"]);
+      if (typeof ratingsRaw === "string" && ratingsRaw) {
         try {
-          ratings = JSON.parse(row.ratings);
+          ratings = JSON.parse(ratingsRaw);
         } catch (_) {
           ratings = {};
         }
       } else {
-        ratings = row.ratings || {};
+        ratings = ratingsRaw || {};
       }
 
       return {
-        id: String(row.id || crypto.randomUUID()),
-        eventId: String(row.eventId || ""),
-        category: row.category || "",
-        professionalName: row.professionalName || "",
-        contact: row.contact || "",
-        phone: row.phone || "",
-        link: row.link || "",
-        note: row.note || "",
-        tags: row.tags || "",
-        sentiment: row.sentiment || "",
-        ownerUserId: String(row.ownerUserId || ""),
-        ownerName: row.ownerName || "",
+        id: String(readField(rr, ["id"]) || crypto.randomUUID()),
+        eventId: String(readField(rr, ["eventid"]) || ""),
+        category: readField(rr, ["category"]) || "",
+        professionalName: readField(rr, ["professionalname"]) || "",
+        contact: readField(rr, ["contact"]) || "",
+        phone: readField(rr, ["phone"]) || "",
+        link: readField(rr, ["link"]) || "",
+        note: readField(rr, ["note"]) || "",
+        tags: readField(rr, ["tags"]) || "",
+        sentiment: readField(rr, ["sentiment"]) || "",
+        ownerUserId: String(readField(rr, ["owneruserid"]) || ""),
+        ownerName: readField(rr, ["ownername"]) || "",
         ratings,
       };
     });
 
     const experiences = (experiencesRaw || [])
-      .map((row) => ({
-        id: String(row.id || crypto.randomUUID()),
-        eventId: String(row.eventId || ""),
-        userId: String(row.userId || ""),
-        userName: row.userName || "",
-        text: row.text || "",
-        imageUrl: row.imageUrl || "",
-        createdAt: row.createdAt || row.timestamp || "",
-      }))
+      .map((row) => {
+        const rr = normalizeRowKeys(row);
+        return {
+          id: String(readField(rr, ["id"]) || crypto.randomUUID()),
+          eventId: String(readField(rr, ["eventid"]) || ""),
+          userId: String(readField(rr, ["userid"]) || ""),
+          userName: readField(rr, ["username"]) || "",
+          text: readField(rr, ["text"]) || "",
+          imageUrl: readField(rr, ["imageurl"]) || "",
+          createdAt: readField(rr, ["createdat", "timestamp"]) || "",
+        };
+      })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return { events, messages, credits, experiences };
@@ -231,4 +258,23 @@ function toIsoDate(d) {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function normalizeRowKeys(row) {
+  const out = {};
+  Object.keys(row || {}).forEach((key) => {
+    const normalized = String(key || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+    out[normalized] = row[key];
+  });
+  return out;
+}
+
+function readField(row, keys) {
+  for (const k of keys) {
+    if (Object.prototype.hasOwnProperty.call(row, k)) return row[k];
+  }
+  return undefined;
 }

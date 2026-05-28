@@ -8,6 +8,8 @@ let events = [];
 let messages = [];
 let credits = loadJson("bm_credits") || [];
 let experiences = loadJson("bm_experiences") || [];
+let pendingCredits = loadJson("bm_pending_credits") || [];
+let pendingExperiences = loadJson("bm_pending_experiences") || [];
 let pendingCreditEventId = "";
 let creditScreen = "home";
 let creditBoardExpandedProvider = "";
@@ -112,8 +114,8 @@ async function syncFromServer({ silent = false } = {}) {
     );
     events = normalized.events;
     messages = normalized.messages;
-    credits = normalized.credits || [];
-    experiences = normalized.experiences || [];
+    credits = mergePendingCredits(normalized.credits || [], pendingCredits);
+    experiences = mergePendingExperiences(normalized.experiences || [], pendingExperiences);
     saveJson("bm_credits", credits);
     saveJson("bm_experiences", experiences);
     renderAll();
@@ -656,15 +658,14 @@ function bindEventForm() {
       return;
     }
 
+    const normalizeGirl = (v) => String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
+    const targetGirl = normalizeGirl(currentUser.girlName);
     const duplicateEvents = events.filter(
-      (ev) =>
-        ev.girlName === currentUser.girlName &&
-        (ev.familyName || "") === (currentUser.familyName || "") &&
-        (!editingEventId || ev.id !== editingEventId)
+      (ev) => normalizeGirl(ev.girlName) === targetGirl && (!editingEventId || ev.id !== editingEventId)
     );
     if (duplicateEvents.length) {
-      const proceed = confirm("קיים כבר אירוע לילדה הזו (גם אם בשעה אחרת). להמשיך בכל זאת?");
-      if (!proceed) return;
+      alert("כבר קיים אירוע לילדה הזו במערכת. לא ניתן ליצור אירוע נוסף.");
+      return;
     }
 
     isSavingEvent = true;
@@ -1292,7 +1293,7 @@ function renderCredits() {
 function renderGuestCreditsForm() {
   const tab = document.getElementById("creditsTab");
   const options = pastEventsSortedDesc()
-    .map((e) => `<option value="${e.id}">${e.girlName} • ${e.date}</option>`)
+    .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
     .join("");
   tab.innerHTML = `
     ${creditsTopNav("guest")}
@@ -1713,10 +1714,12 @@ async function publishGuestCredits() {
           ratings: { [currentUser.id]: score, ...(eventScore ? { [`${currentUser.id}_event`]: eventScore } : {}) },
         };
       });
-      credits = [...localCredits, ...credits];
+      pendingCredits = [...localCredits, ...pendingCredits];
+      saveJson("bm_pending_credits", pendingCredits);
+      credits = mergePendingCredits(credits, pendingCredits);
       saveJson("bm_credits", credits);
       renderAll();
-      showToast("הפרגון נשמר באפליקציה. ננסה לסנכרן בהמשך.");
+      showToast("הפרגון נשמר מקומית");
     } else {
       showToast(`לא הצלחנו לפרסם פרגון: ${msg.slice(0, 90)}`);
     }
@@ -1793,10 +1796,12 @@ async function publishOwnerCredits() {
           ratings: { [currentUser.id]: score, ...(eventScore ? { [`${currentUser.id}_event`]: eventScore } : {}) },
         };
       });
-      credits = [...localCredits, ...credits];
+      pendingCredits = [...localCredits, ...pendingCredits];
+      saveJson("bm_pending_credits", pendingCredits);
+      credits = mergePendingCredits(credits, pendingCredits);
       saveJson("bm_credits", credits);
       renderAll();
-      showToast("ההמלצה נשמרה באפליקציה. ננסה לסנכרן בהמשך.");
+      showToast("ההמלצה נשמרה מקומית");
     } else {
       showToast(`לא הצלחנו לפרסם המלצה: ${msg.slice(0, 90)}`);
     }
@@ -2031,7 +2036,7 @@ function bindExperiences() {
 function renderExperiences() {
   const tab = document.getElementById("experiencesTab");
   const eventOptions = events
-    .map((e) => `<option value="${e.id}">${e.girlName} • ${e.familyName || ""} • ${e.date}</option>`)
+    .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
     .join("");
   const grouped = experiences.reduce((acc, item) => {
     const key = item.eventId || "unknown";
@@ -2133,21 +2138,25 @@ async function addExperienceFromForm() {
     const msg = String(err?.message || "");
     if (msg.includes("Unknown action")) {
       try {
-        let localCount = 0;
+        const locals = [];
         for (const file of files) {
           const imageUrl = await toBase64(file);
-          experiences.unshift({
+          locals.push({
             id: crypto.randomUUID(),
             eventId,
             userId: currentUser.id,
             userName: currentUser.parentName,
             imageUrl,
             createdAt: new Date().toISOString(),
+            pendingSync: true,
           });
-          localCount += 1;
         }
+        pendingExperiences = [...locals, ...pendingExperiences];
+        saveJson("bm_pending_experiences", pendingExperiences);
+        experiences = mergePendingExperiences(experiences, pendingExperiences);
         saveJson("bm_experiences", experiences);
         renderAll();
+        const localCount = locals.length;
         showToast(localCount > 1 ? `${localCount} תמונות נשמרו באפליקציה` : "התמונה נשמרה באפליקציה");
       } catch (_) {
         showToast("לא הצלחנו להעלות תמונה כרגע. נסו שוב בעוד רגע.");
@@ -2322,4 +2331,28 @@ async function retryApiCall(fn, retries = 1) {
     }
   }
   throw lastErr;
+}
+
+function mergePendingCredits(serverCredits, pending) {
+  const map = new Map();
+  [...pending, ...serverCredits].forEach((c) => {
+    const key = String(c.id || crypto.randomUUID());
+    map.set(key, c);
+  });
+  return Array.from(map.values());
+}
+
+function mergePendingExperiences(serverExperiences, pending) {
+  const map = new Map();
+  [...pending, ...serverExperiences].forEach((exp) => {
+    const key = String(exp.id || crypto.randomUUID());
+    map.set(key, exp);
+  });
+  return Array.from(map.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+function eventOptionLabel(event) {
+  const d = parseEventDateTime(event.date, event.time || "00:00");
+  const dateText = d ? d.toLocaleDateString("he-IL") : (String(event.date || "").slice(0, 10) || "תאריך לא זמין");
+  return `האירוע של ${event.girlName || "—"} • ${dateText}`;
 }
