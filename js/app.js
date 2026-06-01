@@ -67,7 +67,18 @@ document.addEventListener("DOMContentLoaded", () => {
   if (currentUser) {
     showApp();
   }
+
+  hideSplashAfterDelay();
 });
+
+function hideSplashAfterDelay() {
+  const splash = document.getElementById("splashScreen");
+  if (!splash) return;
+  setTimeout(() => {
+    splash.classList.add("is-hidden");
+    setTimeout(() => splash.remove(), 600);
+  }, 2000);
+}
 
 // ─── אחסון (משתמש בלבד) ────────────────────────────────────
 function loadJson(key) {
