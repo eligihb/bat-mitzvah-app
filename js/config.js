@@ -4,7 +4,7 @@ const APP_CONFIG = {
   classInfo: "כנפי רוח ו׳-4 • תשפ״ו",
 
   scriptUrl:
-    "https://script.google.com/macros/s/AKfycbxo60K9X9yEVEqLCrKA5y2PvSihCrP_iKQN9KCQejGvfkE51p2SK2TPpzGvafTA1S0/exec",
+    "https://script.google.com/macros/s/AKfycbyveWeqrR4OJeIPJPs737UMUTqbYA0hp0uge9IuPjCxYKd7yMuxQ1kpVhGEv3OAXJI/exec",
 
   storage: {
     user: "bm_user",
