@@ -3,6 +3,7 @@ const SHEET_RSVP = "RSVP";
 const SHEET_MESSAGES = "Messages";
 const SHEET_CREDITS = "Credits";
 const SHEET_EXPERIENCES = "Experiences";
+const SHEET_USERS = "Users";
 
 // תיקיית דרייב לתמונות/סרטונים של האלבום
 const FOLDER_EXPERIENCES = "1MljLXWRmcrBJ3mWosLrliCyytmasy8ti";
@@ -22,6 +23,7 @@ const SHEET_HEADERS = {
     "ownerUserId", "ownerName", "ratings", "createdAt",
   ],
   Experiences: ["id", "eventId", "userId", "userName", "text", "imageUrl", "createdAt"],
+  Users: ["id", "parentName", "girlName", "familyName", "role", "phone", "createdAt", "lastSeen"],
 };
 
 /**
@@ -50,6 +52,7 @@ function doGet() {
       messages: getSheetData(ss.getSheetByName(SHEET_MESSAGES)),
       credits: getSheetData(ss.getSheetByName(SHEET_CREDITS)),
       experiences: getSheetData(ss.getSheetByName(SHEET_EXPERIENCES)),
+      users: getSheetData(ss.getSheetByName(SHEET_USERS)),
     });
   } catch (err) {
     return json({ success: false, error: String(err) });
@@ -256,6 +259,39 @@ function doPost(e) {
       return json({ success: true });
     }
 
+    // רישום/עדכון משתמש (upsert לפי id)
+    if (action === "registerUser") {
+      const sheet = ss.getSheetByName(SHEET_USERS);
+      const row = data.id ? findRowById(sheet, "id", data.id) : -1;
+      if (row >= 2) {
+        setIfProvided(sheet, row, "parentName", data.parentName);
+        setIfProvided(sheet, row, "girlName", data.girlName);
+        setIfProvided(sheet, row, "familyName", data.familyName);
+        setIfProvided(sheet, row, "role", data.role);
+        setIfProvided(sheet, row, "phone", data.phone);
+        setIfProvided(sheet, row, "lastSeen", new Date());
+      } else {
+        appendByHeaders(sheet, {
+          id: data.id || "",
+          parentName: data.parentName || "",
+          girlName: data.girlName || "",
+          familyName: data.familyName || "",
+          role: data.role || "",
+          phone: data.phone || "",
+          createdAt: new Date(),
+          lastSeen: new Date(),
+        });
+      }
+      return json({ success: true });
+    }
+
+    if (action === "deleteUser") {
+      const sheet = ss.getSheetByName(SHEET_USERS);
+      const row = findRowById(sheet, "id", data.userId);
+      if (row >= 2) sheet.deleteRow(row);
+      return json({ success: true });
+    }
+
     // מחיקת כל השורות בגיליון (משאיר את שורת הכותרת)
     if (action === "clearSheet") {
       const map = {
@@ -265,6 +301,7 @@ function doPost(e) {
         messages: SHEET_MESSAGES,
         credits: SHEET_CREDITS,
         experiences: SHEET_EXPERIENCES,
+        users: SHEET_USERS,
       };
       const name = map[String(data.target || "").toLowerCase()];
       if (!name) return json({ success: false, error: "Unknown target: " + data.target });
@@ -274,7 +311,7 @@ function doPost(e) {
 
     // מחיקת כל הנתונים מכל הגיליונות
     if (action === "deleteAllData") {
-      [SHEET_EVENTS, SHEET_RSVP, SHEET_MESSAGES, SHEET_CREDITS, SHEET_EXPERIENCES].forEach(function (n) {
+      [SHEET_EVENTS, SHEET_RSVP, SHEET_MESSAGES, SHEET_CREDITS, SHEET_EXPERIENCES, SHEET_USERS].forEach(function (n) {
         clearSheetRows_(ss.getSheetByName(n));
       });
       return json({ success: true });

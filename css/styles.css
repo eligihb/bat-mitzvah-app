@@ -925,6 +925,44 @@ body {
   cursor: pointer;
 }
 
+.exp-actions {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 3;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.exp-action-btn {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  cursor: pointer;
+}
+
+.exp-action-btn.download {
+  color: #bfdbfe;
+}
+
+.exp-action-btn.delete {
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.exp-action-btn.is-disabled,
+.exp-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  color: rgba(255, 255, 255, 0.4);
+}
+
 .exp-select {
   width: 1.25rem;
   height: 1.25rem;

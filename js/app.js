@@ -6,6 +6,7 @@
 let currentUser = loadJson(APP_CONFIG.storage.user);
 let events = [];
 let messages = [];
+let users = [];
 let credits = loadJson("bm_credits") || [];
 let experiences = loadJson("bm_experiences") || [];
 let pendingCredits = loadJson("bm_pending_credits") || [];
@@ -122,10 +123,12 @@ async function syncFromServer({ silent = false } = {}) {
       data.rsvps,
       data.messages,
       data.credits || [],
-      data.experiences || []
+      data.experiences || [],
+      data.users || []
     );
     events = normalized.events;
     messages = normalized.messages;
+    users = normalized.users || [];
     credits = mergePendingCredits(normalized.credits || [], pendingCredits);
     experiences = mergePendingExperiences(normalized.experiences || [], pendingExperiences);
     saveJson("bm_credits", credits);
@@ -230,8 +233,22 @@ function bindLogin() {
     };
 
     saveJson(APP_CONFIG.storage.user, currentUser);
+    registerCurrentUser();
     showApp();
   });
+}
+
+// רישום/עדכון המשתמש בשרת (לא חוסם את הכניסה אם נכשל)
+function registerCurrentUser() {
+  if (!currentUser?.id) return;
+  Api.registerUser({
+    id: currentUser.id,
+    parentName: currentUser.parentName || "",
+    girlName: currentUser.girlName || "",
+    familyName: currentUser.familyName || "",
+    role: currentUser.role || "",
+    phone: currentUser.phone || "",
+  }).catch(() => {});
 }
 
 function bindRoleButtons() {
@@ -770,12 +787,35 @@ function isUnknownActionError(err) {
   return msg.includes("Unknown action") || msg.includes("לא נתמך");
 }
 
+// ניקוי מטמון מקומי (פריטים "ממתינים" שנשמרו כשהשרת לא תמך) לפי קטגוריה
+function clearLocalCaches(scope) {
+  if (scope === "credits" || scope === "all") {
+    pendingCredits = [];
+    saveJson("bm_pending_credits", pendingCredits);
+  }
+  if (scope === "experiences" || scope === "all") {
+    pendingExperiences = [];
+    saveJson("bm_pending_experiences", pendingExperiences);
+  }
+}
+
+// כפתור "ניקוי מטמן ורענון" — מוחק רפאים מקומיים ומסנכרן מחדש מהשרת
+async function adminClearLocalAndResync() {
+  if (!currentUser?.isAdmin) return;
+  clearLocalCaches("all");
+  saveJson("bm_credits", []);
+  saveJson("bm_experiences", []);
+  await syncFromServer({ silent: true });
+  showToast("המטמון נוקה והנתונים סונכרנו מהשרת");
+}
+
 // מחיקה מהירה של גיליון שלם עם נפילה חזרה למחיקה פר-פריט
-async function adminClearTarget(target, label, perItemFallback) {
+async function adminClearTarget(target, label, localScope, perItemFallback) {
   if (!currentUser?.isAdmin) return;
   if (!confirm(`למחוק ${label}?`)) return;
   try {
     await Api.clearSheet(target);
+    if (localScope) clearLocalCaches(localScope);
     await syncFromServer({ silent: true });
     showToast(`${label} נמחקו`);
     return;
@@ -792,7 +832,11 @@ async function adminClearTarget(target, label, perItemFallback) {
   }
 }
 
-async function deletePerItem(list, deleteFn, label) {
+async function deletePerItem(list, deleteFn, label, afterPurge) {
+  if (!list.length) {
+    showToast(`אין ${label} למחיקה`);
+    return;
+  }
   let ok = 0;
   let unknownAction = false;
   for (const item of list) {
@@ -803,6 +847,7 @@ async function deletePerItem(list, deleteFn, label) {
       if (isUnknownActionError(err)) unknownAction = true;
     }
   }
+  if (typeof afterPurge === "function") afterPurge();
   await syncFromServer({ silent: true });
   if (ok) {
     showToast(`${label} נמחקו`);
@@ -814,14 +859,14 @@ async function deletePerItem(list, deleteFn, label) {
 }
 
 async function adminDeleteAllEvents() {
-  await adminClearTarget("events", "כל האירועים", () =>
-    deletePerItem([...events], (ev) => Api.deleteEvent(ev.id), "האירועים")
+  await adminClearTarget("events", "כל האירועים", null, () =>
+    deletePerItem([...events], (ev) => Api.deleteEvent(ev.id), "אירועים")
   );
 }
 
 async function adminDeleteAllMessages() {
-  await adminClearTarget("messages", "כל ההודעות", () =>
-    deletePerItem([...messages], (m) => Api.deleteMessage(m.id), "ההודעות")
+  await adminClearTarget("messages", "כל ההודעות", null, () =>
+    deletePerItem([...messages], (m) => Api.deleteMessage(m.id), "הודעות")
   );
 }
 
@@ -834,31 +879,52 @@ async function adminDeleteAllCredits() {
   if (!currentUser?.isAdmin) return;
   if (!confirm("למחוק את כל הקרדיטים?")) return;
   const list = (credits || []).filter((c) => !isOwnerRecommendation(c));
-  await deletePerItem(list, (c) => Api.deleteCredit(c.id), "הקרדיטים");
+  await deletePerItem(
+    list,
+    (c) => Api.deleteCredit(c.id),
+    "קרדיטים",
+    () => list.forEach((c) => purgeCreditLocally(c.id))
+  );
 }
 
 async function adminDeleteAllRecommendations() {
   if (!currentUser?.isAdmin) return;
   if (!confirm("למחוק את כל ההמלצות?")) return;
   const list = (credits || []).filter((c) => isOwnerRecommendation(c));
-  await deletePerItem(list, (c) => Api.deleteCredit(c.id), "ההמלצות");
+  await deletePerItem(
+    list,
+    (c) => Api.deleteCredit(c.id),
+    "המלצות",
+    () => list.forEach((c) => purgeCreditLocally(c.id))
+  );
 }
 
 async function adminDeleteAllExperiences() {
-  await adminClearTarget("experiences", "כל התמונות", () =>
+  await adminClearTarget("experiences", "כל התמונות", "experiences", () =>
     deletePerItem(
       experiences.filter((e) => e.imageUrl),
       (e) => Api.deleteExperience(e.id),
-      "התמונות"
+      "תמונות",
+      () => {
+        pendingExperiences = [];
+        saveJson("bm_pending_experiences", pendingExperiences);
+      }
     )
   );
 }
 
+async function adminDeleteAllUsers() {
+  await adminClearTarget("users", "כל המשתמשים");
+}
+
 async function adminDeleteEverything() {
   if (!currentUser?.isAdmin) return;
-  if (!confirm("⚠️ פעולה זו תמחק את כל הנתונים: אירועים, אישורי הגעה, קרדיטים, המלצות, תמונות והודעות. להמשיך?")) return;
+  if (!confirm("⚠️ פעולה זו תמחק את כל הנתונים: משתמשים, אירועים, אישורי הגעה, קרדיטים, המלצות, תמונות והודעות. להמשיך?")) return;
   try {
     await Api.deleteAllData();
+    clearLocalCaches("all");
+    saveJson("bm_credits", []);
+    saveJson("bm_experiences", []);
     await syncFromServer({ silent: true });
     showToast("כל הנתונים נמחקו");
   } catch (err) {
@@ -871,27 +937,52 @@ async function adminDeleteEverything() {
   }
 }
 
-async function deleteCreditById(creditId) {
+async function deleteUserById(userId) {
   if (!currentUser?.isAdmin) return;
-  if (!confirm("למחוק פריט זה?")) return;
+  if (!confirm("למחוק משתמש זה?")) return;
   try {
-    await Api.deleteCredit(creditId);
-    credits = credits.filter((c) => c.id !== creditId);
-    saveJson("bm_credits", credits);
+    await Api.deleteUser(userId);
+    users = users.filter((u) => u.id !== userId);
     await syncFromServer({ silent: true });
-    showToast("נמחק");
+    showToast("המשתמש נמחק");
   } catch (err) {
     if (isUnknownActionError(err)) {
       alert(REDEPLOY_MSG);
     } else {
       console.error(err);
-      alert("לא הצלחנו למחוק את הפריט.");
+      alert("לא הצלחנו למחוק את המשתמש.");
     }
   }
 }
 
-async function deleteExperienceById(experienceId) {
+function purgeCreditLocally(creditId) {
+  credits = credits.filter((c) => c.id !== creditId);
+  pendingCredits = pendingCredits.filter((c) => c.id !== creditId);
+  saveJson("bm_credits", credits);
+  saveJson("bm_pending_credits", pendingCredits);
+}
+
+async function deleteCreditById(creditId) {
   if (!currentUser?.isAdmin) return;
+  if (!confirm("למחוק פריט זה?")) return;
+  try {
+    await Api.deleteCredit(creditId);
+  } catch (err) {
+    if (isUnknownActionError(err)) {
+      alert(REDEPLOY_MSG);
+      return;
+    }
+    console.error(err);
+  }
+  // מנקה מקומית בכל מקרה כדי שלא יחזור אחרי סנכרון
+  purgeCreditLocally(creditId);
+  await syncFromServer({ silent: true });
+  showToast("נמחק");
+}
+
+async function deleteExperienceById(experienceId) {
+  const exp = experiences.find((e) => e.id === experienceId);
+  if (!exp || !canDeleteExperience(exp)) return;
   if (!confirm("למחוק את התמונה?")) return;
   try {
     await Api.deleteExperience(experienceId);
@@ -947,16 +1038,35 @@ function renderAdminPanel() {
     return;
   }
 
-  const sorted = [...events].sort((a, b) =>
+  const sortedEvents = [...events].sort((a, b) =>
     `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
   );
+  const rsvpCount = events.reduce((sum, e) => sum + Object.keys(e.rsvp || {}).length, 0);
+  const creditList = (credits || []).filter((c) => !isOwnerRecommendation(c));
+  const recList = (credits || []).filter((c) => isOwnerRecommendation(c));
+  const photoList = experiences.filter((e) => e.imageUrl);
+
+  const itemRow = (title, sub, attr) => `
+    <div class="glass rounded-2xl p-3">
+      <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <div class="font-bold text-sm truncate">${title}</div>
+          ${sub ? `<div class="text-xs text-white/50 mt-1 truncate">${sub}</div>` : ""}
+        </div>
+        <div class="flex items-center gap-2 shrink-0">${attr}</div>
+      </div>
+    </div>`;
+
+  const emptyRow = (txt) => `<div class="text-[11px] text-white/40">${txt}</div>`;
 
   tab.innerHTML = `
     <div class="glass rounded-[28px] p-4 mb-4">
       <div class="font-black mb-2">פאנל ניהול</div>
-      <div class="text-sm text-white/60 mb-3">אירועים: ${events.length} | הודעות: ${messages.length} | קרדיטים: ${(credits || []).length} | תמונות: ${experiences.filter((e) => e.imageUrl).length}</div>
+      <div class="text-xs text-white/60 mb-3 leading-5">משתמשים: ${users.length} • אירועים: ${events.length} • אישורי הגעה: ${rsvpCount} • קרדיטים: ${creditList.length} • המלצות: ${recList.length} • תמונות: ${photoList.length} • הודעות: ${messages.length}</div>
       <div class="grid grid-cols-2 gap-2">
         <button type="button" id="adminRefreshBtn" class="rounded-xl bg-white/10 p-2 text-xs font-bold">רענון</button>
+        <button type="button" id="adminClearLocalBtn" class="rounded-xl bg-white/10 p-2 text-xs font-bold">ניקוי מטמן ורענון</button>
+        <button type="button" id="adminDeleteAllUsersBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת משתמשים</button>
         <button type="button" id="adminDeleteAllEventsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת אירועים</button>
         <button type="button" id="adminDeleteAllRsvpsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת אישורי הגעה</button>
         <button type="button" id="adminDeleteAllCreditsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת קרדיטים</button>
@@ -966,71 +1076,87 @@ function renderAdminPanel() {
         <button type="button" id="adminDeleteEverythingBtn" class="col-span-2 rounded-xl bg-red-600/40 border border-red-400/40 p-2 text-xs font-black">⚠️ מחיקת הכל</button>
       </div>
     </div>
+
     <div class="space-y-3">
-      <div class="text-xs text-white/50">אירועים</div>
-      ${sorted
-        .map(
-          (event) => `
-        <div class="glass rounded-2xl p-3">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <div class="font-black text-sm">בת מצווה ל${event.girlName}</div>
-              <div class="text-xs text-white/50 mt-1">${event.date} • ${event.time}</div>
-            </div>
-            <button type="button" class="event-action-btn delete" data-admin-delete-id="${event.id}" aria-label="מחיקת אירוע">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>
-        </div>`
-        )
-        .join("")}
-      <div class="text-xs text-white/50 mt-4">קרדיטים</div>
-      ${(credits || [])
-        .filter((c) => !isOwnerRecommendation(c))
-        .map(
-          (c) => `
-        <div class="glass rounded-2xl p-3">
-          <div class="flex items-center justify-between gap-2">
-            <div class="text-sm">${adminCreditLabel(c)}</div>
-            <button type="button" class="event-action-btn delete" data-admin-delete-credit-id="${c.id}" aria-label="מחיקת קרדיט">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>
-        </div>`
-        )
-        .join("") || '<div class="text-[11px] text-white/40">אין קרדיטים</div>'}
+      <div class="text-xs text-white/50">משתמשים רשומים (${users.length})</div>
+      ${users.length
+        ? users
+            .map((u) =>
+              itemRow(
+                `${u.parentName || "—"}${u.familyName ? " " + u.familyName : ""}`,
+                `${u.role || ""}${u.girlName ? " • בת: " + u.girlName : ""}${u.phone ? " • " + u.phone : ""}`,
+                `<button type="button" class="event-action-btn delete" data-admin-delete-user-id="${u.id}" aria-label="מחיקת משתמש"><i class="fa-solid fa-trash"></i></button>`
+              )
+            )
+            .join("")
+        : emptyRow("אין משתמשים רשומים (יירשמו אוטומטית בכניסה הבאה)")}
 
-      <div class="text-xs text-white/50 mt-4">המלצות בעלי אירוע</div>
-      ${(credits || [])
-        .filter((c) => isOwnerRecommendation(c))
-        .map(
-          (c) => `
-        <div class="glass rounded-2xl p-3">
-          <div class="flex items-center justify-between gap-2">
-            <div class="text-sm">${adminCreditLabel(c)}</div>
-            <button type="button" class="event-action-btn delete" data-admin-delete-credit-id="${c.id}" aria-label="מחיקת המלצה">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>
-        </div>`
-        )
-        .join("") || '<div class="text-[11px] text-white/40">אין המלצות</div>'}
+      <div class="text-xs text-white/50 mt-4">אירועים (${events.length})</div>
+      ${sortedEvents.length
+        ? sortedEvents
+            .map((event) =>
+              itemRow(
+                `בת מצווה ל${event.girlName}`,
+                `${event.date} • ${event.time}${event.ownerName ? " • " + event.ownerName : ""}`,
+                `<button type="button" class="event-action-btn edit" data-admin-edit-id="${event.id}" aria-label="עריכת אירוע"><i class="fa-solid fa-pen"></i></button>
+                 <button type="button" class="event-action-btn delete" data-admin-delete-id="${event.id}" aria-label="מחיקת אירוע"><i class="fa-solid fa-trash"></i></button>`
+              )
+            )
+            .join("")
+        : emptyRow("אין אירועים")}
 
-      <div class="text-xs text-white/50 mt-4">הודעות</div>
-      ${(messages || [])
-        .map(
-          (msg) => `
-        <div class="glass rounded-2xl p-3">
-          <div class="flex items-center justify-between gap-2">
-            <div class="text-sm">${msg.text}</div>
-            <button type="button" class="event-action-btn delete" data-admin-delete-message-id="${msg.id}" aria-label="מחיקת הודעה">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>
-          <div class="text-[11px] text-white/50 mt-1">${msg.name}</div>
-        </div>`
-        )
-        .join("")}
+      <div class="text-xs text-white/50 mt-4">קרדיטים (${creditList.length})</div>
+      ${creditList.length
+        ? creditList
+            .map((c) =>
+              itemRow(
+                adminCreditLabel(c),
+                "",
+                `<button type="button" class="event-action-btn delete" data-admin-delete-credit-id="${c.id}" aria-label="מחיקת קרדיט"><i class="fa-solid fa-trash"></i></button>`
+              )
+            )
+            .join("")
+        : emptyRow("אין קרדיטים")}
+
+      <div class="text-xs text-white/50 mt-4">המלצות בעלי אירוע (${recList.length})</div>
+      ${recList.length
+        ? recList
+            .map((c) =>
+              itemRow(
+                adminCreditLabel(c),
+                "",
+                `<button type="button" class="event-action-btn delete" data-admin-delete-credit-id="${c.id}" aria-label="מחיקת המלצה"><i class="fa-solid fa-trash"></i></button>`
+              )
+            )
+            .join("")
+        : emptyRow("אין המלצות")}
+
+      <div class="text-xs text-white/50 mt-4">תמונות / סרטונים (${photoList.length})</div>
+      ${photoList.length
+        ? photoList
+            .map((exp) => {
+              const ev = events.find((e) => e.id === exp.eventId);
+              return itemRow(
+                `${experienceMediaType(exp) === "video" ? "🎬 סרטון" : "🖼️ תמונה"} — ${ev ? ev.girlName : "כללי"}`,
+                exp.userName || "",
+                `<button type="button" class="event-action-btn delete" data-admin-delete-experience-id="${exp.id}" aria-label="מחיקת תמונה"><i class="fa-solid fa-trash"></i></button>`
+              );
+            })
+            .join("")
+        : emptyRow("אין תמונות")}
+
+      <div class="text-xs text-white/50 mt-4">הודעות (${messages.length})</div>
+      ${messages.length
+        ? messages
+            .map((msg) =>
+              itemRow(
+                msg.text,
+                msg.name,
+                `<button type="button" class="event-action-btn delete" data-admin-delete-message-id="${msg.id}" aria-label="מחיקת הודעה"><i class="fa-solid fa-trash"></i></button>`
+              )
+            )
+            .join("")
+        : emptyRow("אין הודעות")}
     </div>
   `;
 }
@@ -2272,11 +2398,35 @@ async function rateCreditSentiment(creditId, sentiment) {
 // ─── חוויות ────────────────────────────────────────────────
 function bindExperiences() {
   document.getElementById("experiencesTab").addEventListener("click", async (e) => {
+    const dlBtn = e.target.closest("[data-download-exp-url]");
+    if (dlBtn) {
+      const a = document.createElement("a");
+      a.href = toDownloadUrl(dlBtn.dataset.downloadExpUrl);
+      a.download = dlBtn.dataset.downloadExpName || "media";
+      a.target = "_blank";
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return;
+    }
+
     const delBtn = e.target.closest("[data-delete-experience-id]");
-    if (delBtn && currentUser?.isAdmin) {
+    if (delBtn) {
+      if (delBtn.disabled) return;
       await deleteExperienceById(delBtn.dataset.deleteExperienceId);
     }
   });
+}
+
+// הרשאת מחיקת תמונה: מנהל / מי שהעלה / בעל האירוע
+function canDeleteExperience(exp) {
+  if (!currentUser) return false;
+  if (currentUser.isAdmin) return true;
+  if (exp.userId && String(exp.userId) === String(currentUser.id)) return true;
+  const event = events.find((ev) => ev.id === exp.eventId);
+  if (event && canManageEvent(event)) return true;
+  return false;
 }
 
 function experienceMediaType(exp) {
@@ -2365,7 +2515,6 @@ function renderExperiences() {
 
   const list = document.getElementById("experiencesList");
   const keys = Object.keys(grouped);
-  const adminDelete = currentUser?.isAdmin;
   list.innerHTML = keys.length
     ? keys
         .map((eventId) => {
@@ -2379,18 +2528,20 @@ function renderExperiences() {
                 type === "video"
                   ? `<video src="${exp.imageUrl}" class="w-full rounded-xl max-h-64 bg-black" controls playsinline></video>`
                   : `<img src="${exp.imageUrl}" class="w-full rounded-xl object-cover max-h-64" alt="">`;
+              const canDelete = canDeleteExperience(exp);
               return `
                 <div class="relative mb-3">
                   <label class="exp-check-wrap">
                     <input type="checkbox" class="exp-select" data-url="${escapeHtmlAttr(exp.imageUrl)}" data-name="${escapeHtmlAttr(fileName)}" />
                   </label>
-                  ${
-                    adminDelete
-                      ? `<button type="button" class="event-action-btn delete absolute top-2 left-2" data-delete-experience-id="${exp.id}" aria-label="מחיקה">
-                    <i class="fa-solid fa-trash"></i>
-                  </button>`
-                      : ""
-                  }
+                  <div class="exp-actions">
+                    <button type="button" class="exp-action-btn download" data-download-exp-url="${escapeHtmlAttr(exp.imageUrl)}" data-download-exp-name="${escapeHtmlAttr(fileName)}" aria-label="הורדה" title="הורדה">
+                      <i class="fa-solid fa-download"></i>
+                    </button>
+                    <button type="button" class="exp-action-btn delete ${canDelete ? "" : "is-disabled"}" data-delete-experience-id="${exp.id}" ${canDelete ? "" : "disabled"} aria-label="מחיקה" title="${canDelete ? "מחיקה" : "רק מי שהעלה / בעל האירוע / מנהל יכול למחוק"}">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
                   ${type === "video" ? '<span class="exp-video-badge">🎬 סרטון</span>' : ""}
                   ${mediaEl}
                   <div class="text-[11px] text-white/50 mt-1">${exp.userName} • ${new Date(exp.createdAt).toLocaleString("he-IL")}</div>
@@ -2646,9 +2797,21 @@ function bindNavigation() {
   });
 
   document.getElementById("adminTab").addEventListener("click", async (e) => {
+    const editBtn = e.target.closest("[data-admin-edit-id]");
+    if (editBtn) {
+      openModalForEdit(editBtn.dataset.adminEditId);
+      return;
+    }
+
     const delBtn = e.target.closest("[data-admin-delete-id]");
     if (delBtn) {
       await deleteEventById(delBtn.dataset.adminDeleteId);
+      return;
+    }
+
+    const delUserBtn = e.target.closest("[data-admin-delete-user-id]");
+    if (delUserBtn) {
+      await deleteUserById(delUserBtn.dataset.adminDeleteUserId);
       return;
     }
 
@@ -2664,8 +2827,22 @@ function bindNavigation() {
       return;
     }
 
+    const delExpBtn = e.target.closest("[data-admin-delete-experience-id]");
+    if (delExpBtn) {
+      await deleteExperienceById(delExpBtn.dataset.adminDeleteExperienceId);
+      return;
+    }
+
     if (e.target.closest("#adminRefreshBtn")) {
       await syncFromServer();
+      return;
+    }
+    if (e.target.closest("#adminClearLocalBtn")) {
+      await adminClearLocalAndResync();
+      return;
+    }
+    if (e.target.closest("#adminDeleteAllUsersBtn")) {
+      await adminDeleteAllUsers();
       return;
     }
     if (e.target.closest("#adminDeleteAllEventsBtn")) {

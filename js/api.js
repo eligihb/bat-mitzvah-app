@@ -102,12 +102,20 @@ const Api = {
     return this.post({ action: "deleteEvent", eventId });
   },
 
+  registerUser(user) {
+    return this.post({ action: "registerUser", ...user });
+  },
+
+  deleteUser(userId) {
+    return this.post({ action: "deleteUser", userId });
+  },
+
   updateEvent(event) {
     return this.post({ action: "updateEvent", ...event });
   },
 
   /** המרת נתונים מהגיליון לפורמט האפליקציה */
-  normalizePayload(eventsRaw, rsvpsRaw, messagesRaw, creditsRaw = [], experiencesRaw = []) {
+  normalizePayload(eventsRaw, rsvpsRaw, messagesRaw, creditsRaw = [], experiencesRaw = [], usersRaw = []) {
     const rsvpByEvent = {};
     (rsvpsRaw || []).forEach((row) => {
       const rr = normalizeRowKeys(row);
@@ -209,7 +217,26 @@ const Api = {
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    return { events, messages, credits, experiences };
+    const users = (usersRaw || [])
+      .map((row) => {
+        const rr = normalizeRowKeys(row);
+        const ts = readField(rr, ["lastseen", "createdat"]) || "";
+        return {
+          id: String(readField(rr, ["id"]) || ""),
+          parentName: readField(rr, ["parentname"]) || "",
+          girlName: readField(rr, ["girlname"]) || "",
+          familyName: readField(rr, ["familyname"]) || "",
+          role: readField(rr, ["role"]) || "",
+          phone: readField(rr, ["phone"]) || "",
+          createdAt: readField(rr, ["createdat"]) || "",
+          lastSeen: readField(rr, ["lastseen"]) || "",
+          sortKey: new Date(ts).getTime() || 0,
+        };
+      })
+      .filter((u) => u.id)
+      .sort((a, b) => b.sortKey - a.sortKey);
+
+    return { events, messages, credits, experiences, users };
   },
 };
 
