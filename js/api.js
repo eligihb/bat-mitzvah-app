@@ -55,6 +55,10 @@ const Api = {
     return this.post({ action: "deleteMessage", messageId });
   },
 
+  deleteExperience(experienceId) {
+    return this.post({ action: "deleteExperience", experienceId });
+  },
+
   deleteEvent(eventId) {
     return this.post({ action: "deleteEvent", eventId });
   },

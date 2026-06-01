@@ -16,6 +16,7 @@ let creditBoardExpandedProvider = "";
 let guestEventScoreSelected = 0;
 let ownerEventScoreSelected = 0;
 let experiencesSelectedEventId = "";
+let experiencesFilterEventId = "";
 let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 const guestProviderState = {};
 const ownerProviderState = {};
@@ -439,7 +440,7 @@ function renderUpcoming() {
       if (!ad || !bd) return 0;
       return ad - bd;
     })
-    .slice(0, 2);
+    .slice(0, 3);
 
   if (!upcoming.length) {
     bar.innerHTML = "אין אירועים קרובים";
@@ -462,29 +463,17 @@ function renderUpcoming() {
     return d >= now && d <= monthAhead;
   }).length;
 
-  const relativeLabel = (dateObj) => {
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const target = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
-    const diffDays = Math.round((target - today) / 86400000);
-    if (diffDays === 0) return "היום";
-    if (diffDays === 1) return "מחר";
-    if (diffDays === 2) return "מחרתיים";
-    if (diffDays <= 7) return "השבוע";
-    return "שבוע הבא";
-  };
-
   bar.innerHTML = `
-    <div class="space-y-2">
+    <div class="space-y-1.5">
+      <div class="text-xs opacity-90 mb-1">אירועים קרובים</div>
       ${upcoming
         .map((e) => {
           const d = parseEventDateTime(e.date, e.time);
-          const dateStr = d ? d.toLocaleDateString("he-IL") : (e.date || "—");
-          const timeStr = d && e.time ? d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }) : (e.time || "");
-          const rel = d ? relativeLabel(d) : "בקרוב";
-          return `<div>🚨 <span class="font-black">${rel}</span> • ${e.girlName} • ${dateStr} ${timeStr}</div>`;
+          const rel = d ? relativeDaysLabel(d, now) : "בקרוב";
+          return `<div>🎉 האירוע של <span class="font-black">${e.girlName}</span> ${rel}</div>`;
         })
         .join("")}
-      <div class="text-xs opacity-90">לשבוע הקרוב: ${weekCount} | לחודש הקרוב: ${monthCount}</div>
+      <div class="text-xs opacity-90 pt-1">לשבוע הקרוב: ${weekCount} | לחודש הקרוב: ${monthCount}</div>
     </div>
   `;
 
@@ -747,11 +736,17 @@ async function deleteMessageById(messageId) {
   if (!confirm("למחוק את ההודעה הזו?")) return;
   try {
     await Api.deleteMessage(messageId);
+    messages = messages.filter((m) => m.id !== messageId);
     await syncFromServer({ silent: true });
     showToast("ההודעה נמחקה");
   } catch (err) {
     console.error(err);
-    alert("לא הצלחנו למחוק הודעה. יש להוסיף deleteMessage גם בסקריפט Google.");
+    const msg = String(err?.message || "");
+    if (msg.includes("Unknown action")) {
+      alert("מחיקת הודעות דורשת עדכון Apps Script (פעולת deleteMessage). עדכן ופרוס מחדש את הסקריפט.");
+    } else {
+      alert("לא הצלחנו למחוק הודעה.");
+    }
   }
 }
 
@@ -773,15 +768,83 @@ async function adminDeleteAllEvents() {
 async function adminDeleteAllMessages() {
   if (!currentUser?.isAdmin) return;
   if (!confirm("למחוק את כל ההודעות?")) return;
-  try {
-    for (const msg of [...messages]) {
+  const list = [...messages];
+  let ok = 0;
+  let fail = 0;
+  let unknownAction = false;
+  for (const msg of list) {
+    try {
       await Api.deleteMessage(msg.id);
+      ok += 1;
+    } catch (err) {
+      fail += 1;
+      if (String(err?.message || "").includes("Unknown action")) unknownAction = true;
     }
-    await syncFromServer({ silent: true });
+  }
+  messages = [];
+  await syncFromServer({ silent: true });
+  if (ok && !fail) {
     showToast("כל ההודעות נמחקו");
+  } else if (ok) {
+    showToast(`נמחקו ${ok} הודעות, ${fail} נכשלו`);
+  } else if (unknownAction) {
+    alert("השרת לא תומך במחיקת הודעות. יש לפרוס מחדש את Google Apps Script עם פעולת deleteMessage.");
+  } else {
+    alert("לא הצלחנו למחוק את ההודעות.");
+  }
+}
+
+async function deleteExperienceById(experienceId) {
+  if (!currentUser?.isAdmin) return;
+  if (!confirm("למחוק את התמונה?")) return;
+  try {
+    await Api.deleteExperience(experienceId);
+    experiences = experiences.filter((e) => e.id !== experienceId);
+    pendingExperiences = pendingExperiences.filter((e) => e.id !== experienceId);
+    saveJson("bm_pending_experiences", pendingExperiences);
+    saveJson("bm_experiences", experiences);
+    await syncFromServer({ silent: true });
+    showToast("התמונה נמחקה");
   } catch (err) {
     console.error(err);
-    alert("לא הצלחנו למחוק את כל ההודעות. יש לוודא deleteMessage בסקריפט.");
+    const msg = String(err?.message || "");
+    if (msg.includes("Unknown action")) {
+      alert("מחיקת תמונות דורשת עדכון Apps Script (פעולת deleteExperience). עדכן ופרוס מחדש את הסקריפט.");
+    } else {
+      alert("לא הצלחנו למחוק את התמונה.");
+    }
+  }
+}
+
+async function adminDeleteAllExperiences() {
+  if (!currentUser?.isAdmin) return;
+  if (!confirm("למחוק את כל התמונות באלבומים?")) return;
+  const list = experiences.filter((e) => e.imageUrl);
+  let ok = 0;
+  let fail = 0;
+  let unknownAction = false;
+  for (const exp of list) {
+    try {
+      await Api.deleteExperience(exp.id);
+      ok += 1;
+    } catch (err) {
+      fail += 1;
+      if (String(err?.message || "").includes("Unknown action")) unknownAction = true;
+    }
+  }
+  experiences = [];
+  pendingExperiences = [];
+  saveJson("bm_experiences", experiences);
+  saveJson("bm_pending_experiences", pendingExperiences);
+  await syncFromServer({ silent: true });
+  if (ok && !fail) {
+    showToast("כל התמונות נמחקו");
+  } else if (ok) {
+    showToast(`נמחקו ${ok} תמונות, ${fail} נכשלו`);
+  } else if (unknownAction) {
+    alert("השרת לא תומך במחיקת תמונות. יש לפרוס מחדש את Google Apps Script עם פעולת deleteExperience.");
+  } else {
+    alert("לא הצלחנו למחוק את התמונות.");
   }
 }
 
@@ -828,11 +891,12 @@ function renderAdminPanel() {
   tab.innerHTML = `
     <div class="glass rounded-[28px] p-4 mb-4">
       <div class="font-black mb-2">פאנל ניהול</div>
-      <div class="text-sm text-white/60 mb-3">אירועים: ${events.length} | הודעות: ${messages.length}</div>
-      <div class="grid grid-cols-3 gap-2">
+      <div class="text-sm text-white/60 mb-3">אירועים: ${events.length} | הודעות: ${messages.length} | תמונות: ${experiences.filter((e) => e.imageUrl).length}</div>
+      <div class="grid grid-cols-2 gap-2">
         <button type="button" id="adminRefreshBtn" class="rounded-xl bg-white/10 p-2 text-xs font-bold">רענון</button>
         <button type="button" id="adminDeleteAllEventsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת כל האירועים</button>
         <button type="button" id="adminDeleteAllMessagesBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת כל ההודעות</button>
+        <button type="button" id="adminDeleteAllExperiencesBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת כל התמונות</button>
       </div>
     </div>
     <div class="space-y-3">
@@ -1207,16 +1271,22 @@ function bindCredits() {
           });
         }
         const card = providerStarBtn.closest("[data-provider-card]");
+        if (card) {
+          card.dataset.selected = "1";
+          card.classList.add("is-selected", "ring-2", "ring-pink-400");
+        }
         const providerKey = card?.dataset.providerKey || "";
         if (providerKey) {
           if (creditScreen === "guest") {
             guestProviderState[providerKey] = {
               ...(guestProviderState[providerKey] || { selected: false, score: 0, note: "" }),
+              selected: true,
               score,
             };
           } else if (creditScreen === "owner") {
             ownerProviderState[providerKey] = {
               ...(ownerProviderState[providerKey] || { selected: false, score: 0 }),
+              selected: true,
               score,
             };
           }
@@ -1292,7 +1362,7 @@ function renderCredits() {
 
 function renderGuestCreditsForm() {
   const tab = document.getElementById("creditsTab");
-  const options = pastEventsSortedDesc()
+  const options = allEventsSortedForCredit()
     .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
     .join("");
   tab.innerHTML = `
@@ -1318,14 +1388,10 @@ function renderGuestCreditsForm() {
         <button type="button" data-save-provider class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm font-bold">אישור הוספה</button>
       </div>
       <div id="guestProvidersWrap" class="space-y-2"></div>
-      <div class="border-t border-white/10 pt-2 mt-2">
-        <div class="text-xs text-white/70 mb-1">פרגון כללי על האירוע</div>
+      <div class="border-t border-white/10 pt-3 mt-2">
+        <div class="text-sm font-black text-center mb-2">✨ פרגון כללי על האירוע ✨</div>
+        ${renderGlowStarRating("guestEventScoreWrap", guestEventScoreSelected)}
       </div>
-      <div class="grid grid-cols-3 gap-2 text-xs">
-        ${renderCreditTagsInputs()}
-      </div>
-      <div class="text-xs text-white/80">דירוג אירוע כללי</div>
-      ${renderStarRating("guestEventScoreWrap", "credit-score-star", "data-credit-score", guestEventScoreSelected)}
       <textarea id="guestCreditNote" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[72px]" placeholder="הערה (אופציונלי)">${escapeHtmlAttr(guestCreditNoteDraft)}</textarea>
       <button type="button" id="publishGuestCreditBtn" class="w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">פרסום</button>
     </div>
@@ -1369,23 +1435,36 @@ function renderGuestCreditsForm() {
       } else {
         guestEventScoreSelected = score;
       }
-      updateCreditScoreChips("guestEventScoreWrap", guestEventScoreSelected);
+      updateGlowStarRating("guestEventScoreWrap", guestEventScoreSelected);
     };
   });
-  updateCreditScoreChips("guestEventScoreWrap", guestEventScoreSelected);
+  updateGlowStarRating("guestEventScoreWrap", guestEventScoreSelected);
   document.getElementById("publishGuestCreditBtn").onclick = publishGuestCredits;
-  updateCreditTagButtonsUI();
   refreshGuestProviders();
 }
 
 function renderOwnerCreditsForm() {
   const tab = document.getElementById("creditsTab");
-  const myEvent = detectMyPastEventForOwnerCredit();
+  const myEvent = detectMyEventForOwnerCredit();
   if (!myEvent) {
     tab.innerHTML = `
       ${creditsTopNav("owner")}
       <div class="glass rounded-[28px] p-4 text-center text-sm text-white/70">
-        עדיין אין אירוע שלך שהתקיים. אחרי שהאירוע יתקיים אפשר להוסיף המלצות.
+        לא נמצא אירוע שיצרת. צרי קודם אירוע כדי להמליץ על נותני השירות שלך.
+      </div>
+    `;
+    return;
+  }
+  if (!isEventPastByDate(myEvent.date)) {
+    const d = parseEventDateTime(myEvent.date, myEvent.time || "00:00");
+    const dateText = d ? d.toLocaleDateString("he-IL") : "";
+    tab.innerHTML = `
+      ${creditsTopNav("owner")}
+      <div class="glass rounded-[28px] p-4 space-y-3">
+        <div class="rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">האירוע של ${myEvent.girlName}${dateText ? ` • ${dateText}` : ""}</div>
+        <div class="rounded-xl bg-yellow-500/10 border border-yellow-400/30 p-3 text-sm text-yellow-100 text-center">
+          האירוע טרם התקיים, הנך מוזמן/ת להמליץ לאחר האירוע 🌟
+        </div>
       </div>
     `;
     return;
@@ -1395,8 +1474,13 @@ function renderOwnerCreditsForm() {
     <div class="glass rounded-[28px] p-4 space-y-2">
       <div class="rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">האירוע של ${myEvent ? myEvent.girlName : "—"}</div>
       <input id="creditEventId" type="hidden" value="${myEvent ? myEvent.id : ""}" />
+      <div class="text-xs text-white/70">המלצה על ספקים ונותני שירות מהאירוע שלך</div>
       <div id="ownerProvidersWrap" class="space-y-2"></div>
-      <button type="button" data-open-provider-modal class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">+ הוסף נותן שירות חדש</button>
+      <div class="flex items-center justify-end">
+        <button type="button" data-open-provider-modal class="event-action-btn compact" aria-label="הוספת נותן שירות">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
       <div id="ownerInlineProviderForm" class="hidden space-y-2 rounded-xl border border-white/10 bg-white/5 p-2">
         <select id="providerCategoryInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">
           ${CREDIT_SERVICE_TYPES.map((t) => `<option value="${t}">${t}</option>`).join("")}
@@ -1406,26 +1490,13 @@ function renderOwnerCreditsForm() {
         <input id="providerNameInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם נותן השירות" />
         <input id="providerPhoneInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="טלפון" />
         <input id="providerEmailInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="אימייל" />
+        <input id="providerNoteInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="הערה קצרה על נותן השירות" />
         <button type="button" data-save-provider class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm font-bold">אישור הוספה</button>
       </div>
       <textarea id="ownerCreditNote" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[110px]" placeholder="המלצה מפורטת"></textarea>
-      <div class="text-xs text-white/80">דירוג כללי</div>
-      ${renderStarRating("ownerEventScoreWrap", "owner-credit-score-star", "data-owner-credit-score", ownerEventScoreSelected)}
       <button type="button" id="publishOwnerCreditBtn" class="w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">פרסום</button>
     </div>
   `;
-  document.querySelectorAll("[data-owner-credit-score]").forEach((btn) => {
-    btn.onclick = () => {
-      const score = Number(btn.dataset.ownerCreditScore || 0);
-      if (ownerEventScoreSelected === score) {
-        ownerEventScoreSelected = 0;
-      } else {
-        ownerEventScoreSelected = score;
-      }
-      updateCreditScoreChips("ownerEventScoreWrap", ownerEventScoreSelected);
-    };
-  });
-  updateCreditScoreChips("ownerEventScoreWrap", ownerEventScoreSelected);
   document.getElementById("publishOwnerCreditBtn").onclick = publishOwnerCredits;
   document.getElementById("providerCategoryInput").onchange = (e) => {
     document.getElementById("providerCategoryOtherInput").classList.toggle("hidden", e.target.value !== "אחר");
@@ -1438,6 +1509,14 @@ function detectMyPastEventForOwnerCredit() {
   const strict = sortedPast.find((e) => String(e.ownerId || "") === String(currentUser?.id || ""));
   if (strict) return strict;
   return sortedPast.find((e) => canManageEvent(e));
+}
+
+function detectMyEventForOwnerCredit() {
+  const past = detectMyPastEventForOwnerCredit();
+  if (past) return past;
+  const ownStrict = events.find((e) => String(e.ownerId || "") === String(currentUser?.id || ""));
+  if (ownStrict) return ownStrict;
+  return events.find((e) => canManageEvent(e)) || null;
 }
 
 function renderCreditsBoard() {
@@ -1526,6 +1605,35 @@ function updateCreditScoreChips(containerId, selectedScore) {
   });
 }
 
+function renderGlowStarRating(containerId, selectedScore) {
+  const stars = [1, 2, 3, 4, 5]
+    .map(
+      (n) =>
+        `<button type="button" class="glow-star ${selectedScore >= n ? "is-on" : ""}" data-credit-score="${n}" aria-label="דירוג ${n}">★</button>`
+    )
+    .join("");
+  const pct = Math.max(0, Math.min(5, selectedScore)) * 20;
+  return `
+    <div id="${containerId}" class="glow-rating" data-score="${selectedScore}">
+      <div class="glow-rating-fill" style="width:${pct}%"></div>
+      <div class="glow-rating-stars">${stars}</div>
+    </div>
+  `;
+}
+
+function updateGlowStarRating(containerId, selectedScore) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  const pct = Math.max(0, Math.min(5, selectedScore)) * 20;
+  const fill = wrap.querySelector(".glow-rating-fill");
+  if (fill) fill.style.width = `${pct}%`;
+  wrap.classList.toggle("has-score", selectedScore > 0);
+  wrap.querySelectorAll(".glow-star").forEach((btn) => {
+    const n = Number(btn.dataset.creditScore || 0);
+    btn.classList.toggle("is-on", selectedScore >= n);
+  });
+}
+
 function renderStarRating(containerId, starClass, dataAttr, selectedScore) {
   const stars = [1, 2, 3, 4, 5]
     .map((n) => `<button type="button" class="${starClass} text-xl ${selectedScore >= n ? "text-yellow-300" : "text-white/35"}" ${dataAttr}="${n}" aria-label="דירוג ${n}">★</button>`)
@@ -1558,6 +1666,14 @@ function pastEventsSortedDesc() {
     .sort((a, b) => new Date(`${b.date}T${b.time || "00:00"}`) - new Date(`${a.date}T${a.time || "00:00"}`));
 }
 
+function allEventsSortedForCredit() {
+  const past = pastEventsSortedDesc();
+  const upcoming = events
+    .filter((e) => !isEventPastByDate(e.date))
+    .sort((a, b) => new Date(`${a.date}T${a.time || "00:00"}`) - new Date(`${b.date}T${b.time || "00:00"}`));
+  return [...past, ...upcoming];
+}
+
 function refreshGuestProviders() {
   const eventId = document.getElementById("creditEventId")?.value || "";
   const wrap = document.getElementById("guestProvidersWrap");
@@ -1573,7 +1689,7 @@ function refreshGuestProviders() {
             <span class="credit-provider-icon">${serviceIcon(service)}</span>
             <span>${service}</span>
           </button>
-          <div class="text-xs text-white/70 mt-1">בחר/י ואז דרג/י בכוכבים</div>
+          <div class="text-xs text-white/70 mt-1">דרג/י בכוכבים — הבחירה תסומן אוטומטית</div>
           <div id="guestProviderStars_${i}" class="credit-stars-wrap mt-1">
             ${[1, 2, 3, 4, 5]
               .map(
@@ -1605,7 +1721,7 @@ function refreshOwnerProviders() {
   const eventId = document.getElementById("creditEventId")?.value || "";
   const wrap = document.getElementById("ownerProvidersWrap");
   if (!wrap) return;
-  const providers = collectProvidersForEvent(eventId);
+  const providers = collectOwnerRecommendationTargets(eventId);
   wrap.innerHTML = providers.length
     ? providers
         .map(
@@ -1743,7 +1859,6 @@ async function publishOwnerCredits() {
     return;
   }
   const note = document.getElementById("ownerCreditNote").value.trim();
-  const eventScore = ownerEventScoreSelected;
   try {
     for (const card of selectedCards) {
       const scoreInput = card.querySelector("[data-provider-name]");
@@ -1765,7 +1880,7 @@ async function publishOwnerCredits() {
         sentiment: "like",
         ownerUserId: currentUser.id,
         ownerName: currentUser.parentName,
-        ratings: JSON.stringify({ [currentUser.id]: score, ...(eventScore ? { [`${currentUser.id}_event`]: eventScore } : {}) }),
+        ratings: JSON.stringify({ [currentUser.id]: score }),
         createdAt: new Date().toISOString(),
       })
       );
@@ -1793,7 +1908,7 @@ async function publishOwnerCredits() {
           sentiment: "like",
           ownerUserId: currentUser.id,
           ownerName: currentUser.parentName,
-          ratings: { [currentUser.id]: score, ...(eventScore ? { [`${currentUser.id}_event`]: eventScore } : {}) },
+          ratings: { [currentUser.id]: score },
         };
       });
       pendingCredits = [...localCredits, ...pendingCredits];
@@ -1833,11 +1948,23 @@ function collectProvidersForEvent(eventId) {
   return Array.from(providers.values());
 }
 
+function collectOwnerRecommendationTargets(eventId) {
+  const base = CREDIT_SERVICE_TYPES.map((name) => ({ name, category: name }));
+  const existing = collectProvidersForEvent(eventId);
+  const map = new Map();
+  [...base, ...existing].forEach((p) => {
+    const key = `${p.name}@@${p.category || ""}`;
+    if (!map.has(key)) map.set(key, p);
+  });
+  return Array.from(map.values());
+}
+
 async function addProviderFromModal() {
   const eventId = document.getElementById("creditEventId")?.value || "";
   const name = document.getElementById("providerNameInput")?.value.trim();
   const phone = document.getElementById("providerPhoneInput")?.value.trim();
   const email = document.getElementById("providerEmailInput")?.value.trim();
+  const providerNote = document.getElementById("providerNoteInput")?.value.trim();
   const categoryBase = document.getElementById("providerCategoryInput")?.value || "";
   const categoryOther = document.getElementById("providerCategoryOtherInput")?.value.trim();
   const category = categoryBase === "אחר" ? categoryOther : categoryBase;
@@ -1853,7 +1980,7 @@ async function addProviderFromModal() {
       professionalName: name,
       phone,
       link: email,
-      note: "",
+      note: providerNote || "",
       tags: "__provider__",
       sentiment: "",
       contact: [phone, email].filter(Boolean).join(" | "),
@@ -2030,7 +2157,19 @@ async function rateCreditSentiment(creditId, sentiment) {
 
 // ─── חוויות ────────────────────────────────────────────────
 function bindExperiences() {
-  document.getElementById("experiencesTab").addEventListener("click", () => {});
+  document.getElementById("experiencesTab").addEventListener("click", async (e) => {
+    const delBtn = e.target.closest("[data-delete-experience-id]");
+    if (delBtn && currentUser?.isAdmin) {
+      await deleteExperienceById(delBtn.dataset.deleteExperienceId);
+    }
+  });
+}
+
+function experienceMediaType(exp) {
+  if (String(exp.text || "").toLowerCase() === "video") return "video";
+  const url = String(exp.imageUrl || "").toLowerCase();
+  if (/\.(mp4|mov|webm|m4v|ogg|avi)(\?|$)/.test(url)) return "video";
+  return "image";
 }
 
 function renderExperiences() {
@@ -2038,7 +2177,18 @@ function renderExperiences() {
   const eventOptions = events
     .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
     .join("");
-  const grouped = experiences.reduce((acc, item) => {
+
+  const media = experiences.filter((exp) => exp.imageUrl);
+  const filterOptions = events
+    .filter((e) => media.some((m) => String(m.eventId) === String(e.id)))
+    .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
+    .join("");
+
+  const visible = experiencesFilterEventId
+    ? media.filter((m) => String(m.eventId) === String(experiencesFilterEventId))
+    : media;
+
+  const grouped = visible.reduce((acc, item) => {
     const key = item.eventId || "unknown";
     if (!acc[key]) acc[key] = [];
     acc[key].push(item);
@@ -2047,16 +2197,30 @@ function renderExperiences() {
 
   tab.innerHTML = `
     <div class="glass rounded-[28px] p-4">
-      <div class="font-black mb-3">אלבום תמונות משותף</div>
+      <div class="font-black mb-3">אלבום משותף — תמונות וסרטונים</div>
       <select id="expEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
         <option value="">בחר/י אירוע</option>
         ${eventOptions}
         <option value="__external__">אירוע אחר / חיצוני</option>
       </select>
       <input id="expEventManual" class="hidden w-full mt-2 rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם אירוע חיצוני" />
-      <input id="expImageFile" type="file" accept="image/*" multiple class="w-full mt-2 text-sm" />
-      <button id="addExperienceBtn" type="button" class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">העלה/י תמונה לאלבום המשותף</button>
+      <input id="expImageFile" type="file" accept="image/*,video/*" multiple class="w-full mt-2 text-sm" />
+      <div class="text-[11px] text-white/45 mt-1">אפשר להעלות תמונות, מצגת או סרטון של הילדה</div>
+      <button id="addExperienceBtn" type="button" class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">העלה/י לאלבום המשותף</button>
     </div>
+
+    <div class="glass rounded-2xl p-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <select id="expFilterEventId" class="flex-1 min-w-[140px] rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
+          <option value="">כל האירועים</option>
+          ${filterOptions}
+        </select>
+        <button id="expSelectAllBtn" type="button" class="rounded-xl bg-white/10 border border-white/10 px-3 py-2 text-xs font-bold">סמן הכל</button>
+        <button id="expDownloadBtn" type="button" class="rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-3 py-2 text-xs font-black">הורדה</button>
+      </div>
+      <div class="text-[11px] text-white/45 mt-1">סמן/י פריטים והורד/י אותם למכשיר</div>
+    </div>
+
     <div id="experiencesList" class="space-y-4"></div>
   `;
 
@@ -2068,31 +2232,103 @@ function renderExperiences() {
   };
   document.getElementById("expEventManual").classList.toggle("hidden", select.value !== "__external__");
   document.getElementById("addExperienceBtn").onclick = addExperienceFromForm;
+
+  const filterSelect = document.getElementById("expFilterEventId");
+  filterSelect.value = experiencesFilterEventId;
+  filterSelect.onchange = () => {
+    experiencesFilterEventId = filterSelect.value;
+    renderExperiences();
+  };
+  document.getElementById("expSelectAllBtn").onclick = toggleSelectAllExperiences;
+  document.getElementById("expDownloadBtn").onclick = downloadSelectedExperiences;
+
   const list = document.getElementById("experiencesList");
   const keys = Object.keys(grouped);
+  const adminDelete = currentUser?.isAdmin;
   list.innerHTML = keys.length
     ? keys
         .map((eventId) => {
           const event = events.find((e) => e.id === eventId);
-          const title = event ? `האירוע של ${event.girlName} — צפו או העלו תמונות` : "אלבום כללי";
+          const title = event ? `האירוע של ${event.girlName}` : "אלבום כללי";
           const cards = grouped[eventId]
-            .filter((exp) => exp.imageUrl)
-            .map(
-              (exp) => `
-                <img src="${exp.imageUrl}" class="w-full rounded-xl object-cover max-h-64" alt="">
-                <div class="text-[11px] text-white/50 mt-1 mb-2">${exp.userName} • ${new Date(exp.createdAt).toLocaleString("he-IL")}</div>
-              `
-            )
+            .map((exp) => {
+              const type = experienceMediaType(exp);
+              const fileName = `${(event ? event.girlName : "media")}_${String(exp.id).slice(0, 6)}.${type === "video" ? "mp4" : "jpg"}`;
+              const mediaEl =
+                type === "video"
+                  ? `<video src="${exp.imageUrl}" class="w-full rounded-xl max-h-64 bg-black" controls playsinline></video>`
+                  : `<img src="${exp.imageUrl}" class="w-full rounded-xl object-cover max-h-64" alt="">`;
+              return `
+                <div class="relative mb-3">
+                  <label class="exp-check-wrap">
+                    <input type="checkbox" class="exp-select" data-url="${escapeHtmlAttr(exp.imageUrl)}" data-name="${escapeHtmlAttr(fileName)}" />
+                  </label>
+                  ${
+                    adminDelete
+                      ? `<button type="button" class="event-action-btn delete absolute top-2 left-2" data-delete-experience-id="${exp.id}" aria-label="מחיקה">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>`
+                      : ""
+                  }
+                  ${type === "video" ? '<span class="exp-video-badge">🎬 סרטון</span>' : ""}
+                  ${mediaEl}
+                  <div class="text-[11px] text-white/50 mt-1">${exp.userName} • ${new Date(exp.createdAt).toLocaleString("he-IL")}</div>
+                </div>
+              `;
+            })
             .join("");
           return `
             <div class="glass rounded-2xl p-3">
-              <div class="font-black text-sm mb-2">${title}</div>
-              <div>${cards || '<div class="text-white/50 text-sm">עדיין אין תמונות</div>'}</div>
+              <div class="font-black text-sm mb-2">${title} <span class="text-white/40 font-normal">(${grouped[eventId].length})</span></div>
+              <div>${cards}</div>
             </div>
           `;
         })
         .join("")
-    : '<div class="text-center text-white/40 text-sm">עדיין אין תמונות באלבומים</div>';
+    : '<div class="text-center text-white/40 text-sm">עדיין אין תמונות או סרטונים באלבומים</div>';
+}
+
+function toggleSelectAllExperiences() {
+  const boxes = Array.from(document.querySelectorAll(".exp-select"));
+  if (!boxes.length) return;
+  const allChecked = boxes.every((b) => b.checked);
+  boxes.forEach((b) => {
+    b.checked = !allChecked;
+  });
+  const btn = document.getElementById("expSelectAllBtn");
+  if (btn) btn.textContent = allChecked ? "סמן הכל" : "נקה בחירה";
+}
+
+function toDownloadUrl(url) {
+  const str = String(url || "");
+  const m = /[?&]id=([^&]+)/.exec(str);
+  if (str.includes("drive.google.com") && m) {
+    return `https://drive.google.com/uc?export=download&id=${m[1]}`;
+  }
+  return str;
+}
+
+function downloadSelectedExperiences() {
+  const checked = Array.from(document.querySelectorAll(".exp-select:checked"));
+  if (!checked.length) {
+    showToast("סמן/י פריטים להורדה");
+    return;
+  }
+  checked.forEach((cb, idx) => {
+    const url = cb.dataset.url;
+    const name = cb.dataset.name || `media_${idx + 1}`;
+    setTimeout(() => {
+      const a = document.createElement("a");
+      a.href = toDownloadUrl(url);
+      a.download = name;
+      a.target = "_blank";
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }, idx * 350);
+  });
+  showToast(`מוריד ${checked.length} פריטים`);
 }
 
 async function addExperienceFromForm() {
@@ -2104,20 +2340,26 @@ async function addExperienceFromForm() {
     showToast("בחר/י אירוע והעלה/י תמונה");
     return;
   }
+  const oversize = files.find((f) => f.size > 45 * 1024 * 1024);
+  if (oversize) {
+    showToast("קובץ גדול מ-45MB — נסו קובץ קטן יותר");
+    return;
+  }
   try {
     let uploadedCount = 0;
     for (const file of files) {
+      const isVideo = String(file.type || "").startsWith("video") || /\.(mp4|mov|webm|m4v|ogg|avi)$/i.test(file.name || "");
       const dataUrl = await toBase64(file);
       const parts = splitDataUrl(dataUrl);
       const upload = await retryApiCall(() =>
         Api.uploadExperienceImage({
-          fileName: file.name || `exp_${Date.now()}.jpg`,
+          fileName: file.name || `exp_${Date.now()}.${isVideo ? "mp4" : "jpg"}`,
           mimeType: file.type || parts.mimeType,
           base64Data: parts.base64,
         })
       );
       const imageUrl = upload.imageUrl || "";
-      if (!imageUrl) throw new Error("לא התקבל קישור תמונה מהשרת");
+      if (!imageUrl) throw new Error("לא התקבל קישור מהשרת");
 
       await retryApiCall(() =>
         Api.createExperience({
@@ -2125,6 +2367,7 @@ async function addExperienceFromForm() {
           eventId,
           userId: currentUser.id,
           userName: currentUser.parentName,
+          text: isVideo ? "video" : "image",
           imageUrl,
           createdAt: new Date().toISOString(),
         })
@@ -2132,7 +2375,7 @@ async function addExperienceFromForm() {
       uploadedCount += 1;
     }
     await syncFromServer({ silent: true });
-    showToast(uploadedCount > 1 ? `${uploadedCount} תמונות עלו לאלבום` : "התמונה עלתה לאלבום המשותף");
+    showToast(uploadedCount > 1 ? `${uploadedCount} פריטים עלו לאלבום` : "הקובץ עלה לאלבום המשותף");
   } catch (err) {
     console.error(err);
     const msg = String(err?.message || "");
@@ -2140,12 +2383,14 @@ async function addExperienceFromForm() {
       try {
         const locals = [];
         for (const file of files) {
+          const isVideo = String(file.type || "").startsWith("video") || /\.(mp4|mov|webm|m4v|ogg|avi)$/i.test(file.name || "");
           const imageUrl = await toBase64(file);
           locals.push({
             id: crypto.randomUUID(),
             eventId,
             userId: currentUser.id,
             userName: currentUser.parentName,
+            text: isVideo ? "video" : "image",
             imageUrl,
             createdAt: new Date().toISOString(),
             pendingSync: true,
@@ -2261,6 +2506,10 @@ function bindNavigation() {
     }
     if (e.target.closest("#adminDeleteAllMessagesBtn")) {
       await adminDeleteAllMessages();
+      return;
+    }
+    if (e.target.closest("#adminDeleteAllExperiencesBtn")) {
+      await adminDeleteAllExperiences();
     }
   });
 }
@@ -2351,8 +2600,25 @@ function mergePendingExperiences(serverExperiences, pending) {
   return Array.from(map.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
+function relativeDaysLabel(dateObj, now = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+  const diffDays = Math.round((target - today) / 86400000);
+  if (diffDays < 0) return "התקיים";
+  if (diffDays === 0) return "היום";
+  if (diffDays === 1) return "בעוד יום";
+  if (diffDays === 2) return "בעוד יומיים";
+  if (diffDays === 7) return "בעוד שבוע";
+  if (diffDays === 14) return "בעוד שבועיים";
+  return `בעוד ${diffDays} ימים`;
+}
+
 function eventOptionLabel(event) {
   const d = parseEventDateTime(event.date, event.time || "00:00");
   const dateText = d ? d.toLocaleDateString("he-IL") : (String(event.date || "").slice(0, 10) || "תאריך לא זמין");
-  return `האירוע של ${event.girlName || "—"} • ${dateText}`;
+  let status = "";
+  if (d) {
+    status = isEventPastByDate(event.date) ? "התקיים" : relativeDaysLabel(d);
+  }
+  return `האירוע של ${event.girlName || "—"} • ${dateText}${status ? ` • (${status})` : ""}`;
 }

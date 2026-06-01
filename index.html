@@ -7,7 +7,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=32" />
+  <link rel="stylesheet" href="css/styles.css?v=36" />
 </head>
 <body>
 
@@ -49,14 +49,14 @@
                   <input id="parentName" class="login-input" placeholder="שם מלא" />
                 </div>
                 <div>
-                  <label class="login-label" for="girlName">שם הילדה <span class="req">*</span></label>
-                  <input id="girlName" class="login-input" placeholder="שם פרטי" />
-                </div>
-                <div>
                   <label class="login-label" for="familyName">שם משפחה <span class="req">*</span></label>
                   <input id="familyName" class="login-input" placeholder="שם משפחה" />
                 </div>
                 <div>
+                  <label class="login-label" for="girlName">שם הילדה <span class="req">*</span></label>
+                  <input id="girlName" class="login-input" placeholder="שם פרטי" />
+                </div>
+                <div class="twin-col">
                   <div class="twin-row">
                     <span class="twin-row-label">אחות תאומה</span>
                     <button type="button" id="toggleTwin" class="twin-add-btn" aria-label="הוספת אחות תאומה" aria-expanded="false">
@@ -111,7 +111,7 @@
               <div class="login-footer-inline">
                 <span>יישומון זה נבנה על ידי <span class="login-footer-brand">YE</span> ©</span>
               </div>
-              <div class="login-version">גרסה 112.4</div>
+              <div class="login-version">גרסה 112.8</div>
             </form>
           </div>
         </div>
@@ -282,8 +282,8 @@
 
   <div id="toastMsg" class="toast hidden"></div>
 
-  <script src="js/config.js?v=32"></script>
-  <script src="js/api.js?v=32"></script>
-  <script src="js/app.js?v=32"></script>
+  <script src="js/config.js?v=36"></script>
+  <script src="js/api.js?v=36"></script>
+  <script src="js/app.js?v=36"></script>
 </body>
 </html>
