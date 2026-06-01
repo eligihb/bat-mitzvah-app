@@ -51,12 +51,51 @@ const Api = {
     return this.post({ action: "uploadExperienceImage", ...payload });
   },
 
+  /** העלאה עם דיווח התקדמות אמיתי (אחוזים) דרך XHR */
+  uploadExperienceImageWithProgress(payload, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", APP_CONFIG.scriptUrl, true);
+      xhr.setRequestHeader("Content-Type", "text/plain;charset=utf-8");
+      if (xhr.upload && typeof onProgress === "function") {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            onProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+      }
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText || "{}");
+          if (!data.success) return reject(new Error(data.error || "שגיאה בשרת"));
+          resolve(data);
+        } catch (err) {
+          reject(new Error("תשובת שרת לא תקינה"));
+        }
+      };
+      xhr.onerror = () => reject(new Error("שגיאה בשליחה לשרת"));
+      xhr.send(JSON.stringify({ action: "uploadExperienceImage", ...payload }));
+    });
+  },
+
   deleteMessage(messageId) {
     return this.post({ action: "deleteMessage", messageId });
   },
 
   deleteExperience(experienceId) {
     return this.post({ action: "deleteExperience", experienceId });
+  },
+
+  deleteCredit(creditId) {
+    return this.post({ action: "deleteCredit", creditId });
+  },
+
+  clearSheet(target) {
+    return this.post({ action: "clearSheet", target });
+  },
+
+  deleteAllData() {
+    return this.post({ action: "deleteAllData" });
   },
 
   deleteEvent(eventId) {

@@ -249,6 +249,37 @@ function doPost(e) {
       return json({ success: true });
     }
 
+    if (action === "deleteCredit") {
+      const sheet = ss.getSheetByName(SHEET_CREDITS);
+      const row = findRowById(sheet, "id", data.creditId);
+      if (row >= 2) sheet.deleteRow(row);
+      return json({ success: true });
+    }
+
+    // מחיקת כל השורות בגיליון (משאיר את שורת הכותרת)
+    if (action === "clearSheet") {
+      const map = {
+        events: SHEET_EVENTS,
+        rsvps: SHEET_RSVP,
+        rsvp: SHEET_RSVP,
+        messages: SHEET_MESSAGES,
+        credits: SHEET_CREDITS,
+        experiences: SHEET_EXPERIENCES,
+      };
+      const name = map[String(data.target || "").toLowerCase()];
+      if (!name) return json({ success: false, error: "Unknown target: " + data.target });
+      clearSheetRows_(ss.getSheetByName(name));
+      return json({ success: true });
+    }
+
+    // מחיקת כל הנתונים מכל הגיליונות
+    if (action === "deleteAllData") {
+      [SHEET_EVENTS, SHEET_RSVP, SHEET_MESSAGES, SHEET_CREDITS, SHEET_EXPERIENCES].forEach(function (n) {
+        clearSheetRows_(ss.getSheetByName(n));
+      });
+      return json({ success: true });
+    }
+
     return json({ success: false, error: "Unknown action: " + action });
   } catch (err) {
     return json({ success: false, error: String(err) });
@@ -301,6 +332,15 @@ function ensureSheetHeaders_(ss, sheetName, requiredHeaders) {
     sheet.getRange(1, normalized.length + 1, 1, missing.length).setValues([missing]);
   }
   sheet.setFrozenRows(1);
+}
+
+// מוחק את כל שורות הנתונים ומשאיר את שורת הכותרת
+function clearSheetRows_(sheet) {
+  if (!sheet) return;
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.deleteRows(2, lastRow - 1);
+  }
 }
 
 // =========================

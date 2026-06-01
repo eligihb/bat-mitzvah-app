@@ -761,47 +761,132 @@ async function deleteMessageById(messageId) {
   }
 }
 
-async function adminDeleteAllEvents() {
+// הודעה אחידה כשנדרשת פריסה מחדש של הסקריפט
+const REDEPLOY_MSG =
+  "השרת עדיין מריץ גרסה ישנה של הסקריפט.\n\nכדי לתקן: Apps Script → Deploy → Manage deployments → לחצו על העיפרון (עריכה) → Version: New version → Deploy.\n(אל תיצרו פריסה חדשה — זה יוצר כתובת חדשה.)";
+
+function isUnknownActionError(err) {
+  const msg = String(err?.message || "");
+  return msg.includes("Unknown action") || msg.includes("לא נתמך");
+}
+
+// מחיקה מהירה של גיליון שלם עם נפילה חזרה למחיקה פר-פריט
+async function adminClearTarget(target, label, perItemFallback) {
   if (!currentUser?.isAdmin) return;
-  if (!confirm("למחוק את כל האירועים?")) return;
+  if (!confirm(`למחוק ${label}?`)) return;
   try {
-    for (const ev of [...events]) {
-      await Api.deleteEvent(ev.id);
-    }
+    await Api.clearSheet(target);
     await syncFromServer({ silent: true });
-    showToast("כל האירועים נמחקו");
+    showToast(`${label} נמחקו`);
+    return;
   } catch (err) {
-    console.error(err);
-    alert("לא הצלחנו למחוק את כל האירועים.");
+    if (!isUnknownActionError(err)) {
+      console.error(err);
+    }
+  }
+  // נפילה חזרה: מחיקה פר-פריט (אם השרת לא תומך ב-clearSheet)
+  if (typeof perItemFallback === "function") {
+    await perItemFallback();
+  } else {
+    alert(REDEPLOY_MSG);
   }
 }
 
-async function adminDeleteAllMessages() {
-  if (!currentUser?.isAdmin) return;
-  if (!confirm("למחוק את כל ההודעות?")) return;
-  const list = [...messages];
+async function deletePerItem(list, deleteFn, label) {
   let ok = 0;
-  let fail = 0;
   let unknownAction = false;
-  for (const msg of list) {
+  for (const item of list) {
     try {
-      await Api.deleteMessage(msg.id);
+      await deleteFn(item);
       ok += 1;
     } catch (err) {
-      fail += 1;
-      if (String(err?.message || "").includes("Unknown action")) unknownAction = true;
+      if (isUnknownActionError(err)) unknownAction = true;
     }
   }
-  messages = [];
   await syncFromServer({ silent: true });
-  if (ok && !fail) {
-    showToast("כל ההודעות נמחקו");
-  } else if (ok) {
-    showToast(`נמחקו ${ok} הודעות, ${fail} נכשלו`);
+  if (ok) {
+    showToast(`${label} נמחקו`);
   } else if (unknownAction) {
-    alert("השרת לא תומך במחיקת הודעות. יש לפרוס מחדש את Google Apps Script עם פעולת deleteMessage.");
+    alert(REDEPLOY_MSG);
   } else {
-    alert("לא הצלחנו למחוק את ההודעות.");
+    alert(`לא הצלחנו למחוק ${label}.`);
+  }
+}
+
+async function adminDeleteAllEvents() {
+  await adminClearTarget("events", "כל האירועים", () =>
+    deletePerItem([...events], (ev) => Api.deleteEvent(ev.id), "האירועים")
+  );
+}
+
+async function adminDeleteAllMessages() {
+  await adminClearTarget("messages", "כל ההודעות", () =>
+    deletePerItem([...messages], (m) => Api.deleteMessage(m.id), "ההודעות")
+  );
+}
+
+async function adminDeleteAllRsvps() {
+  await adminClearTarget("rsvps", "כל אישורי ההגעה");
+}
+
+async function adminDeleteAllCredits() {
+  // קרדיטים = פרגונים ונותני שירות (לא המלצות בעלי אירוע)
+  if (!currentUser?.isAdmin) return;
+  if (!confirm("למחוק את כל הקרדיטים?")) return;
+  const list = (credits || []).filter((c) => !isOwnerRecommendation(c));
+  await deletePerItem(list, (c) => Api.deleteCredit(c.id), "הקרדיטים");
+}
+
+async function adminDeleteAllRecommendations() {
+  if (!currentUser?.isAdmin) return;
+  if (!confirm("למחוק את כל ההמלצות?")) return;
+  const list = (credits || []).filter((c) => isOwnerRecommendation(c));
+  await deletePerItem(list, (c) => Api.deleteCredit(c.id), "ההמלצות");
+}
+
+async function adminDeleteAllExperiences() {
+  await adminClearTarget("experiences", "כל התמונות", () =>
+    deletePerItem(
+      experiences.filter((e) => e.imageUrl),
+      (e) => Api.deleteExperience(e.id),
+      "התמונות"
+    )
+  );
+}
+
+async function adminDeleteEverything() {
+  if (!currentUser?.isAdmin) return;
+  if (!confirm("⚠️ פעולה זו תמחק את כל הנתונים: אירועים, אישורי הגעה, קרדיטים, המלצות, תמונות והודעות. להמשיך?")) return;
+  try {
+    await Api.deleteAllData();
+    await syncFromServer({ silent: true });
+    showToast("כל הנתונים נמחקו");
+  } catch (err) {
+    if (isUnknownActionError(err)) {
+      alert(REDEPLOY_MSG);
+    } else {
+      console.error(err);
+      alert("לא הצלחנו למחוק את כל הנתונים.");
+    }
+  }
+}
+
+async function deleteCreditById(creditId) {
+  if (!currentUser?.isAdmin) return;
+  if (!confirm("למחוק פריט זה?")) return;
+  try {
+    await Api.deleteCredit(creditId);
+    credits = credits.filter((c) => c.id !== creditId);
+    saveJson("bm_credits", credits);
+    await syncFromServer({ silent: true });
+    showToast("נמחק");
+  } catch (err) {
+    if (isUnknownActionError(err)) {
+      alert(REDEPLOY_MSG);
+    } else {
+      console.error(err);
+      alert("לא הצלחנו למחוק את הפריט.");
+    }
   }
 }
 
@@ -817,45 +902,12 @@ async function deleteExperienceById(experienceId) {
     await syncFromServer({ silent: true });
     showToast("התמונה נמחקה");
   } catch (err) {
-    console.error(err);
-    const msg = String(err?.message || "");
-    if (msg.includes("Unknown action")) {
-      alert("מחיקת תמונות דורשת עדכון Apps Script (פעולת deleteExperience). עדכן ופרוס מחדש את הסקריפט.");
+    if (isUnknownActionError(err)) {
+      alert(REDEPLOY_MSG);
     } else {
+      console.error(err);
       alert("לא הצלחנו למחוק את התמונה.");
     }
-  }
-}
-
-async function adminDeleteAllExperiences() {
-  if (!currentUser?.isAdmin) return;
-  if (!confirm("למחוק את כל התמונות באלבומים?")) return;
-  const list = experiences.filter((e) => e.imageUrl);
-  let ok = 0;
-  let fail = 0;
-  let unknownAction = false;
-  for (const exp of list) {
-    try {
-      await Api.deleteExperience(exp.id);
-      ok += 1;
-    } catch (err) {
-      fail += 1;
-      if (String(err?.message || "").includes("Unknown action")) unknownAction = true;
-    }
-  }
-  experiences = [];
-  pendingExperiences = [];
-  saveJson("bm_experiences", experiences);
-  saveJson("bm_pending_experiences", pendingExperiences);
-  await syncFromServer({ silent: true });
-  if (ok && !fail) {
-    showToast("כל התמונות נמחקו");
-  } else if (ok) {
-    showToast(`נמחקו ${ok} תמונות, ${fail} נכשלו`);
-  } else if (unknownAction) {
-    alert("השרת לא תומך במחיקת תמונות. יש לפרוס מחדש את Google Apps Script עם פעולת deleteExperience.");
-  } else {
-    alert("לא הצלחנו למחוק את התמונות.");
   }
 }
 
@@ -902,12 +954,16 @@ function renderAdminPanel() {
   tab.innerHTML = `
     <div class="glass rounded-[28px] p-4 mb-4">
       <div class="font-black mb-2">פאנל ניהול</div>
-      <div class="text-sm text-white/60 mb-3">אירועים: ${events.length} | הודעות: ${messages.length} | תמונות: ${experiences.filter((e) => e.imageUrl).length}</div>
+      <div class="text-sm text-white/60 mb-3">אירועים: ${events.length} | הודעות: ${messages.length} | קרדיטים: ${(credits || []).length} | תמונות: ${experiences.filter((e) => e.imageUrl).length}</div>
       <div class="grid grid-cols-2 gap-2">
         <button type="button" id="adminRefreshBtn" class="rounded-xl bg-white/10 p-2 text-xs font-bold">רענון</button>
-        <button type="button" id="adminDeleteAllEventsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת כל האירועים</button>
-        <button type="button" id="adminDeleteAllMessagesBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת כל ההודעות</button>
-        <button type="button" id="adminDeleteAllExperiencesBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת כל התמונות</button>
+        <button type="button" id="adminDeleteAllEventsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת אירועים</button>
+        <button type="button" id="adminDeleteAllRsvpsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת אישורי הגעה</button>
+        <button type="button" id="adminDeleteAllCreditsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת קרדיטים</button>
+        <button type="button" id="adminDeleteAllRecommendationsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת המלצות</button>
+        <button type="button" id="adminDeleteAllExperiencesBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת תמונות</button>
+        <button type="button" id="adminDeleteAllMessagesBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת הודעות</button>
+        <button type="button" id="adminDeleteEverythingBtn" class="col-span-2 rounded-xl bg-red-600/40 border border-red-400/40 p-2 text-xs font-black">⚠️ מחיקת הכל</button>
       </div>
     </div>
     <div class="space-y-3">
@@ -928,6 +984,38 @@ function renderAdminPanel() {
         </div>`
         )
         .join("")}
+      <div class="text-xs text-white/50 mt-4">קרדיטים</div>
+      ${(credits || [])
+        .filter((c) => !isOwnerRecommendation(c))
+        .map(
+          (c) => `
+        <div class="glass rounded-2xl p-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-sm">${adminCreditLabel(c)}</div>
+            <button type="button" class="event-action-btn delete" data-admin-delete-credit-id="${c.id}" aria-label="מחיקת קרדיט">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>`
+        )
+        .join("") || '<div class="text-[11px] text-white/40">אין קרדיטים</div>'}
+
+      <div class="text-xs text-white/50 mt-4">המלצות בעלי אירוע</div>
+      ${(credits || [])
+        .filter((c) => isOwnerRecommendation(c))
+        .map(
+          (c) => `
+        <div class="glass rounded-2xl p-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-sm">${adminCreditLabel(c)}</div>
+            <button type="button" class="event-action-btn delete" data-admin-delete-credit-id="${c.id}" aria-label="מחיקת המלצה">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>`
+        )
+        .join("") || '<div class="text-[11px] text-white/40">אין המלצות</div>'}
+
       <div class="text-xs text-white/50 mt-4">הודעות</div>
       ${(messages || [])
         .map(
@@ -945,6 +1033,13 @@ function renderAdminPanel() {
         .join("")}
     </div>
   `;
+}
+
+function adminCreditLabel(c) {
+  const event = events.find((e) => e.id === c.eventId);
+  const eventName = event ? `האירוע של ${event.girlName}` : "אירוע חיצוני";
+  const who = c.professionalName || c.category || (c.note ? c.note.slice(0, 30) : "פרגון");
+  return `${who} • ${eventName}`;
 }
 
 // ─── רשימת אירועים ─────────────────────────────────────────
@@ -1845,8 +1940,14 @@ async function publishGuestCredits() {
       saveJson("bm_pending_credits", pendingCredits);
       credits = mergePendingCredits(credits, pendingCredits);
       saveJson("bm_credits", credits);
+      guestProviderStateReset();
+      guestCreditNoteDraft = "";
+      guestCreditTagsSelected = [];
+      guestEventScoreSelected = 0;
+      creditScreen = "board";
+      renderCredits();
       renderAll();
-      showToast("הפרגון נשמר מקומית");
+      showToast("הפרגון פורסם");
     } else {
       showToast(`לא הצלחנו לפרסם פרגון: ${msg.slice(0, 90)}`);
     }
@@ -1926,8 +2027,10 @@ async function publishOwnerCredits() {
       saveJson("bm_pending_credits", pendingCredits);
       credits = mergePendingCredits(credits, pendingCredits);
       saveJson("bm_credits", credits);
+      creditScreen = "board";
+      renderCredits();
       renderAll();
-      showToast("ההמלצה נשמרה מקומית");
+      showToast("ההמלצה פורסמה");
     } else {
       showToast(`לא הצלחנו לפרסם המלצה: ${msg.slice(0, 90)}`);
     }
@@ -2218,6 +2321,13 @@ function renderExperiences() {
       <input id="expImageFile" type="file" accept="image/*,video/*" multiple class="w-full mt-2 text-sm" />
       <div class="text-[11px] text-white/45 mt-1">אפשר להעלות תמונות, מצגת או סרטון של הילדה</div>
       <button id="addExperienceBtn" type="button" class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">העלה/י לאלבום המשותף</button>
+      <div id="expProgressWrap" class="upload-progress hidden mt-3">
+        <div class="upload-progress-head">
+          <span id="expProgressLabel">מעלה…</span>
+          <span id="expProgressPct">0%</span>
+        </div>
+        <div class="upload-progress-track"><div id="expProgressBar" class="upload-progress-bar" style="width:0%"></div></div>
+      </div>
     </div>
 
     <div class="glass rounded-2xl p-3">
@@ -2356,18 +2466,31 @@ async function addExperienceFromForm() {
     showToast("קובץ גדול מ-45MB — נסו קובץ קטן יותר");
     return;
   }
+  const btn = document.getElementById("addExperienceBtn");
+  if (btn) btn.disabled = true;
+  showUploadProgress("expProgress", 0, `מעלה 0 מתוך ${files.length}`);
   try {
     let uploadedCount = 0;
-    for (const file of files) {
+    for (let idx = 0; idx < files.length; idx++) {
+      const file = files[idx];
       const isVideo = String(file.type || "").startsWith("video") || /\.(mp4|mov|webm|m4v|ogg|avi)$/i.test(file.name || "");
       const dataUrl = await toBase64(file);
       const parts = splitDataUrl(dataUrl);
+      // טווח האחוזים של הקובץ הנוכחי מתוך כלל הקבצים
+      const base = Math.round((idx / files.length) * 100);
+      const span = Math.round((1 / files.length) * 100);
       const upload = await retryApiCall(() =>
-        Api.uploadExperienceImage({
-          fileName: file.name || `exp_${Date.now()}.${isVideo ? "mp4" : "jpg"}`,
-          mimeType: file.type || parts.mimeType,
-          base64Data: parts.base64,
-        })
+        Api.uploadExperienceImageWithProgress(
+          {
+            fileName: file.name || `exp_${Date.now()}.${isVideo ? "mp4" : "jpg"}`,
+            mimeType: file.type || parts.mimeType,
+            base64Data: parts.base64,
+          },
+          (filePct) => {
+            const overall = Math.min(99, base + Math.round((filePct / 100) * span));
+            showUploadProgress("expProgress", overall, `מעלה ${idx + 1} מתוך ${files.length}`);
+          }
+        )
       );
       const imageUrl = upload.imageUrl || "";
       if (!imageUrl) throw new Error("לא התקבל קישור מהשרת");
@@ -2385,12 +2508,13 @@ async function addExperienceFromForm() {
       );
       uploadedCount += 1;
     }
+    showUploadProgress("expProgress", 100, "הושלם");
     await syncFromServer({ silent: true });
     showToast(uploadedCount > 1 ? `${uploadedCount} פריטים עלו לאלבום` : "הקובץ עלה לאלבום המשותף");
   } catch (err) {
-    console.error(err);
     const msg = String(err?.message || "");
-    if (msg.includes("Unknown action")) {
+    if (isUnknownActionError(err)) {
+      // נפילה חזרה שקטה — שומר מקומית בלי להציג למשתמש "נשמר מקומית"
       try {
         const locals = [];
         for (const file of files) {
@@ -2412,15 +2536,42 @@ async function addExperienceFromForm() {
         experiences = mergePendingExperiences(experiences, pendingExperiences);
         saveJson("bm_experiences", experiences);
         renderAll();
-        const localCount = locals.length;
-        showToast(localCount > 1 ? `${localCount} תמונות נשמרו באפליקציה` : "התמונה נשמרה באפליקציה");
+        showToast(locals.length > 1 ? `${locals.length} פריטים עלו לאלבום` : "הקובץ עלה לאלבום המשותף");
       } catch (_) {
-        showToast("לא הצלחנו להעלות תמונה כרגע. נסו שוב בעוד רגע.");
+        showToast("לא הצלחנו להעלות כרגע. נסו שוב בעוד רגע.");
       }
     } else {
-      showToast(`לא הצלחנו להעלות תמונה: ${msg.slice(0, 90)}`);
+      console.error(err);
+      showToast(`לא הצלחנו להעלות: ${msg.slice(0, 90)}`);
     }
+  } finally {
+    if (btn) btn.disabled = false;
+    hideUploadProgress("expProgress");
   }
+}
+
+// ─── סרגל התקדמות העלאה ─────────────────────────────────────
+function showUploadProgress(prefix, pct, label) {
+  const wrap = document.getElementById(`${prefix}Wrap`);
+  if (!wrap) return;
+  wrap.classList.remove("hidden");
+  const bar = document.getElementById(`${prefix}Bar`);
+  const pctEl = document.getElementById(`${prefix}Pct`);
+  const labelEl = document.getElementById(`${prefix}Label`);
+  const safe = Math.max(0, Math.min(100, Math.round(pct)));
+  if (bar) bar.style.width = `${safe}%`;
+  if (pctEl) pctEl.textContent = `${safe}%`;
+  if (labelEl && label) labelEl.textContent = label;
+}
+
+function hideUploadProgress(prefix) {
+  const wrap = document.getElementById(`${prefix}Wrap`);
+  if (!wrap) return;
+  // השארת "הושלם" לרגע קצר לפני הסתרה
+  setTimeout(() => {
+    wrap.classList.add("hidden");
+    showUploadProgress(prefix, 0, "מעלה…");
+  }, 700);
 }
 
 // ─── ניווט ─────────────────────────────────────────────────
@@ -2507,6 +2658,12 @@ function bindNavigation() {
       return;
     }
 
+    const delCreditBtn = e.target.closest("[data-admin-delete-credit-id]");
+    if (delCreditBtn) {
+      await deleteCreditById(delCreditBtn.dataset.adminDeleteCreditId);
+      return;
+    }
+
     if (e.target.closest("#adminRefreshBtn")) {
       await syncFromServer();
       return;
@@ -2515,12 +2672,29 @@ function bindNavigation() {
       await adminDeleteAllEvents();
       return;
     }
+    if (e.target.closest("#adminDeleteAllRsvpsBtn")) {
+      await adminDeleteAllRsvps();
+      return;
+    }
+    if (e.target.closest("#adminDeleteAllCreditsBtn")) {
+      await adminDeleteAllCredits();
+      return;
+    }
+    if (e.target.closest("#adminDeleteAllRecommendationsBtn")) {
+      await adminDeleteAllRecommendations();
+      return;
+    }
     if (e.target.closest("#adminDeleteAllMessagesBtn")) {
       await adminDeleteAllMessages();
       return;
     }
     if (e.target.closest("#adminDeleteAllExperiencesBtn")) {
       await adminDeleteAllExperiences();
+      return;
+    }
+    if (e.target.closest("#adminDeleteEverythingBtn")) {
+      await adminDeleteEverything();
+      return;
     }
   });
 }
