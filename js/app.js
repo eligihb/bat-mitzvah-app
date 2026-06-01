@@ -1455,7 +1455,21 @@ function renderMessages() {
 
 // ─── קרדיטים ───────────────────────────────────────────────
 function bindCredits() {
-  document.getElementById("creditsTab").addEventListener("click", (e) => {
+  document.getElementById("creditsTab").addEventListener("click", async (e) => {
+    const boardDelBtn = e.target.closest("[data-board-delete-credit-id]");
+    if (boardDelBtn) {
+      await deleteCreditById(boardDelBtn.dataset.boardDeleteCreditId);
+      return;
+    }
+    if (e.target.closest("#boardSelectAllBtn")) {
+      toggleSelectAllCreditsBoard();
+      return;
+    }
+    if (e.target.closest("#boardDeleteSelectedBtn")) {
+      await deleteSelectedCreditsBoard();
+      return;
+    }
+
     const screenBtn = e.target.closest("[data-credit-screen]");
     if (screenBtn) {
       creditScreen = screenBtn.dataset.creditScreen;
@@ -1782,7 +1796,70 @@ function renderCreditsBoard() {
   tab.innerHTML = `
     ${creditsTopNav("board")}
     <div class="space-y-3">${blocks || '<div class="text-center text-white/40 text-sm">עדיין אין נתוני קרדיטים</div>'}</div>
+    ${renderCreditsAdminManager()}
   `;
+}
+
+// פאנל ניהול קרדיטים/המלצות בתוך לוח הקרדיטים (למנהל בלבד)
+function renderCreditsAdminManager() {
+  if (!currentUser?.isAdmin) return "";
+  const all = credits || [];
+  if (!all.length) return "";
+
+  const row = (c) => {
+    const kind = isOwnerRecommendation(c) ? "המלצה" : isProviderEntry(c) ? "נותן שירות" : "פרגון";
+    return `
+      <div class="flex items-center justify-between gap-2 rounded-xl bg-white/5 border border-white/10 p-2 mb-1">
+        <label class="flex items-center gap-2 min-w-0 flex-1 cursor-pointer">
+          <input type="checkbox" class="credit-board-select exp-select" data-credit-id="${c.id}" />
+          <span class="text-sm truncate">${adminCreditLabel(c)} <span class="text-white/40">• ${kind}</span></span>
+        </label>
+        <button type="button" class="event-action-btn delete compact" data-board-delete-credit-id="${c.id}" aria-label="מחיקה">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>`;
+  };
+
+  return `
+    <div class="glass rounded-2xl p-3 mt-4 border border-red-400/20">
+      <div class="flex items-center justify-between mb-2">
+        <div class="font-black text-sm">ניהול קרדיטים (${all.length})</div>
+        <div class="flex gap-2">
+          <button type="button" id="boardSelectAllBtn" class="rounded-xl bg-white/10 border border-white/10 px-3 py-1.5 text-xs font-bold">סמן הכל</button>
+          <button type="button" id="boardDeleteSelectedBtn" class="rounded-xl bg-red-500/20 px-3 py-1.5 text-xs font-bold">מחק נבחרים</button>
+        </div>
+      </div>
+      ${all.map(row).join("")}
+    </div>
+  `;
+}
+
+function toggleSelectAllCreditsBoard() {
+  const boxes = Array.from(document.querySelectorAll(".credit-board-select"));
+  if (!boxes.length) return;
+  const allChecked = boxes.every((b) => b.checked);
+  boxes.forEach((b) => (b.checked = !allChecked));
+  const btn = document.getElementById("boardSelectAllBtn");
+  if (btn) btn.textContent = allChecked ? "סמן הכל" : "נקה בחירה";
+}
+
+async function deleteSelectedCreditsBoard() {
+  if (!currentUser?.isAdmin) return;
+  const ids = Array.from(document.querySelectorAll(".credit-board-select:checked")).map(
+    (b) => b.dataset.creditId
+  );
+  if (!ids.length) {
+    showToast("לא נבחרו פריטים");
+    return;
+  }
+  if (!confirm(`למחוק ${ids.length} פריטים?`)) return;
+  const list = (credits || []).filter((c) => ids.includes(c.id));
+  await deletePerItem(
+    list,
+    (c) => Api.deleteCredit(c.id),
+    "פריטים",
+    () => list.forEach((c) => purgeCreditLocally(c.id))
+  );
 }
 
 function creditsTopNav(active) {
