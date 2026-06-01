@@ -411,6 +411,14 @@ function renderHeader() {
 function setContactActions() {
   const callBtn = document.getElementById("callBtn");
   const waBtn = document.getElementById("waBtn");
+  // למנהל — אין צורך באייקוני התקשרות אישיים בכותרת
+  if (currentUser?.isAdmin) {
+    callBtn.classList.add("hidden");
+    waBtn.classList.add("hidden");
+    return;
+  }
+  callBtn.classList.remove("hidden");
+  waBtn.classList.remove("hidden");
   const phone = normalizePhone(currentUser.phone);
   const enabled = phone.length >= 10;
 
@@ -1205,141 +1213,161 @@ function renderAdminPanel() {
     `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
   );
   const rsvpCount = events.reduce((sum, e) => sum + Object.keys(e.rsvp || {}).length, 0);
-  const creditList = (credits || []).filter((c) => !isOwnerRecommendation(c));
+  const creditList = (credits || []).filter((c) => !isOwnerRecommendation(c) && !isProviderEntry(c));
+  const providerList = (credits || []).filter((c) => isProviderEntry(c));
   const recList = (credits || []).filter((c) => isOwnerRecommendation(c));
   const photoList = experiences.filter((e) => e.imageUrl);
   const userGroups = groupUsersByGirl(users);
   const uniqueUserCount = userGroups.reduce((sum, g) => sum + g.members.length, 0);
 
-  const itemRow = (title, sub, attr) => `
-    <div class="glass rounded-2xl p-3">
-      <div class="flex items-center justify-between gap-3">
-        <div class="min-w-0">
-          <div class="font-bold text-sm truncate">${title}</div>
-          ${sub ? `<div class="text-xs text-white/50 mt-1 truncate">${sub}</div>` : ""}
-        </div>
-        <div class="flex items-center gap-2 shrink-0">${attr}</div>
+  const adminCard = (title, meta, actions = "") => `
+    <div class="admin-data-card">
+      <div class="admin-data-body">
+        <div class="admin-data-title">${title}</div>
+        ${meta ? `<div class="admin-data-meta">${meta}</div>` : ""}
       </div>
+      ${actions ? `<div class="admin-data-actions">${actions}</div>` : ""}
     </div>`;
 
-  const emptyRow = (txt) => `<div class="text-[11px] text-white/40">${txt}</div>`;
+  const adminDeleteBtn = (attrs, label = "מחיקה") =>
+    `<button type="button" class="admin-icon-btn admin-icon-btn-danger" ${attrs} aria-label="${label}"><i class="fa-solid fa-trash"></i></button>`;
+
+  const adminEditBtn = (attrs) =>
+    `<button type="button" class="admin-icon-btn admin-icon-btn-edit" ${attrs} aria-label="עריכה"><i class="fa-solid fa-pen"></i></button>`;
+
+  const emptyState = (txt) => `<div class="admin-empty">${txt}</div>`;
+  const kpi = (label, value, icon) =>
+    `<div class="admin-kpi"><div class="admin-kpi-icon">${icon}</div><div class="admin-kpi-value">${value}</div><div class="admin-kpi-label">${label}</div></div>`;
+
+  const dangerOpen = tab.dataset.dangerOpen === "1";
 
   tab.innerHTML = `
-    <div class="glass rounded-[28px] p-4 mb-4">
-      <div class="font-black mb-2">פאנל ניהול</div>
-      <div class="text-xs text-white/60 mb-3 leading-5">משתמשים: ${uniqueUserCount} • אירועים: ${events.length} • אישורי הגעה: ${rsvpCount} • קרדיטים: ${creditList.length} • המלצות: ${recList.length} • תמונות: ${photoList.length} • הודעות: ${messages.length}</div>
-      <div class="grid grid-cols-2 gap-2 mb-2">
-        <button type="button" id="adminExportProvidersBtn" class="rounded-xl bg-emerald-500/20 border border-emerald-400/30 p-2 text-xs font-bold">📊 ייצוא נותני שירות</button>
-        <button type="button" id="adminExportVenuesBtn" class="rounded-xl bg-emerald-500/20 border border-emerald-400/30 p-2 text-xs font-bold">🏛️ ייצוא אולמות</button>
+    <div class="admin-panel">
+      <header class="admin-panel-head">
+        <h2 class="admin-panel-title">פאנל ניהול</h2>
+        <p class="admin-panel-sub">סקירה, ייצוא וניהול נתוני המערכת</p>
+      </header>
+      <div class="admin-kpi-grid">
+        ${kpi("משתמשים", uniqueUserCount, "👥")}
+        ${kpi("אירועים", events.length, "🎉")}
+        ${kpi("אישורי הגעה", rsvpCount, "✅")}
+        ${kpi("תמונות", photoList.length, "🖼️")}
       </div>
-      <div class="grid grid-cols-2 gap-2">
-        <button type="button" id="adminRefreshBtn" class="rounded-xl bg-white/10 p-2 text-xs font-bold">רענון</button>
-        <button type="button" id="adminClearLocalBtn" class="rounded-xl bg-white/10 p-2 text-xs font-bold">ניקוי מטמן ורענון</button>
-        <button type="button" id="adminDeleteAllUsersBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת משתמשים</button>
-        <button type="button" id="adminDeleteAllEventsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת אירועים</button>
-        <button type="button" id="adminDeleteAllRsvpsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת אישורי הגעה</button>
-        <button type="button" id="adminDeleteAllCreditsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת קרדיטים</button>
-        <button type="button" id="adminDeleteAllRecommendationsBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת המלצות</button>
-        <button type="button" id="adminDeleteAllExperiencesBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת תמונות</button>
-        <button type="button" id="adminDeleteAllMessagesBtn" class="rounded-xl bg-red-500/20 p-2 text-xs font-bold">מחיקת הודעות</button>
-        <button type="button" id="adminDeleteEverythingBtn" class="col-span-2 rounded-xl bg-red-600/40 border border-red-400/40 p-2 text-xs font-black">⚠️ מחיקת הכל</button>
+      <div class="admin-toolbar">
+        <button type="button" id="adminRefreshBtn" class="admin-btn admin-btn-neutral"><i class="fa-solid fa-rotate"></i> רענון</button>
+        <button type="button" id="adminClearLocalBtn" class="admin-btn admin-btn-neutral"><i class="fa-solid fa-broom"></i> ניקוי מטמון</button>
+        <button type="button" id="adminExportProvidersBtn" class="admin-btn admin-btn-primary"><i class="fa-solid fa-file-export"></i> ייצוא נותני שירות</button>
+        <button type="button" id="adminExportVenuesBtn" class="admin-btn admin-btn-primary"><i class="fa-solid fa-building"></i> ייצוא אולמות</button>
       </div>
-    </div>
 
-    <div class="space-y-3">
-      <div class="text-xs text-white/50">משתמשים רשומים (${uniqueUserCount})</div>
-      ${userGroups.length
-        ? userGroups
-            .map((g) => {
-              const girlTitle = g.girlName
-                ? `בת: ${g.girlName}${g.familyName ? " " + g.familyName : ""}`
-                : "ללא שיוך לילדה";
-              const parents = g.members
-                .map(
-                  (u) => `
-                    <div class="flex items-center justify-between gap-2 mt-1">
-                      <div class="text-xs text-white/80 truncate">${u.parentName || "—"}${u.role ? " • " + u.role : ""}${u.phone ? " • " + u.phone : ""}</div>
-                      <button type="button" class="event-action-btn delete shrink-0" data-admin-delete-user-id="${(u._ids || [u.id]).join(",")}" aria-label="מחיקת משתמש"><i class="fa-solid fa-trash"></i></button>
-                    </div>`
-                )
-                .join("");
-              return `
-                <div class="glass rounded-2xl p-3">
-                  <div class="font-bold text-sm">${girlTitle}${g.members.length > 1 ? ` <span class="text-[11px] text-white/50">(${g.members.length} הורים)</span>` : ""}</div>
-                  ${parents}
-                </div>`;
-            })
-            .join("")
-        : emptyRow("אין משתמשים רשומים (יירשמו אוטומטית בכניסה הבאה)")}
+      <section class="admin-section">
+        <div class="admin-section-head"><h3 class="admin-section-title">משתמשים רשומים</h3><span class="admin-section-count">${uniqueUserCount}</span></div>
+        <div class="admin-section-body">
+          ${
+            userGroups.length
+              ? userGroups
+                  .map((g) => {
+                    const girlTitle = g.girlName
+                      ? `${g.girlName}${g.familyName ? " " + g.familyName : ""}`
+                      : "ללא שיוך לילדה";
+                    const parents = g.members
+                      .map((u) =>
+                        adminCard(
+                          u.parentName || "—",
+                          [u.role, u.phone].filter(Boolean).join(" • "),
+                          adminDeleteBtn(`data-admin-delete-user-id="${(u._ids || [u.id]).join(",")}"`)
+                        )
+                      )
+                      .join("");
+                    return `<div class="admin-group-card"><div class="admin-group-title">בת: ${girlTitle}${g.members.length > 1 ? ` <span class="admin-group-badge">${g.members.length} הורים</span>` : ""}</div>${parents}</div>`;
+                  })
+                  .join("")
+              : emptyState("אין משתמשים רשומים — יירשמו אוטומטית בכניסה")
+          }
+        </div>
+      </section>
 
-      <div class="text-xs text-white/50 mt-4">אירועים (${events.length})</div>
-      ${sortedEvents.length
-        ? sortedEvents
-            .map((event) =>
-              itemRow(
-                `בת מצווה ל${event.girlName}`,
-                `${event.date} • ${event.time}${event.ownerName ? " • " + event.ownerName : ""}`,
-                `<button type="button" class="event-action-btn edit" data-admin-edit-id="${event.id}" aria-label="עריכת אירוע"><i class="fa-solid fa-pen"></i></button>
-                 <button type="button" class="event-action-btn delete" data-admin-delete-id="${event.id}" aria-label="מחיקת אירוע"><i class="fa-solid fa-trash"></i></button>`
-              )
-            )
-            .join("")
-        : emptyRow("אין אירועים")}
+      <section class="admin-section">
+        <div class="admin-section-head"><h3 class="admin-section-title">אירועים</h3><span class="admin-section-count">${events.length}</span></div>
+        <div class="admin-section-body">
+          ${
+            sortedEvents.length
+              ? sortedEvents
+                  .map((event) =>
+                    adminCard(
+                      `בת מצווה ${event.girlName}`,
+                      `${event.date || "—"} • ${event.time || "—"}${event.location ? " • " + event.location : ""}${event.ownerName ? " • " + event.ownerName : ""}`,
+                      `${adminEditBtn(`data-admin-edit-id="${event.id}"`)}${adminDeleteBtn(`data-admin-delete-id="${event.id}"`, "מחיקת אירוע")}`
+                    )
+                  )
+                  .join("")
+              : emptyState("אין אירועים במערכת")
+          }
+        </div>
+      </section>
 
-      <div class="text-xs text-white/50 mt-4">קרדיטים (${creditList.length})</div>
-      ${creditList.length
-        ? creditList
-            .map((c) =>
-              itemRow(
-                adminCreditLabel(c),
-                "",
-                `<button type="button" class="event-action-btn delete" data-admin-delete-credit-id="${c.id}" aria-label="מחיקת קרדיט"><i class="fa-solid fa-trash"></i></button>`
-              )
-            )
-            .join("")
-        : emptyRow("אין קרדיטים")}
+      <details class="admin-details">
+        <summary class="admin-details-summary">נותני שירות (${providerList.length}) · קרדיטים (${creditList.length}) · המלצות (${recList.length})</summary>
+        <div class="admin-section-body admin-section-body-nested">
+          <div class="admin-subsection-title">נותני שירות</div>
+          ${providerList.length ? providerList.map((c) => adminCard(adminCreditLabel(c), c.phone || c.link || "", adminDeleteBtn(`data-admin-delete-credit-id="${c.id}"`))).join("") : emptyState("אין נותני שירות")}
+          <div class="admin-subsection-title">קרדיטים / פרגונים</div>
+          ${creditList.length ? creditList.map((c) => adminCard(adminCreditLabel(c), "", adminDeleteBtn(`data-admin-delete-credit-id="${c.id}"`))).join("") : emptyState("אין קרדיטים")}
+          <div class="admin-subsection-title">המלצות בעלי אירוע</div>
+          ${recList.length ? recList.map((c) => adminCard(adminCreditLabel(c), "", adminDeleteBtn(`data-admin-delete-credit-id="${c.id}"`))).join("") : emptyState("אין המלצות")}
+        </div>
+      </details>
 
-      <div class="text-xs text-white/50 mt-4">המלצות בעלי אירוע (${recList.length})</div>
-      ${recList.length
-        ? recList
-            .map((c) =>
-              itemRow(
-                adminCreditLabel(c),
-                "",
-                `<button type="button" class="event-action-btn delete" data-admin-delete-credit-id="${c.id}" aria-label="מחיקת המלצה"><i class="fa-solid fa-trash"></i></button>`
-              )
-            )
-            .join("")
-        : emptyRow("אין המלצות")}
+      <details class="admin-details">
+        <summary class="admin-details-summary">תמונות וסרטונים (${photoList.length}) · הודעות (${messages.length})</summary>
+        <div class="admin-section-body admin-section-body-nested">
+          <div class="admin-subsection-title">תמונות / סרטונים</div>
+          ${
+            photoList.length
+              ? photoList
+                  .map((exp) => {
+                    const ev = events.find((e) => e.id === exp.eventId);
+                    return adminCard(
+                      `${experienceMediaType(exp) === "video" ? "סרטון" : "תמונה"} — ${ev ? ev.girlName : "כללי"}`,
+                      exp.userName || "",
+                      adminDeleteBtn(`data-admin-delete-experience-id="${exp.id}"`, "מחיקת תמונה")
+                    );
+                  })
+                  .join("")
+              : emptyState("אין תמונות")
+          }
+          <div class="admin-subsection-title">הודעות</div>
+          ${
+            messages.length
+              ? messages.map((msg) => adminCard(msg.text, msg.name, adminDeleteBtn(`data-admin-delete-message-id="${msg.id}"`, "מחיקת הודעה"))).join("")
+              : emptyState("אין הודעות")
+          }
+        </div>
+      </details>
 
-      <div class="text-xs text-white/50 mt-4">תמונות / סרטונים (${photoList.length})</div>
-      ${photoList.length
-        ? photoList
-            .map((exp) => {
-              const ev = events.find((e) => e.id === exp.eventId);
-              return itemRow(
-                `${experienceMediaType(exp) === "video" ? "🎬 סרטון" : "🖼️ תמונה"} — ${ev ? ev.girlName : "כללי"}`,
-                exp.userName || "",
-                `<button type="button" class="event-action-btn delete" data-admin-delete-experience-id="${exp.id}" aria-label="מחיקת תמונה"><i class="fa-solid fa-trash"></i></button>`
-              );
-            })
-            .join("")
-        : emptyRow("אין תמונות")}
-
-      <div class="text-xs text-white/50 mt-4">הודעות (${messages.length})</div>
-      ${messages.length
-        ? messages
-            .map((msg) =>
-              itemRow(
-                msg.text,
-                msg.name,
-                `<button type="button" class="event-action-btn delete" data-admin-delete-message-id="${msg.id}" aria-label="מחיקת הודעה"><i class="fa-solid fa-trash"></i></button>`
-              )
-            )
-            .join("")
-        : emptyRow("אין הודעות")}
+      <div class="admin-danger-wrap">
+        <button type="button" id="adminToggleDangerBtn" class="admin-danger-toggle" aria-expanded="${dangerOpen ? "true" : "false"}">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>אזור מסוכן — מחיקות המוניות</span>
+          <i class="fa-solid fa-chevron-down admin-danger-chevron ${dangerOpen ? "is-open" : ""}"></i>
+        </button>
+        <div id="adminDangerZone" class="admin-danger-zone ${dangerOpen ? "" : "hidden"}">
+          <p class="admin-danger-note">פעולות אלו בלתי הפיכות. מומלץ לייצא דוח לפני מחיקה.</p>
+          <div class="admin-danger-grid">
+            <button type="button" id="adminDeleteAllUsersBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל המשתמשים</button>
+            <button type="button" id="adminDeleteAllEventsBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל האירועים</button>
+            <button type="button" id="adminDeleteAllRsvpsBtn" class="admin-btn admin-btn-danger-outline">מחיקת אישורי הגעה</button>
+            <button type="button" id="adminDeleteAllCreditsBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל הקרדיטים</button>
+            <button type="button" id="adminDeleteAllRecommendationsBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל ההמלצות</button>
+            <button type="button" id="adminDeleteAllExperiencesBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל התמונות</button>
+            <button type="button" id="adminDeleteAllMessagesBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל ההודעות</button>
+          </div>
+          <button type="button" id="adminDeleteEverythingBtn" class="admin-btn admin-btn-danger-solid">מחיקת כל הנתונים במערכת</button>
+        </div>
+      </div>
     </div>
   `;
+  tab.dataset.dangerOpen = dangerOpen ? "1" : "0";
 }
 
 function adminCreditLabel(c) {
@@ -3393,6 +3421,20 @@ function bindNavigation() {
       exportVenuesCsv();
       return;
     }
+    if (e.target.closest("#adminToggleDangerBtn")) {
+      const zone = document.getElementById("adminDangerZone");
+      const btn = e.target.closest("#adminToggleDangerBtn");
+      const chevron = btn?.querySelector(".admin-danger-chevron");
+      const tabEl = document.getElementById("adminTab");
+      if (zone && tabEl) {
+        zone.classList.toggle("hidden");
+        const isOpen = !zone.classList.contains("hidden");
+        tabEl.dataset.dangerOpen = isOpen ? "1" : "0";
+        if (chevron) chevron.classList.toggle("is-open", isOpen);
+        btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      }
+      return;
+    }
     if (e.target.closest("#adminRefreshBtn")) {
       await syncFromServer();
       return;
@@ -3462,6 +3504,13 @@ function switchTab(tab, shouldSync = true) {
     btn.classList.toggle("nav-tab-active", btn.dataset.tab === tab);
     btn.classList.toggle("nav-tab-idle", btn.dataset.tab !== tab);
   });
+
+  document.getElementById("navAdd")?.classList.toggle("hidden", tab === "admin" || !!currentUser?.isAdmin);
+  if (tab === "admin") {
+    document.getElementById("addBtn")?.classList.add("hidden");
+  } else {
+    updateAddButton();
+  }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 
