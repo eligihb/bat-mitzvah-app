@@ -157,6 +157,7 @@ const Api = {
         location: readField(rr, ["location"]) || "",
         address: readField(rr, ["address"]) || "",
         menu: readField(rr, ["menu"]) || "",
+        eventNote: readField(rr, ["eventnote"]) || "",
         image: readField(rr, ["image"]) || "",
         hideGuests: toBool(readField(rr, ["hideattendees"])),
         rsvp: rsvpByEvent[String(readField(rr, ["id"]) || "")] || {},

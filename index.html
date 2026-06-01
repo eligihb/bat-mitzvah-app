@@ -16,7 +16,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=52" />
+  <link rel="stylesheet" href="css/styles.css?v=53" />
 </head>
 <body>
 
@@ -130,7 +130,7 @@
               <div class="login-footer-inline">
                 <span>יישומון זה נבנה על ידי <span class="login-footer-brand">YE</span> ©</span>
               </div>
-              <div class="login-version">גרסה 117.6</div>
+              <div class="login-version">גרסה 118.0</div>
             </form>
           </div>
         </div>
@@ -142,7 +142,11 @@
       <header class="sticky top-0 z-40 bg-black/40 backdrop-blur-xl border-b border-white/5">
         <div class="p-4">
           <div class="flex items-center justify-between gap-2">
-            <div class="min-w-0">
+            <div class="flex items-center gap-2 min-w-0">
+              <button id="homeBtn" type="button" class="global-home-btn shrink-0" aria-label="עמוד אירועים">
+                <i class="fa-solid fa-house"></i>
+              </button>
+              <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <h2 id="headerGreeting" class="font-black text-sm sm:text-base truncate"></h2>
                 <button id="callBtn" type="button" class="w-8 h-8 shrink-0 rounded-full bg-white/10 text-white/40 flex items-center justify-center" aria-label="התקשרות">
@@ -157,6 +161,7 @@
               </div>
               <div class="flex items-center gap-2 mt-1">
                 <div id="headerRole" class="text-sm text-purple-200"></div>
+              </div>
               </div>
             </div>
             <button id="logoutBtn" type="button" class="shrink-0 text-xs text-red-300 font-bold px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20">
@@ -186,9 +191,8 @@
       </div>
     </div>
 
-    <button id="addBtn" type="button" class="hidden fixed bottom-24 z-50 min-w-[124px] h-12 px-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 shadow-2xl font-black flex flex-row-reverse items-center justify-center gap-2 whitespace-nowrap" aria-label="הוספת אירוע">
-      <span class="text-lg leading-none">+</span>
-      <span class="text-xs leading-none">הוסף אירוע</span>
+    <button id="addBtn" type="button" class="fab-add-btn hidden fixed z-[55] min-w-[3.25rem] h-[3.25rem] px-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 shadow-2xl font-black flex items-center justify-center gap-1" aria-label="הוספת אירוע">
+      <span class="text-2xl leading-none">+</span>
     </button>
 
     <!-- מודל אירוע -->
@@ -238,6 +242,16 @@
                 placeholder="אחר"
                 aria-label="תפריט אחר"
               />
+            </div>
+          </div>
+
+          <div class="event-custom-note-block">
+            <button type="button" id="toggleEventNoteBtn" class="event-note-toggle" aria-label="הוספת שורה חשובה">
+              <i class="fa-solid fa-plus text-xs"></i>
+            </button>
+            <span class="text-xs text-white/50">שורה חשובה לאירוע (אופציונלי)</span>
+            <div id="eventCustomNoteWrap" class="hidden mt-2">
+              <input type="text" id="eventCustomNote" maxlength="120" class="w-full rounded-2xl bg-white/10 border border-white/10 p-3 text-sm" placeholder="למשל: חניה בחינם בכניסה האחורית" />
             </div>
           </div>
 
@@ -311,10 +325,21 @@
 
   </div>
 
+  <div id="mediaLightbox" class="media-lightbox hidden">
+    <button type="button" id="lightboxClose" class="lightbox-close" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
+    <button type="button" id="lightboxPrev" class="lightbox-nav lightbox-prev" aria-label="קודם"><i class="fa-solid fa-chevron-right"></i></button>
+    <button type="button" id="lightboxNext" class="lightbox-nav lightbox-next" aria-label="הבא"><i class="fa-solid fa-chevron-left"></i></button>
+    <div class="lightbox-content">
+      <img id="lightboxImg" alt="" class="lightbox-media" />
+      <video id="lightboxVideo" class="lightbox-media hidden" controls playsinline></video>
+    </div>
+    <div id="lightboxCounter" class="lightbox-counter"></div>
+  </div>
+
   <div id="toastMsg" class="toast hidden"></div>
 
-  <script src="js/config.js?v=52"></script>
-  <script src="js/api.js?v=52"></script>
-  <script src="js/app.js?v=52"></script>
+  <script src="js/config.js?v=53"></script>
+  <script src="js/api.js?v=53"></script>
+  <script src="js/app.js?v=53"></script>
 </body>
 </html>

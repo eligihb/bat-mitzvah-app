@@ -40,6 +40,12 @@ let editingEventImage = "";
 let removeEventImage = false;
 const eventSavePatchById = new Map();
 let isSavingEvent = false;
+let isSavingOwnerProvider = false;
+let isPublishingGuest = false;
+let editingProviderCreditId = null;
+let eventCustomNoteOpen = false;
+let lightboxItems = [];
+let lightboxIndex = -1;
 let selectedEventMenuChoice = "";
 let toastTimer = null;
 
@@ -68,6 +74,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindCredits();
   bindExperiences();
   bindFloatingAdd();
+  bindGlobalNav();
+  bindLightbox();
   bindLogout();
   bindProfileEdit();
 
@@ -528,20 +536,23 @@ function renderUpcoming() {
 }
 
 // ─── הוספת / עריכת אירוע ───────────────────────────────────
+function openFamilyEventModal() {
+  const familyEvent = events.find(
+    (e) =>
+      e.girlName === currentUser.girlName &&
+      (e.familyName || "") === (currentUser.familyName || "")
+  );
+  if (familyEvent) openModalForEdit(familyEvent.id);
+  else openModalForCreate();
+}
+
 function bindFloatingAdd() {
-  document.getElementById("addBtn").addEventListener("click", openModalForCreate);
-  document.getElementById("navAdd").addEventListener("click", () => {
-    const familyEvent = events.find(
-      (e) =>
-        e.girlName === currentUser.girlName &&
-        (e.familyName || "") === (currentUser.familyName || "")
-    );
-    if (familyEvent) {
-      openModalForEdit(familyEvent.id);
-    } else {
-      openModalForCreate();
-    }
-  });
+  document.getElementById("addBtn").addEventListener("click", openFamilyEventModal);
+  document.getElementById("navAdd").addEventListener("click", openFamilyEventModal);
+}
+
+function bindGlobalNav() {
+  document.getElementById("homeBtn")?.addEventListener("click", () => switchTab("events"));
 }
 
 function bindModal() {
@@ -723,7 +734,10 @@ function isDrivePermissionError(err) {
 
 function resetEventForm() {
   removeEventImage = false;
+  eventCustomNoteOpen = false;
   document.getElementById("eventForm").reset();
+  document.getElementById("eventCustomNoteWrap")?.classList.add("hidden");
+  document.getElementById("toggleEventNoteBtn")?.classList.remove("hidden");
   editingEventId = null;
   editingEventImage = "";
   hideGuests = false;
@@ -756,6 +770,13 @@ function openModalForEdit(eventId) {
   document.getElementById("eventLocation").value = event.location || "";
   document.getElementById("eventAddress").value = event.address || "";
   setEventMenuValue(event.menu);
+  const noteEl = document.getElementById("eventCustomNote");
+  if (noteEl) {
+    noteEl.value = event.eventNote || "";
+    eventCustomNoteOpen = !!event.eventNote;
+    document.getElementById("eventCustomNoteWrap")?.classList.toggle("hidden", !eventCustomNoteOpen);
+    document.getElementById("toggleEventNoteBtn")?.classList.toggle("hidden", !!event.eventNote);
+  }
 
   hideGuests = event.hideGuests;
 
@@ -793,15 +814,24 @@ function setEventSubmitLoading(loading) {
 }
 
 function updateAddButton() {
+  const hideFab = !currentUser || currentUser.isAdmin;
+  document.getElementById("addBtn")?.classList.toggle("hidden", hideFab);
   const exists = events.some(
     (e) =>
       e.girlName === currentUser.girlName &&
       (e.familyName || "") === (currentUser.familyName || "")
   );
-  document.getElementById("addBtn").classList.toggle("hidden", exists);
+  document.getElementById("navAdd")?.classList.toggle("hidden", exists || hideFab);
 }
 
 function bindEventForm() {
+  document.getElementById("toggleEventNoteBtn")?.addEventListener("click", () => {
+    eventCustomNoteOpen = true;
+    document.getElementById("eventCustomNoteWrap")?.classList.remove("hidden");
+    document.getElementById("toggleEventNoteBtn")?.classList.add("hidden");
+    document.getElementById("eventCustomNote")?.focus();
+  });
+
   document.getElementById("eventForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     if (isSavingEvent) return;
@@ -811,6 +841,7 @@ function bindEventForm() {
     const location = document.getElementById("eventLocation").value.trim();
     const address = document.getElementById("eventAddress").value.trim();
     const menu = getEventMenuValue();
+    const eventNote = document.getElementById("eventCustomNote")?.value.trim().slice(0, 120) || "";
 
     if (!date || !time || !location || !address || !menu) {
       alert("יש למלא את כל השדות");
@@ -865,6 +896,7 @@ function bindEventForm() {
           location,
           address,
           menu,
+          eventNote,
           hideAttendees: hideGuests,
         };
         if (newImageUrl) payload.image = newImageUrl;
@@ -873,7 +905,7 @@ function bindEventForm() {
           payload.image = APP_CONFIG.placeholderImage;
         }
         await Api.updateEvent(payload);
-        const patch = { date, time, location, address, menu, hideGuests };
+        const patch = { date, time, location, address, menu, eventNote, hideGuests };
         if (newImageUrl) patch.image = newImageUrl;
         if (removeEventImage) patch.image = APP_CONFIG.placeholderImage;
         rememberEventSavePatch(editingEventId, patch);
@@ -891,6 +923,7 @@ function bindEventForm() {
           location,
           address,
           menu,
+          eventNote,
           hideAttendees: hideGuests,
           image: newImageUrl || APP_CONFIG.placeholderImage,
           phone: currentUser.phone || "",
@@ -900,7 +933,7 @@ function bindEventForm() {
 
       closeModal();
       renderAll();
-      await syncFromServer();
+      syncFromServer({ silent: true });
     } catch (err) {
       console.error(err);
       alert(editingEventId ? "לא הצלחנו לעדכן את האירוע." : "לא הצלחנו לשמור את האירוע.");
@@ -1241,7 +1274,13 @@ function purgeCreditLocally(creditId) {
 }
 
 async function deleteCreditById(creditId) {
-  if (!currentUser?.isAdmin) return;
+  const credit = credits.find((c) => c.id === creditId);
+  if (!credit) return;
+  const event = events.find((e) => e.id === credit.eventId);
+  const canDelete =
+    currentUser?.isAdmin ||
+    (isProviderEntry(credit) && event && canManageEvent(event));
+  if (!canDelete) return;
   if (!confirm("למחוק פריט זה?")) return;
   try {
     await Api.deleteCredit(creditId);
@@ -1252,9 +1291,11 @@ async function deleteCreditById(creditId) {
     }
     console.error(err);
   }
-  // מנקה מקומית בכל מקרה כדי שלא יחזור אחרי סנכרון
   purgeCreditLocally(creditId);
-  await syncFromServer({ silent: true });
+  if (creditScreen === "owner") refreshOwnerProviders();
+  else if (creditScreen === "guest") refreshGuestProviders();
+  else renderCredits();
+  syncFromServer({ silent: true });
   showToast("נמחק");
 }
 
@@ -1566,6 +1607,7 @@ function renderEvents() {
               <i class="fa-brands fa-waze"></i>
             </button>
           </div>
+          ${event.eventNote ? `<div class="text-purple-200/90 text-xs mt-1">💡 ${escapeHtmlAttr(event.eventNote)}</div>` : ""}
         </div>
         ${
           !isFamily && !isPastEvent
@@ -1792,6 +1834,22 @@ function bindCredits() {
       renderCredits();
       return;
     }
+    if (e.target.closest("[data-credit-exit]")) {
+      creditScreen = "home";
+      closeOwnerQuickAddModal();
+      renderCredits();
+      return;
+    }
+    const ownerDelBtn = e.target.closest("[data-owner-delete-credit]");
+    if (ownerDelBtn) {
+      await deleteCreditById(ownerDelBtn.dataset.ownerDeleteCredit);
+      return;
+    }
+    const ownerEditBtn = e.target.closest("[data-owner-edit-credit]");
+    if (ownerEditBtn) {
+      openOwnerQuickAddModalForEdit(ownerEditBtn.dataset.ownerEditCredit);
+      return;
+    }
     const toggleBtn = e.target.closest("[data-credit-provider-toggle]");
     if (toggleBtn) {
       const card = toggleBtn.closest("[data-provider-card]");
@@ -1893,7 +1951,7 @@ function bindCredits() {
       return;
     }
     if (e.target.closest("[data-owner-quick-save]")) {
-      await saveOwnerQuickAddProvider();
+      saveOwnerQuickAddProvider();
       return;
     }
     if (e.target.closest("[data-owner-quick-close]")) {
@@ -1902,7 +1960,11 @@ function bindCredits() {
     }
     const ownerRateBtn = e.target.closest("[data-owner-rate-credit]");
     if (ownerRateBtn) {
-      await rateProviderCredit(ownerRateBtn.dataset.ownerRateCredit, Number(ownerRateBtn.dataset.ownerRateScore || 0));
+      rateProviderCredit(
+        ownerRateBtn.dataset.ownerRateCredit,
+        Number(ownerRateBtn.dataset.ownerRateScore || 0),
+        ownerRateBtn
+      );
       return;
     }
     const boardProviderBtn = e.target.closest("[data-credit-board-provider]");
@@ -1945,8 +2007,9 @@ function renderGuestCreditsForm() {
   const options = allEventsSortedForCredit()
     .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
     .join("");
-  tab.innerHTML = `
-    ${creditsTopNav("guest")}
+  tab.innerHTML = creditsScreenWrap(
+    "guest",
+    `
     <div class="glass rounded-[28px] p-4 space-y-2">
       <select id="creditEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">
         <option value="">בחר אירוע</option>
@@ -1954,19 +2017,7 @@ function renderGuestCreditsForm() {
         <option value="__external__">אירוע אחר / הוספה ידנית</option>
       </select>
       <input id="creditManualEvent" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם אירוע חיצוני" />
-      <div class="text-xs text-white/70">פרגון לנותני שירות (אפשר לבחור כמה)</div>
-      <button type="button" data-open-provider-modal class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">+ הוספת נותן שירות ידני</button>
-      <div id="ownerInlineProviderForm" class="hidden space-y-2 rounded-xl border border-white/10 bg-white/5 p-2">
-        <select id="providerCategoryInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">
-          ${CREDIT_SERVICE_TYPES.map((t) => `<option value="${t}">${t}</option>`).join("")}
-          <option value="אחר">אחר</option>
-        </select>
-        <input id="providerCategoryOtherInput" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="סוג אחר" />
-        <input id="providerNameInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם נותן השירות" />
-        <input id="providerPhoneInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="טלפון" />
-        <input id="providerEmailInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="אימייל" />
-        <button type="button" data-save-provider class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm font-bold">אישור הוספה</button>
-      </div>
+      <div class="text-xs text-white/70">דרג/י לפי סוג שירות — גם בלי שם נותן ספציפי</div>
       <div id="guestProvidersWrap" class="space-y-2"></div>
       <div id="guestGeneralPraiseSection" class="border-t border-white/10 pt-3 mt-2">
         <div class="text-sm font-black text-center mb-2">✨ פרגון כללי על האירוע ✨</div>
@@ -1974,8 +2025,8 @@ function renderGuestCreditsForm() {
         <textarea id="guestCreditNote" class="w-full mt-2 rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[72px]" placeholder="הערה (אופציונלי)">${escapeHtmlAttr(guestCreditNoteDraft)}</textarea>
       </div>
       <button type="button" id="publishGuestCreditBtn" class="w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">פרסום</button>
-    </div>
-  `;
+    </div>`
+  );
   const creditEventSelect = document.getElementById("creditEventId");
   if (pendingCreditEventId && Array.from(creditEventSelect.options).some((o) => o.value === pendingCreditEventId)) {
     creditEventSelect.value = pendingCreditEventId;
@@ -1996,16 +2047,15 @@ function renderGuestCreditsForm() {
   if (guestCreditManualEventName) manualInput.value = guestCreditManualEventName;
   creditEventSelect.onchange = () => {
     guestCreditSelectedEventId = creditEventSelect.value;
+    document.getElementById("creditManualEvent")?.classList.toggle("hidden", creditEventSelect.value !== "__external__");
     refreshGuestProviders();
   };
   manualInput.oninput = () => {
     guestCreditManualEventName = manualInput.value || "";
+    refreshGuestProviders();
   };
   document.getElementById("guestCreditNote").oninput = (e) => {
     guestCreditNoteDraft = e.target.value || "";
-  };
-  document.getElementById("providerCategoryInput").onchange = (e) => {
-    document.getElementById("providerCategoryOtherInput").classList.toggle("hidden", e.target.value !== "אחר");
   };
   document.querySelectorAll("[data-credit-score]").forEach((btn) => {
     btn.onclick = () => {
@@ -2039,8 +2089,9 @@ function renderOwnerCreditsForm() {
   const d = parseEventDateTime(myEvent.date, myEvent.time || "00:00");
   const dateText = d ? d.toLocaleDateString("he-IL") : "";
   const categoryTypes = preEventOnly ? PRE_EVENT_SERVICE_TYPES : CREDIT_SERVICE_TYPES;
-  tab.innerHTML = `
-    ${creditsTopNav("owner")}
+  tab.innerHTML = creditsScreenWrap(
+    "owner",
+    `
     <div class="glass rounded-[28px] p-4 space-y-2">
       <div class="rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">האירוע של ${myEvent ? myEvent.girlName : "—"}${dateText ? ` • ${dateText}` : ""}</div>
       <input id="creditEventId" type="hidden" value="${myEvent ? myEvent.id : ""}" />
@@ -2052,8 +2103,9 @@ function renderOwnerCreditsForm() {
       <div id="ownerProvidersWrap" class="space-y-3"></div>
     </div>
     <div id="ownerQuickAddModal" class="hidden fixed inset-0 z-[80] items-center justify-center bg-black/70 p-4">
-      <div class="glass rounded-[24px] p-4 w-full max-w-md space-y-2">
-        <div class="font-black text-sm">הוספת נותן שירות — <span id="ownerQuickAddCategoryLabel"></span></div>
+      <div class="glass rounded-[24px] p-4 w-full max-w-md space-y-2 relative">
+        <button type="button" data-owner-quick-close class="screen-exit-btn screen-exit-in-modal" aria-label="סגירה בלי שמירה"><i class="fa-solid fa-xmark"></i></button>
+        <div id="ownerQuickAddTitle" class="font-black text-sm pt-1">הוספת נותן שירות — <span id="ownerQuickAddCategoryLabel"></span></div>
         <input id="ownerQuickAddCategory" type="hidden" />
         <input id="ownerQuickAddName" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם נותן השירות *" />
         <input id="ownerQuickAddPhone" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="טלפון" />
@@ -2065,8 +2117,8 @@ function renderOwnerCreditsForm() {
           <button type="button" data-owner-quick-close class="flex-1 rounded-xl bg-white/10 border border-white/10 p-2 text-sm">ביטול</button>
         </div>
       </div>
-    </div>
-  `;
+    </div>`
+  );
   refreshOwnerProviders();
 }
 
@@ -2113,12 +2165,10 @@ function renderCreditsBoard() {
       `;
     })
     .join("");
-  tab.innerHTML = `
-    ${creditsTopNav("board")}
-    ${renderProvidersDirectory()}
-    <div class="space-y-3">${blocks || '<div class="text-center text-white/40 text-sm">עדיין אין נתוני קרדיטים</div>'}</div>
-    ${renderCreditsAdminManager()}
-  `;
+  tab.innerHTML = creditsScreenWrap(
+    "board",
+    `${renderProvidersDirectory()}<div class="space-y-3">${blocks || '<div class="text-center text-white/40 text-sm">עדיין אין נתוני קרדיטים</div>'}</div>${renderCreditsAdminManager()}`
+  );
 }
 
 // ספריית נותני שירות עם דירוג, מספר מדרגים, מספר אירועים וכפתור וואטסאפ
@@ -2217,6 +2267,35 @@ async function deleteSelectedCreditsBoard() {
     (c) => Api.deleteCredit(c.id),
     "פריטים",
     () => list.forEach((c) => purgeCreditLocally(c.id))
+  );
+}
+
+function creditsScreenWrap(active, bodyHtml) {
+  return `
+    <div class="credit-screen-wrap relative">
+      <button type="button" data-credit-exit class="screen-exit-btn" aria-label="יציאה בלי שמירה"><i class="fa-solid fa-xmark"></i></button>
+      ${creditsTopNav(active)}
+      ${bodyHtml}
+    </div>`;
+}
+
+function getCreditEventIdFromForm() {
+  const selectedEventId = document.getElementById("creditEventId")?.value || "";
+  const manualEvent =
+    document.getElementById("creditManualEvent")?.value.trim() || guestCreditManualEventName || "";
+  if (selectedEventId === "__external__") return manualEvent ? `manual:${manualEvent}` : "";
+  return selectedEventId;
+}
+
+function findDuplicateProvider(eventId, category, name) {
+  const n = String(name || "").trim().toLowerCase();
+  if (!n) return null;
+  return (credits || []).find(
+    (c) =>
+      isProviderEntry(c) &&
+      String(c.eventId || "") === String(eventId || "") &&
+      String(c.category || "") === String(category || "") &&
+      String(c.professionalName || "").trim().toLowerCase() === n
   );
 }
 
@@ -2350,19 +2429,26 @@ function setGuestPublishEnabled(enabled) {
 }
 
 function refreshGuestProviders() {
-  const eventId = document.getElementById("creditEventId")?.value || "";
+  const eventId = getCreditEventIdFromForm();
   const wrap = document.getElementById("guestProvidersWrap");
   if (!wrap) return;
-  guestCreditSelectedEventId = eventId;
-  document.getElementById("creditManualEvent")?.classList.toggle("hidden", eventId !== "__external__");
+  guestCreditSelectedEventId = document.getElementById("creditEventId")?.value || "";
+  document.getElementById("creditManualEvent")?.classList.toggle("hidden", guestCreditSelectedEventId !== "__external__");
 
-  // חסימות לפי האירוע שנבחר
   const praiseSection = document.getElementById("guestGeneralPraiseSection");
-  const selectedEvent = events.find((e) => e.id === eventId);
+  const selectedEvent = events.find((e) => e.id === guestCreditSelectedEventId);
+
+  if (!eventId) {
+    wrap.innerHTML = creditBlockMessage("👆", "בחר/י אירוע (או הזן/י שם ידני) כדי לדרג נותני שירות.");
+    if (praiseSection) praiseSection.classList.add("hidden");
+    setGuestPublishEnabled(false);
+    return;
+  }
+
   if (selectedEvent && isOwnEvent(selectedEvent)) {
     wrap.innerHTML = creditBlockMessage(
       "🙃",
-      'אינך יכול לפרגן לאירוע שלך, אך אתה יכול בהחלט להמליץ על נותני שירות שאהבת — עברו למסך "המלצת בעל אירוע".'
+      'אינך יכול לפרגן לאירוע שלך — עברו למסך "המלצת בעל אירוע".'
     );
     if (praiseSection) praiseSection.classList.add("hidden");
     setGuestPublishEnabled(false);
@@ -2380,17 +2466,17 @@ function refreshGuestProviders() {
   let cardIndex = 0;
   const blocks = CREDIT_SERVICE_TYPES.map((service) => {
     const list = listEventProvidersByCategory(eventId, service);
-    if (!list.length) return "";
-    const cards = list.map((p) => renderGuestProviderCard(p, cardIndex++)).join("");
+    const cards = list.length
+      ? list.map((p) => renderGuestProviderCard(p, cardIndex++)).join("")
+      : renderGuestCategoryCard(service, eventId, cardIndex++);
     return `
       <div class="owner-category-block rounded-xl border border-white/10 bg-white/5 p-2 mb-2">
         <div class="font-bold text-sm mb-2">${serviceIcon(service)} ${service}</div>
         ${cards}
       </div>`;
-  }).filter(Boolean);
-  wrap.innerHTML =
-    blocks.join("") ||
-    creditBlockMessage("📋", "עדיין לא הוגדרו נותני שירות לאירוע זה — בעל/ת האירוע יכול/ה להוסיף בהמלצת בעל אירוע.");
+  }).join("");
+
+  wrap.innerHTML = blocks;
   wrap.querySelectorAll("[data-guest-provider-note]").forEach((noteInput) => {
     const creditId = noteInput.dataset.guestProviderNote || "";
     noteInput.oninput = () => {
@@ -2400,6 +2486,27 @@ function refreshGuestProviders() {
       };
     };
   });
+}
+
+function renderGuestCategoryCard(service, eventId, idx) {
+  const key = `cat::${eventId}::${service}`;
+  const st = guestProviderState[key] || { selected: false, score: 0, note: "" };
+  return `
+    <div class="credit-provider-card credit-category-card rounded-xl border border-dashed border-white/15 bg-black/15 p-2 mb-2 ${st.selected ? "is-selected" : ""}" data-provider-card data-category-only="1" data-selected="${st.selected ? "1" : "0"}" data-provider-key="${escapeHtmlAttr(key)}">
+      <div class="text-sm font-bold">${service}</div>
+      <div class="text-[11px] text-white/45 mt-0.5">דרג/י את איכות ${service} באירוע</div>
+      <div class="text-xs text-white/70 mt-2">דרג/י בכוכבים</div>
+      <div id="guestProviderStars_${idx}" class="credit-stars-wrap mt-1">
+        ${[1, 2, 3, 4, 5]
+          .map(
+            (n) =>
+              `<button type="button" class="provider-star text-xl ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-provider-star="${n}" data-provider-score-id="guestProviderScore_${idx}" aria-label="דירוג ${n}">★</button>`
+          )
+          .join("")}
+      </div>
+      <input id="guestProviderScore_${idx}" data-provider-name="${escapeHtmlAttr(service)}" data-provider-category="${escapeHtmlAttr(service)}" data-category-only="1" type="hidden" value="${st.score}" />
+      <input id="guestProviderNote_${idx}" data-guest-provider-note="${escapeHtmlAttr(key)}" class="w-full mt-1 rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs" placeholder="מילה טובה (אופציונלי)" value="${escapeHtmlAttr(st.note)}" />
+    </div>`;
 }
 
 function renderGuestProviderCard(credit, indexBase = 0) {
@@ -2466,12 +2573,16 @@ function renderOwnerProviderCard(credit, index) {
   return `
     <div class="rounded-xl border border-white/10 bg-black/20 p-2 mb-2" data-owner-provider-id="${escapeHtmlAttr(credit.id)}">
       <div class="flex items-start justify-between gap-2">
-        <div class="min-w-0">
+        <div class="min-w-0 flex-1">
           <div class="text-sm font-bold truncate">${credit.professionalName}</div>
           <div class="text-[11px] text-white/55 mt-0.5">${[credit.phone, credit.link, city].filter(Boolean).join(" • ")}</div>
           ${details ? `<div class="text-[11px] text-white/45 mt-1">${escapeHtmlAttr(details)}</div>` : ""}
         </div>
-        ${renderProviderContactActions(credit)}
+        <div class="flex items-center gap-1 shrink-0">
+          ${renderProviderContactActions(credit)}
+          <button type="button" class="provider-action-mini" data-owner-edit-credit="${escapeHtmlAttr(credit.id)}" aria-label="עריכה"><i class="fa-solid fa-pen"></i></button>
+          <button type="button" class="provider-action-mini danger" data-owner-delete-credit="${escapeHtmlAttr(credit.id)}" aria-label="הסרה"><i class="fa-solid fa-trash"></i></button>
+        </div>
       </div>
       <div class="credit-stars-wrap mt-2">
         ${[1, 2, 3, 4, 5]
@@ -2524,6 +2635,7 @@ function parseProviderDetails(note) {
 }
 
 function openOwnerQuickAddModal(category) {
+  editingProviderCreditId = null;
   const modal = document.getElementById("ownerQuickAddModal");
   if (!modal) return;
   document.getElementById("ownerQuickAddCategory").value = category;
@@ -2532,11 +2644,34 @@ function openOwnerQuickAddModal(category) {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
+  const saveBtn = document.querySelector("[data-owner-quick-save]");
+  if (saveBtn) {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "שמירה";
+  }
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function openOwnerQuickAddModalForEdit(creditId) {
+  const credit = credits.find((c) => c.id === creditId);
+  if (!credit) return;
+  editingProviderCreditId = creditId;
+  const modal = document.getElementById("ownerQuickAddModal");
+  if (!modal) return;
+  document.getElementById("ownerQuickAddCategory").value = credit.category || "";
+  document.getElementById("ownerQuickAddCategoryLabel").textContent = credit.category || "";
+  document.getElementById("ownerQuickAddName").value = credit.professionalName || "";
+  document.getElementById("ownerQuickAddPhone").value = credit.phone || "";
+  document.getElementById("ownerQuickAddEmail").value = credit.link || "";
+  document.getElementById("ownerQuickAddCity").value = parseProviderCity(credit.note);
+  document.getElementById("ownerQuickAddDetails").value = parseProviderDetails(credit.note);
   modal.classList.remove("hidden");
   modal.classList.add("flex");
 }
 
 function closeOwnerQuickAddModal() {
+  editingProviderCreditId = null;
   const modal = document.getElementById("ownerQuickAddModal");
   if (!modal) return;
   modal.classList.add("hidden");
@@ -2544,6 +2679,7 @@ function closeOwnerQuickAddModal() {
 }
 
 async function saveOwnerQuickAddProvider() {
+  if (isSavingOwnerProvider) return;
   const eventId = document.getElementById("creditEventId")?.value || "";
   const category = document.getElementById("ownerQuickAddCategory")?.value || "";
   const name = document.getElementById("ownerQuickAddName")?.value.trim();
@@ -2555,61 +2691,103 @@ async function saveOwnerQuickAddProvider() {
     showToast("יש למלא קטגוריה ושם נותן שירות");
     return;
   }
+  const dup = findDuplicateProvider(eventId, category, name);
+  if (dup && dup.id !== editingProviderCreditId) {
+    showToast("נותן שירות זה כבר קיים בקטגוריה");
+    return;
+  }
+
+  isSavingOwnerProvider = true;
+  const saveBtn = document.querySelector("[data-owner-quick-save]");
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = "שומר…";
+  }
+
+  if (editingProviderCreditId) {
+    try {
+      await Api.deleteCredit(editingProviderCreditId);
+    } catch (_) {}
+    purgeCreditLocally(editingProviderCreditId);
+  }
+
+  const record = {
+    id: crypto.randomUUID(),
+    eventId,
+    category,
+    professionalName: name,
+    phone,
+    link: email,
+    note: formatProviderNote(city, details),
+    tags: "__provider__",
+    sentiment: "",
+    contact: [phone, email, city].filter(Boolean).join(" | "),
+    ownerUserId: currentUser.id,
+    ownerName: currentUser.parentName,
+    ratings: {},
+    createdAt: new Date().toISOString(),
+  };
+  credits = [record, ...credits];
+  saveJson("bm_credits", credits);
+  const wasEdit = !!editingProviderCreditId;
+  closeOwnerQuickAddModal();
+  refreshOwnerProviders();
+  showToast(wasEdit ? "עודכן ✓" : "נוסף ✓");
+
   try {
-    const record = {
-      id: crypto.randomUUID(),
-      eventId,
-      category,
-      professionalName: name,
-      phone,
-      link: email,
-      note: formatProviderNote(city, details),
-      tags: "__provider__",
-      sentiment: "",
-      contact: [phone, email, city].filter(Boolean).join(" | "),
-      ownerUserId: currentUser.id,
-      ownerName: currentUser.parentName,
-      ratings: {},
-      createdAt: new Date().toISOString(),
-    };
     await Api.createCredit({ ...record, ratings: JSON.stringify({}) });
-    credits = [record, ...credits];
-    saveJson("bm_credits", credits);
-    closeOwnerQuickAddModal();
-    refreshOwnerProviders();
-    showToast("נותן השירות נוסף");
     syncFromServer({ silent: true });
   } catch (err) {
     console.error(err);
-    showToast("לא הצלחנו להוסיף נותן שירות");
+    showToast("נשמר — יסתנכרן ברקע");
+  } finally {
+    isSavingOwnerProvider = false;
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "שמירה";
+    }
   }
 }
 
-async function rateProviderCredit(creditId, score) {
+async function rateProviderCredit(creditId, score, btnEl) {
   const credit = credits.find((c) => c.id === creditId);
   if (!credit || !currentUser) return;
+  const prev = credit.ratings?.[currentUser.id];
   const ratings = { ...(credit.ratings || {}), [currentUser.id]: score };
+  credit.ratings = ratings;
+  credit.sentiment = "like";
+  saveJson("bm_credits", credits);
+
+  const wrap = btnEl?.closest(".credit-stars-wrap");
+  if (wrap) {
+    wrap.querySelectorAll("[data-owner-rate-score]").forEach((starEl) => {
+      const n = Number(starEl.dataset.ownerRateScore || 0);
+      starEl.classList.toggle("text-yellow-300", n <= score);
+      starEl.classList.toggle("text-white/35", n > score);
+    });
+  }
+
   try {
     await Api.rateCredit({
       creditId,
       ratings: JSON.stringify(ratings),
       sentiment: "like",
     });
-    credit.ratings = ratings;
-    credit.sentiment = "like";
-    saveJson("bm_credits", credits);
-    if (creditScreen === "owner") refreshOwnerProviders();
-    showToast("הדירוג נשמר");
   } catch (err) {
     console.error(err);
-    showToast("לא הצלחנו לשמור דירוג");
+    if (prev !== undefined) credit.ratings[currentUser.id] = prev;
+    else delete credit.ratings[currentUser.id];
+    saveJson("bm_credits", credits);
+    if (wrap) refreshOwnerProviders();
+    showToast("לא נשמר הדירוג");
   }
 }
 
 async function publishGuestCredits() {
+  if (isPublishingGuest) return;
   const selectedEventId = document.getElementById("creditEventId").value;
   const manualEvent = document.getElementById("creditManualEvent").value.trim();
-  const eventId = selectedEventId === "__external__" ? `manual:${manualEvent}` : selectedEventId;
+  const eventId = getCreditEventIdFromForm();
   if (!eventId || (selectedEventId === "__external__" && !manualEvent)) {
     showToast("בחר/י אירוע");
     return;
@@ -2623,22 +2801,31 @@ async function publishGuestCredits() {
     showToast("לא ניתן לפרגן לאירוע שעדיין לא התקיים");
     return;
   }
-  const selectedCards = Array.from(document.querySelectorAll("#guestProvidersWrap [data-provider-card][data-selected='1']"));
+  const selectedCards = Array.from(
+    document.querySelectorAll("#guestProvidersWrap [data-provider-card][data-selected='1']")
+  );
   if (!selectedCards.length) {
-    showToast("בחר/י לפחות נותן שירות אחד");
+    showToast("בחר/י לפחות קטגוריה אחת לדירוג");
     return;
   }
   const note = document.getElementById("guestCreditNote").value.trim();
   const eventScore = guestEventScoreSelected;
   const tags = [...guestCreditTagsSelected];
+  isPublishingGuest = true;
+  const pubBtn = document.getElementById("publishGuestCreditBtn");
+  if (pubBtn) {
+    pubBtn.disabled = true;
+    pubBtn.textContent = "מפרסם…";
+  }
   try {
     for (const card of selectedCards) {
       const scoreInput = card.querySelector("[data-provider-name]");
       const providerName = scoreInput?.dataset.providerName || "";
       const category = scoreInput?.dataset.providerCategory || "";
       const score = Number(scoreInput?.value || 0);
+      const isCategoryOnly = card.dataset.categoryOnly === "1";
       if (score <= 0) {
-        showToast(`חסר דירוג לספק: ${providerName || category || "ספק"}`);
+        showToast(`חסר דירוג ל${isCategoryOnly ? category : providerName || category || "ספק"}`);
         return;
       }
       const providerNote = card.querySelector("input[type='text']")?.value.trim() || "";
@@ -2649,7 +2836,7 @@ async function publishGuestCredits() {
         category,
         professionalName: providerName,
         note: [providerNote, note].filter(Boolean).join(" | "),
-        tags: ["__guest__", ...tags].join("|"),
+        tags: isCategoryOnly ? ["__guest__", "__category__", ...tags].join("|") : ["__guest__", ...tags].join("|"),
         sentiment: "like",
         ownerUserId: currentUser.id,
         ownerName: currentUser.parentName,
@@ -2703,6 +2890,13 @@ async function publishGuestCredits() {
       showToast("הפרגון פורסם");
     } else {
       showToast(`לא הצלחנו לפרסם פרגון: ${msg.slice(0, 90)}`);
+    }
+  } finally {
+    isPublishingGuest = false;
+    const pubBtn = document.getElementById("publishGuestCreditBtn");
+    if (pubBtn) {
+      pubBtn.disabled = false;
+      pubBtn.textContent = "פרסום";
     }
   }
 }
@@ -3075,6 +3269,11 @@ async function rateCreditSentiment(creditId, sentiment) {
 // ─── חוויות ────────────────────────────────────────────────
 function bindExperiences() {
   document.getElementById("experiencesTab").addEventListener("click", async (e) => {
+    const lbBtn = e.target.closest("[data-open-lightbox]");
+    if (lbBtn) {
+      openLightbox(Number(lbBtn.dataset.openLightbox || 0));
+      return;
+    }
     const dlBtn = e.target.closest("[data-download-exp-url]");
     if (dlBtn) {
       const a = document.createElement("a");
@@ -3126,6 +3325,100 @@ function getVisibleExperiencesGrouped() {
   }, {});
 }
 
+function experienceDisplayUrl(url) {
+  const str = String(url || "");
+  const m = /[?&]id=([^&]+)/.exec(str);
+  if (str.includes("drive.google.com") && m) {
+    return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1200`;
+  }
+  return str;
+}
+
+function buildLightboxItems() {
+  const grouped = getVisibleExperiencesGrouped();
+  return Object.values(grouped).flat();
+}
+
+function openLightbox(index) {
+  lightboxItems = buildLightboxItems();
+  if (!lightboxItems.length || index < 0 || index >= lightboxItems.length) return;
+  lightboxIndex = index;
+  renderLightboxSlide();
+  document.getElementById("mediaLightbox")?.classList.remove("hidden");
+  document.body.classList.add("lightbox-open");
+}
+
+function closeLightbox() {
+  document.getElementById("mediaLightbox")?.classList.add("hidden");
+  document.body.classList.remove("lightbox-open");
+  const vid = document.getElementById("lightboxVideo");
+  if (vid) {
+    vid.pause();
+    vid.classList.add("hidden");
+  }
+  lightboxIndex = -1;
+}
+
+function renderLightboxSlide() {
+  const exp = lightboxItems[lightboxIndex];
+  if (!exp) return;
+  const type = experienceMediaType(exp);
+  const img = document.getElementById("lightboxImg");
+  const vid = document.getElementById("lightboxVideo");
+  const counter = document.getElementById("lightboxCounter");
+  if (type === "video") {
+    if (img) img.classList.add("hidden");
+    if (vid) {
+      vid.src = exp.imageUrl;
+      vid.classList.remove("hidden");
+    }
+  } else {
+    if (vid) {
+      vid.pause();
+      vid.classList.add("hidden");
+    }
+    if (img) {
+      img.src = experienceDisplayUrl(exp.imageUrl);
+      img.classList.remove("hidden");
+    }
+  }
+  if (counter) counter.textContent = `${lightboxIndex + 1} / ${lightboxItems.length}`;
+}
+
+function bindLightbox() {
+  document.getElementById("lightboxClose")?.addEventListener("click", closeLightbox);
+  document.getElementById("lightboxPrev")?.addEventListener("click", () => {
+    if (lightboxIndex > 0) {
+      lightboxIndex -= 1;
+      renderLightboxSlide();
+    }
+  });
+  document.getElementById("lightboxNext")?.addEventListener("click", () => {
+    if (lightboxIndex < lightboxItems.length - 1) {
+      lightboxIndex += 1;
+      renderLightboxSlide();
+    }
+  });
+  document.getElementById("mediaLightbox")?.addEventListener("click", (e) => {
+    if (e.target.id === "mediaLightbox") closeLightbox();
+  });
+  let touchX = 0;
+  document.getElementById("mediaLightbox")?.addEventListener("touchstart", (e) => {
+    touchX = e.changedTouches[0]?.clientX || 0;
+  }, { passive: true });
+  document.getElementById("mediaLightbox")?.addEventListener("touchend", (e) => {
+    const dx = (e.changedTouches[0]?.clientX || 0) - touchX;
+    if (Math.abs(dx) < 40) return;
+    if (dx > 0 && lightboxIndex > 0) {
+      lightboxIndex -= 1;
+      renderLightboxSlide();
+    } else if (dx < 0 && lightboxIndex < lightboxItems.length - 1) {
+      lightboxIndex += 1;
+      renderLightboxSlide();
+    }
+  }, { passive: true });
+}
+
 function renderExperiencesListOnly() {
   const list = document.getElementById("experiencesList");
   if (!list) return;
@@ -3136,17 +3429,20 @@ function renderExperiencesListOnly() {
         .map((eventId) => {
           const event = events.find((e) => e.id === eventId);
           const title = event ? `האירוע של ${event.girlName}` : "אלבום כללי";
+          const flatStart = buildLightboxItems().findIndex((x) => String(x.eventId) === String(eventId));
           const cards = grouped[eventId]
-            .map((exp) => {
+            .map((exp, localIdx) => {
               const type = experienceMediaType(exp);
+              const globalIdx = flatStart >= 0 ? flatStart + localIdx : localIdx;
               const fileName = `${(event ? event.girlName : "media")}_${String(exp.id).slice(0, 6)}.${type === "video" ? "mp4" : "jpg"}`;
+              const thumb = experienceDisplayUrl(exp.imageUrl);
               const mediaEl =
                 type === "video"
-                  ? `<video src="${exp.imageUrl}" class="w-full rounded-xl max-h-64 bg-black" controls playsinline></video>`
-                  : `<img src="${exp.imageUrl}" class="w-full rounded-xl object-cover max-h-64" alt="">`;
+                  ? `<button type="button" class="exp-gallery-tile exp-gallery-video" data-open-lightbox="${globalIdx}" aria-label="צפייה בסרטון"><video src="${exp.imageUrl}" class="exp-gallery-thumb" muted playsinline preload="metadata"></video><span class="exp-gallery-play">▶</span></button>`
+                  : `<button type="button" class="exp-gallery-tile" data-open-lightbox="${globalIdx}" aria-label="צפייה בתמונה"><img src="${thumb}" class="exp-gallery-thumb" alt="" loading="lazy" /></button>`;
               const canDelete = canDeleteExperience(exp);
               return `
-                <div class="relative mb-3">
+                <div class="exp-gallery-item relative">
                   <label class="exp-check-wrap">
                     <input type="checkbox" class="exp-select" data-url="${escapeHtmlAttr(exp.imageUrl)}" data-name="${escapeHtmlAttr(fileName)}" />
                   </label>
@@ -3154,13 +3450,12 @@ function renderExperiencesListOnly() {
                     <button type="button" class="exp-action-btn download" data-download-exp-url="${escapeHtmlAttr(exp.imageUrl)}" data-download-exp-name="${escapeHtmlAttr(fileName)}" aria-label="הורדה" title="הורדה">
                       <i class="fa-solid fa-download"></i>
                     </button>
-                    <button type="button" class="exp-action-btn delete ${canDelete ? "" : "is-disabled"}" data-delete-experience-id="${exp.id}" ${canDelete ? "" : "disabled"} aria-label="מחיקה" title="${canDelete ? "מחיקה" : "רק מי שהעלה / בעל האירוע / מנהל יכול למחוק"}">
+                    <button type="button" class="exp-action-btn delete ${canDelete ? "" : "is-disabled"}" data-delete-experience-id="${exp.id}" ${canDelete ? "" : "disabled"} aria-label="מחיקה">
                       <i class="fa-solid fa-trash"></i>
                     </button>
                   </div>
-                  ${type === "video" ? '<span class="exp-video-badge">🎬 סרטון</span>' : ""}
                   ${mediaEl}
-                  <div class="text-[11px] text-white/50 mt-1">${exp.userName} • ${new Date(exp.createdAt).toLocaleString("he-IL")}</div>
+                  <div class="text-[10px] text-white/45 mt-1 truncate">${exp.userName}</div>
                 </div>
               `;
             })
@@ -3168,7 +3463,7 @@ function renderExperiencesListOnly() {
           return `
             <div class="glass rounded-2xl p-3">
               <div class="font-black text-sm mb-2">${title} <span class="text-white/40 font-normal">(${grouped[eventId].length})</span></div>
-              <div>${cards}</div>
+              <div class="exp-gallery-grid">${cards}</div>
             </div>
           `;
         })
@@ -3292,6 +3587,7 @@ function downloadSelectedExperiences() {
 }
 
 async function addExperienceFromForm() {
+  if (isExperienceUploading) return;
   const selected = document.getElementById("expEventId").value;
   const manualEvent = document.getElementById("expEventManual").value.trim();
   const eventId = selected === "__external__" ? `manual:${manualEvent}` : selected;
@@ -3613,10 +3909,10 @@ function switchTab(tab, shouldSync = true) {
   });
 
   document.getElementById("navAdd")?.classList.toggle("hidden", tab === "admin" || !!currentUser?.isAdmin);
+  const hideFab = !currentUser || currentUser.isAdmin || tab === "admin";
+  document.getElementById("addBtn")?.classList.toggle("hidden", hideFab);
   if (tab === "admin") {
     document.getElementById("addBtn")?.classList.add("hidden");
-  } else {
-    updateAddButton();
   }
 
   window.scrollTo({ top: 0, behavior: "smooth" });

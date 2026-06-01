@@ -13,7 +13,7 @@ const SHEET_HEADERS = {
   Events: [
     "id", "ownerId", "ownerName", "girlName", "familyName",
     "date", "time", "location", "address", "menu",
-    "hideAttendees", "image", "timestamp", "phone", "role",
+    "hideAttendees", "image", "timestamp", "phone", "role", "eventNote",
   ],
   RSVP: ["eventId", "userId", "userName", "status", "timestamp"],
   Messages: ["id", "userName", "messageText", "timestamp"],
@@ -136,6 +136,7 @@ function doPost(e) {
         menu: data.menu || "",
         hideAttendees: data.hideAttendees === undefined ? false : data.hideAttendees,
         image: data.image || "",
+        eventNote: data.eventNote || "",
         timestamp: new Date(),
         phone: data.phone || "",
         role: data.role || "",
@@ -157,6 +158,7 @@ function doPost(e) {
       setIfProvided(sheet, row, "location", data.location);
       setIfProvided(sheet, row, "address", data.address);
       setIfProvided(sheet, row, "menu", data.menu);
+      setIfProvided(sheet, row, "eventNote", data.eventNote);
       setIfProvided(sheet, row, "hideAttendees", data.hideAttendees);
       if (data.removeImage === true) {
         setIfProvided(sheet, row, "image", data.image || "");
