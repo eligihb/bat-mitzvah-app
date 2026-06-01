@@ -27,6 +27,8 @@ let guestCreditNoteDraft = "";
 let guestCreditTagsSelected = [];
 let guestCreditFreshLoad = true;
 const CREDIT_SERVICE_TYPES = ["צילום", "מקום אירוע", "מצגת/סרטון", "אוכל", "עיצוב", "הפעלה"];
+// נותני שירות שרלוונטי להמליץ עליהם גם לפני האירוע (צלמת, מצגת/עורך וידאו)
+const PRE_EVENT_SERVICE_TYPES = ["צילום", "מצגת/סרטון"];
 let selectedRole = APP_CONFIG.defaultRole;
 let hideGuests = false;
 let syncTimer = null;
@@ -977,9 +979,15 @@ async function adminDeleteEverything() {
 async function deleteUserById(userId) {
   if (!currentUser?.isAdmin) return;
   if (!confirm("למחוק משתמש זה?")) return;
+  const ids = String(userId || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   try {
-    await Api.deleteUser(userId);
-    users = users.filter((u) => u.id !== userId);
+    for (const id of ids) {
+      await Api.deleteUser(id);
+    }
+    users = users.filter((u) => !ids.includes(String(u.id)));
     await syncFromServer({ silent: true });
     showToast("המשתמש נמחק");
   } catch (err) {
@@ -990,6 +998,109 @@ async function deleteUserById(userId) {
       alert("לא הצלחנו למחוק את המשתמש.");
     }
   }
+}
+
+// ייצוא טבלה ל-CSV (נפתח באקסל, כולל BOM לעברית תקינה)
+function downloadCsv(filename, headerRow, dataRows) {
+  const escapeCell = (v) => {
+    const s = String(v == null ? "" : v).replace(/"/g, '""');
+    return `"${s}"`;
+  };
+  const lines = [headerRow, ...dataRows].map((r) => r.map(escapeCell).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + lines], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportProvidersCsv() {
+  const providers = aggregateAllProviders();
+  if (!providers.length) {
+    showToast("אין נותני שירות לייצוא");
+    return;
+  }
+  const rows = providers.map((p) => [
+    p.name,
+    p.category || "",
+    p.avg === "—" ? "" : p.avg,
+    p.ratingCount,
+    p.eventCount,
+    p.phone || "",
+  ]);
+  downloadCsv(
+    "providers.csv",
+    ["שם נותן שירות", "קטגוריה", "דירוג ממוצע", "כמות מדרגים", "כמות אירועים", "טלפון"],
+    rows
+  );
+  showToast("דוח נותני שירות יוצא");
+}
+
+function exportVenuesCsv() {
+  const rows = (events || [])
+    .filter((e) => (e.location || "").trim())
+    .map((e) => {
+      const d = parseEventDateTime(e.date, e.time || "00:00");
+      const dateText = d ? d.toLocaleDateString("he-IL") : e.date || "";
+      return [e.location || "", e.address || "", e.girlName || "", dateText];
+    });
+  if (!rows.length) {
+    showToast("אין אולמות לייצוא");
+    return;
+  }
+  downloadCsv("venues.csv", ["אולם", "כתובת", "אירוע (בת)", "תאריך"], rows);
+  showToast("דוח אולמות יוצא");
+}
+
+// מזהה ייחודי טבעי למשתמש: לפי טלפון, ואם אין — לפי שם הורה+ילדה+משפחה
+function userNaturalKey(u) {
+  const phone = String(u.phone || "").replace(/\D/g, "");
+  if (phone) return "p:" + phone;
+  return (
+    "n:" +
+    [u.parentName, u.girlName, u.familyName]
+      .map((x) => String(x || "").trim().toLowerCase())
+      .join("|")
+  );
+}
+
+// מאחד כניסות חוזרות של אותו משתמש לרשומה אחת (מאסף את כל ה-ids למחיקה)
+function dedupeUsers(list) {
+  const map = new Map();
+  (list || []).forEach((u) => {
+    const key = userNaturalKey(u);
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, { ...u, _ids: [u.id].filter(Boolean) });
+      return;
+    }
+    prev._ids = Array.from(new Set([...(prev._ids || []), u.id].filter(Boolean)));
+    if (String(u.lastSeen || "") > String(prev.lastSeen || "")) {
+      Object.assign(prev, u, { _ids: prev._ids });
+    }
+  });
+  return Array.from(map.values());
+}
+
+// מקבץ משתמשים לפי הילדה (הורים של אותה ילדה יוצגו יחד)
+function groupUsersByGirl(list) {
+  const groups = new Map();
+  dedupeUsers(list).forEach((u) => {
+    const girlKey = [u.girlName, u.familyName]
+      .map((x) => String(x || "").trim().toLowerCase())
+      .join("|");
+    const hasGirl = girlKey.replace(/\|/g, "").trim().length > 0;
+    const key = hasGirl ? "g:" + girlKey : "solo:" + (u._ids?.[0] || u.parentName || Math.random());
+    if (!groups.has(key)) {
+      groups.set(key, { girlName: u.girlName || "", familyName: u.familyName || "", members: [] });
+    }
+    groups.get(key).members.push(u);
+  });
+  return Array.from(groups.values());
 }
 
 function purgeCreditLocally(creditId) {
@@ -1082,6 +1193,8 @@ function renderAdminPanel() {
   const creditList = (credits || []).filter((c) => !isOwnerRecommendation(c));
   const recList = (credits || []).filter((c) => isOwnerRecommendation(c));
   const photoList = experiences.filter((e) => e.imageUrl);
+  const userGroups = groupUsersByGirl(users);
+  const uniqueUserCount = userGroups.reduce((sum, g) => sum + g.members.length, 0);
 
   const itemRow = (title, sub, attr) => `
     <div class="glass rounded-2xl p-3">
@@ -1099,7 +1212,11 @@ function renderAdminPanel() {
   tab.innerHTML = `
     <div class="glass rounded-[28px] p-4 mb-4">
       <div class="font-black mb-2">פאנל ניהול</div>
-      <div class="text-xs text-white/60 mb-3 leading-5">משתמשים: ${users.length} • אירועים: ${events.length} • אישורי הגעה: ${rsvpCount} • קרדיטים: ${creditList.length} • המלצות: ${recList.length} • תמונות: ${photoList.length} • הודעות: ${messages.length}</div>
+      <div class="text-xs text-white/60 mb-3 leading-5">משתמשים: ${uniqueUserCount} • אירועים: ${events.length} • אישורי הגעה: ${rsvpCount} • קרדיטים: ${creditList.length} • המלצות: ${recList.length} • תמונות: ${photoList.length} • הודעות: ${messages.length}</div>
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <button type="button" id="adminExportProvidersBtn" class="rounded-xl bg-emerald-500/20 border border-emerald-400/30 p-2 text-xs font-bold">📊 ייצוא נותני שירות</button>
+        <button type="button" id="adminExportVenuesBtn" class="rounded-xl bg-emerald-500/20 border border-emerald-400/30 p-2 text-xs font-bold">🏛️ ייצוא אולמות</button>
+      </div>
       <div class="grid grid-cols-2 gap-2">
         <button type="button" id="adminRefreshBtn" class="rounded-xl bg-white/10 p-2 text-xs font-bold">רענון</button>
         <button type="button" id="adminClearLocalBtn" class="rounded-xl bg-white/10 p-2 text-xs font-bold">ניקוי מטמן ורענון</button>
@@ -1115,16 +1232,28 @@ function renderAdminPanel() {
     </div>
 
     <div class="space-y-3">
-      <div class="text-xs text-white/50">משתמשים רשומים (${users.length})</div>
-      ${users.length
-        ? users
-            .map((u) =>
-              itemRow(
-                `${u.parentName || "—"}${u.familyName ? " " + u.familyName : ""}`,
-                `${u.role || ""}${u.girlName ? " • בת: " + u.girlName : ""}${u.phone ? " • " + u.phone : ""}`,
-                `<button type="button" class="event-action-btn delete" data-admin-delete-user-id="${u.id}" aria-label="מחיקת משתמש"><i class="fa-solid fa-trash"></i></button>`
-              )
-            )
+      <div class="text-xs text-white/50">משתמשים רשומים (${uniqueUserCount})</div>
+      ${userGroups.length
+        ? userGroups
+            .map((g) => {
+              const girlTitle = g.girlName
+                ? `בת: ${g.girlName}${g.familyName ? " " + g.familyName : ""}`
+                : "ללא שיוך לילדה";
+              const parents = g.members
+                .map(
+                  (u) => `
+                    <div class="flex items-center justify-between gap-2 mt-1">
+                      <div class="text-xs text-white/80 truncate">${u.parentName || "—"}${u.role ? " • " + u.role : ""}${u.phone ? " • " + u.phone : ""}</div>
+                      <button type="button" class="event-action-btn delete shrink-0" data-admin-delete-user-id="${(u._ids || [u.id]).join(",")}" aria-label="מחיקת משתמש"><i class="fa-solid fa-trash"></i></button>
+                    </div>`
+                )
+                .join("");
+              return `
+                <div class="glass rounded-2xl p-3">
+                  <div class="font-bold text-sm">${girlTitle}${g.members.length > 1 ? ` <span class="text-[11px] text-white/50">(${g.members.length} הורים)</span>` : ""}</div>
+                  ${parents}
+                </div>`;
+            })
             .join("")
         : emptyRow("אין משתמשים רשומים (יירשמו אוטומטית בכניסה הבאה)")}
 
@@ -1671,11 +1800,11 @@ function renderGuestCreditsForm() {
         <button type="button" data-save-provider class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm font-bold">אישור הוספה</button>
       </div>
       <div id="guestProvidersWrap" class="space-y-2"></div>
-      <div class="border-t border-white/10 pt-3 mt-2">
+      <div id="guestGeneralPraiseSection" class="border-t border-white/10 pt-3 mt-2">
         <div class="text-sm font-black text-center mb-2">✨ פרגון כללי על האירוע ✨</div>
         ${renderGlowStarRating("guestEventScoreWrap", guestEventScoreSelected)}
+        <textarea id="guestCreditNote" class="w-full mt-2 rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[72px]" placeholder="הערה (אופציונלי)">${escapeHtmlAttr(guestCreditNoteDraft)}</textarea>
       </div>
-      <textarea id="guestCreditNote" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[72px]" placeholder="הערה (אופציונלי)">${escapeHtmlAttr(guestCreditNoteDraft)}</textarea>
       <button type="button" id="publishGuestCreditBtn" class="w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">פרסום</button>
     </div>
   `;
@@ -1738,26 +1867,20 @@ function renderOwnerCreditsForm() {
     `;
     return;
   }
-  if (!isEventPastByDate(myEvent.date)) {
-    const d = parseEventDateTime(myEvent.date, myEvent.time || "00:00");
-    const dateText = d ? d.toLocaleDateString("he-IL") : "";
-    tab.innerHTML = `
-      ${creditsTopNav("owner")}
-      <div class="glass rounded-[28px] p-4 space-y-3">
-        <div class="rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">האירוע של ${myEvent.girlName}${dateText ? ` • ${dateText}` : ""}</div>
-        <div class="rounded-xl bg-yellow-500/10 border border-yellow-400/30 p-3 text-sm text-yellow-100 text-center">
-          האירוע טרם התקיים, הנך מוזמן/ת להמליץ לאחר האירוע 🌟
-        </div>
-      </div>
-    `;
-    return;
-  }
+  const preEventOnly = !isEventPastByDate(myEvent.date);
+  const d = parseEventDateTime(myEvent.date, myEvent.time || "00:00");
+  const dateText = d ? d.toLocaleDateString("he-IL") : "";
+  const categoryTypes = preEventOnly ? PRE_EVENT_SERVICE_TYPES : CREDIT_SERVICE_TYPES;
   tab.innerHTML = `
     ${creditsTopNav("owner")}
     <div class="glass rounded-[28px] p-4 space-y-2">
-      <div class="rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">האירוע של ${myEvent ? myEvent.girlName : "—"}</div>
+      <div class="rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">האירוע של ${myEvent ? myEvent.girlName : "—"}${dateText ? ` • ${dateText}` : ""}</div>
       <input id="creditEventId" type="hidden" value="${myEvent ? myEvent.id : ""}" />
-      <div class="text-xs text-white/70">המלצה על ספקים ונותני שירות מהאירוע שלך</div>
+      ${
+        preEventOnly
+          ? `<div class="rounded-xl bg-yellow-500/10 border border-yellow-400/30 p-2 text-xs text-yellow-100 text-center">האירוע טרם התקיים — לפני האירוע ניתן להמליץ רק על צלמת, מצגת ועריכת וידאו 🎬</div>`
+          : `<div class="text-xs text-white/70">המלצה על ספקים ונותני שירות מהאירוע שלך</div>`
+      }
       <div id="ownerProvidersWrap" class="space-y-2"></div>
       <div class="flex items-center justify-end">
         <button type="button" data-open-provider-modal class="event-action-btn compact" aria-label="הוספת נותן שירות">
@@ -1766,8 +1889,8 @@ function renderOwnerCreditsForm() {
       </div>
       <div id="ownerInlineProviderForm" class="hidden space-y-2 rounded-xl border border-white/10 bg-white/5 p-2">
         <select id="providerCategoryInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">
-          ${CREDIT_SERVICE_TYPES.map((t) => `<option value="${t}">${t}</option>`).join("")}
-          <option value="אחר">אחר</option>
+          ${categoryTypes.map((t) => `<option value="${t}">${t}</option>`).join("")}
+          ${preEventOnly ? "" : '<option value="אחר">אחר</option>'}
         </select>
         <input id="providerCategoryOtherInput" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="סוג אחר" />
         <input id="providerNameInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם נותן השירות" />
@@ -1832,8 +1955,46 @@ function renderCreditsBoard() {
     .join("");
   tab.innerHTML = `
     ${creditsTopNav("board")}
+    ${renderProvidersDirectory()}
     <div class="space-y-3">${blocks || '<div class="text-center text-white/40 text-sm">עדיין אין נתוני קרדיטים</div>'}</div>
     ${renderCreditsAdminManager()}
+  `;
+}
+
+// ספריית נותני שירות עם דירוג, מספר מדרגים, מספר אירועים וכפתור וואטסאפ
+function renderProvidersDirectory() {
+  const providers = aggregateAllProviders();
+  if (!providers.length) return "";
+  const rows = providers
+    .map((p) => {
+      const wa = whatsappLink(p.phone);
+      const stars = p.avg === "—" ? "" : `★ ${p.avg}`;
+      return `
+        <div class="provider-dir-row rounded-xl bg-white/5 border border-white/10 p-2 mb-2">
+          <div class="flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <div class="font-bold text-sm truncate">${serviceIcon(p.category)} ${p.name}</div>
+              <div class="text-[11px] text-white/55 mt-0.5">${p.category || "נותן שירות"}</div>
+            </div>
+            ${
+              wa
+                ? `<a href="${wa}" target="_blank" rel="noopener" class="provider-wa-btn" aria-label="וואטסאפ"><i class="fa-brands fa-whatsapp"></i></a>`
+                : ""
+            }
+          </div>
+          <div class="flex items-center gap-3 mt-2 text-[11px]">
+            <span class="provider-badge">${stars || "אין דירוג"}</span>
+            <span class="provider-badge">${p.ratingCount} מדרגים</span>
+            <span class="provider-badge">${p.eventCount} אירועים</span>
+          </div>
+        </div>`;
+    })
+    .join("");
+  return `
+    <div class="glass rounded-2xl p-3 mb-3">
+      <div class="font-black text-sm mb-2">📒 ספריית נותני שירות (${providers.length})</div>
+      ${rows}
+    </div>
   `;
 }
 
@@ -2036,20 +2197,24 @@ function refreshGuestProviders() {
   document.getElementById("creditManualEvent")?.classList.toggle("hidden", eventId !== "__external__");
 
   // חסימות לפי האירוע שנבחר
+  const praiseSection = document.getElementById("guestGeneralPraiseSection");
   const selectedEvent = events.find((e) => e.id === eventId);
   if (selectedEvent && isOwnEvent(selectedEvent)) {
     wrap.innerHTML = creditBlockMessage(
       "🙃",
       'אינך יכול לפרגן לאירוע שלך, אך אתה יכול בהחלט להמליץ על נותני שירות שאהבת — עברו למסך "המלצת בעל אירוע".'
     );
+    if (praiseSection) praiseSection.classList.add("hidden");
     setGuestPublishEnabled(false);
     return;
   }
   if (selectedEvent && !isEventPastByDate(selectedEvent.date)) {
     wrap.innerHTML = creditBlockMessage("😜", "לא ניתן לפרגן לאירוע שעדיין לא התקיים — תחזרו אחרי החגיגה!");
+    if (praiseSection) praiseSection.classList.add("hidden");
     setGuestPublishEnabled(false);
     return;
   }
+  if (praiseSection) praiseSection.classList.remove("hidden");
   setGuestPublishEnabled(true);
 
   wrap.innerHTML = CREDIT_SERVICE_TYPES
@@ -2093,7 +2258,11 @@ function refreshOwnerProviders() {
   const eventId = document.getElementById("creditEventId")?.value || "";
   const wrap = document.getElementById("ownerProvidersWrap");
   if (!wrap) return;
-  const providers = collectOwnerRecommendationTargets(eventId);
+  let providers = collectOwnerRecommendationTargets(eventId);
+  const ownerEvent = events.find((e) => e.id === eventId);
+  if (ownerEvent && !isEventPastByDate(ownerEvent.date)) {
+    providers = providers.filter((p) => PRE_EVENT_SERVICE_TYPES.includes(p.category));
+  }
   wrap.innerHTML = providers.length
     ? providers
         .map(
@@ -2319,6 +2488,58 @@ function aggregateProviderScores(list) {
     if (c.sentiment === "like") item.likes += 1;
   });
   return Array.from(map.values()).map((x) => ({ ...x, avg: x.count ? (x.total / x.count).toFixed(1) : "—" }));
+}
+
+// ספריית נותני שירות גלובלית: ממוצע דירוג, כמה דירגו, בכמה אירועים, טלפון
+function aggregateAllProviders() {
+  const map = new Map();
+  (credits || []).forEach((c) => {
+    if (!c.professionalName) return;
+    const key = `${String(c.professionalName).trim()}@@${c.category || ""}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        name: String(c.professionalName).trim(),
+        category: c.category || "",
+        total: 0,
+        ratingCount: 0,
+        likes: 0,
+        events: new Set(),
+        phone: "",
+      });
+    }
+    const item = map.get(key);
+    const values = Object.values(c.ratings || {})
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n > 0);
+    item.total += values.reduce((a, b) => a + b, 0);
+    item.ratingCount += values.length;
+    if (c.sentiment === "like") item.likes += 1;
+    if (c.eventId) item.events.add(String(c.eventId));
+    if (!item.phone && c.phone) item.phone = String(c.phone);
+  });
+  return Array.from(map.values())
+    .map((x) => ({
+      name: x.name,
+      category: x.category,
+      avg: x.ratingCount ? (x.total / x.ratingCount).toFixed(1) : "—",
+      ratingCount: x.ratingCount,
+      eventCount: x.events.size,
+      phone: x.phone,
+    }))
+    .sort((a, b) => b.eventCount - a.eventCount || (b.avg === "—" ? -1 : Number(b.avg)) - (a.avg === "—" ? -1 : Number(a.avg)));
+}
+
+function whatsappDigits(phone) {
+  let d = String(phone || "").replace(/\D/g, "");
+  if (!d) return "";
+  if (d.startsWith("972")) return d;
+  if (d.startsWith("0")) d = d.slice(1);
+  return "972" + d;
+}
+
+function whatsappLink(phone) {
+  const d = whatsappDigits(phone);
+  return d ? `https://wa.me/${d}` : "";
 }
 
 function collectProvidersForEvent(eventId) {
@@ -2774,19 +2995,33 @@ async function addExperienceFromForm() {
       // טווח האחוזים של הקובץ הנוכחי מתוך כלל הקבצים
       const base = Math.round((idx / files.length) * 100);
       const span = Math.round((1 / files.length) * 100);
-      const upload = await retryApiCall(() =>
-        Api.uploadExperienceImageWithProgress(
-          {
-            fileName: file.name || `exp_${Date.now()}.${isVideo ? "mp4" : "jpg"}`,
-            mimeType: file.type || parts.mimeType,
-            base64Data: parts.base64,
-          },
-          (filePct) => {
-            const overall = Math.min(99, base + Math.round((filePct / 100) * span));
-            showUploadProgress("expProgress", overall, `מעלה ${idx + 1} מתוך ${files.length}`);
-          }
-        )
-      );
+      const label = files.length > 1 ? `מעלה ${idx + 1} מתוך ${files.length} קבצים` : "מעלה קובץ…";
+      let lastPct = 0;
+      // זחילה עדינה כדי שהסרגל תמיד יתקדם, גם כשהשרת מעבד (Drive) ואין אירועי התקדמות
+      const creep = setInterval(() => {
+        lastPct = Math.min(90, lastPct + 3);
+        showUploadProgress("expProgress", Math.min(99, base + Math.round((lastPct / 100) * span)), label);
+      }, 250);
+      let upload;
+      try {
+        upload = await retryApiCall(() =>
+          Api.uploadExperienceImageWithProgress(
+            {
+              fileName: file.name || `exp_${Date.now()}.${isVideo ? "mp4" : "jpg"}`,
+              mimeType: file.type || parts.mimeType,
+              base64Data: parts.base64,
+            },
+            (filePct) => {
+              if (filePct > lastPct) lastPct = filePct;
+              const overall = Math.min(99, base + Math.round((lastPct / 100) * span));
+              showUploadProgress("expProgress", overall, label);
+            }
+          )
+        );
+      } finally {
+        clearInterval(creep);
+      }
+      showUploadProgress("expProgress", Math.min(99, base + span), label);
       const imageUrl = upload.imageUrl || "";
       if (!imageUrl) throw new Error("לא התקבל קישור מהשרת");
 
@@ -2957,6 +3192,14 @@ function bindNavigation() {
       return;
     }
 
+    if (e.target.closest("#adminExportProvidersBtn")) {
+      exportProvidersCsv();
+      return;
+    }
+    if (e.target.closest("#adminExportVenuesBtn")) {
+      exportVenuesCsv();
+      return;
+    }
     if (e.target.closest("#adminRefreshBtn")) {
       await syncFromServer();
       return;

@@ -29,13 +29,33 @@ const SHEET_HEADERS = {
 /**
  * הרץ פעם אחת מהעורך (בחר setupBatMitzvahSheets ולחץ Run).
  * יוצר גיליונות חסרים ומוסיף עמודות חסרות — בלי למחוק נתונים.
+ * הקריאה ל-DriveApp מאלצת אישור הרשאת Drive (חובה להעלאת תמונות).
  */
 function setupBatMitzvahSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ensureAllSheets_(ss);
+  var driveStatus = "";
+  try {
+    var folder = DriveApp.getFolderById(FOLDER_EXPERIENCES);
+    driveStatus = "תיקיית התמונות נגישה: " + folder.getName();
+  } catch (e) {
+    driveStatus = "שגיאת Drive: " + e;
+  }
   SpreadsheetApp.getUi().alert(
-    "ההתקנה הושלמה.\nכל הגיליונות והעמודות קיימים.\nכעת: Deploy → New deployment → Web app"
+    "ההתקנה הושלמה.\nכל הגיליונות והעמודות קיימים.\n" +
+      driveStatus +
+      "\n\nכעת: Deploy → Manage deployments → New version"
   );
+}
+
+/**
+ * הרץ פעם אחת מהעורך (בחר authorizeDrive ולחץ Run) כדי לאשר הרשאת Drive.
+ * זה פותר את השגיאה "אין לך הרשאה להתקשר אל DriveApp.getFolderById".
+ */
+function authorizeDrive() {
+  var folder = DriveApp.getFolderById(FOLDER_EXPERIENCES);
+  Logger.log("OK: " + folder.getName());
+  return folder.getName();
 }
 
 // =========================
@@ -88,6 +108,10 @@ function doPost(e) {
         phone: data.phone || "",
         role: data.role || "",
       });
+      // שמירת תאריך/שעה כטקסט כדי שגיליון לא יזיז אזור זמן
+      const newRow = sheet.getLastRow();
+      setTextCell_(sheet, newRow, "date", data.date || "");
+      setTextCell_(sheet, newRow, "time", data.time || "");
       return json({ success: true });
     }
 
@@ -96,8 +120,8 @@ function doPost(e) {
       const row = findRowById(sheet, "id", data.eventId);
       if (row < 2) return json({ success: false, error: "Event not found" });
 
-      setIfProvided(sheet, row, "date", data.date);
-      setIfProvided(sheet, row, "time", data.time);
+      if (data.date !== undefined) setTextCell_(sheet, row, "date", data.date);
+      if (data.time !== undefined) setTextCell_(sheet, row, "time", data.time);
       setIfProvided(sheet, row, "location", data.location);
       setIfProvided(sheet, row, "address", data.address);
       setIfProvided(sheet, row, "menu", data.menu);
@@ -259,11 +283,13 @@ function doPost(e) {
       return json({ success: true });
     }
 
-    // רישום/עדכון משתמש (upsert לפי id)
+    // רישום/עדכון משתמש (upsert לפי id, ואם אין — לפי טלפון או שם הורה+ילדה)
     if (action === "registerUser") {
       const sheet = ss.getSheetByName(SHEET_USERS);
-      const row = data.id ? findRowById(sheet, "id", data.id) : -1;
+      let row = data.id ? findRowById(sheet, "id", data.id) : -1;
+      if (row < 2) row = findUserRowByNaturalKey_(sheet, data);
       if (row >= 2) {
+        setIfProvided(sheet, row, "id", data.id);
         setIfProvided(sheet, row, "parentName", data.parentName);
         setIfProvided(sheet, row, "girlName", data.girlName);
         setIfProvided(sheet, row, "familyName", data.familyName);
@@ -446,6 +472,40 @@ function setIfProvided(sheet, rowNumber, headerName, value) {
   const col = hm[headerName];
   if (!col) return;
   sheet.getRange(rowNumber, col).setValue(value);
+}
+
+// מאתר שורת משתמש לפי טלפון, ואם אין — לפי שם הורה+ילדה+משפחה (מונע כפילויות)
+function findUserRowByNaturalKey_(sheet, data) {
+  const hm = headerMap(sheet);
+  const values = sheet.getDataRange().getValues();
+  const norm = function (v) {
+    return String(v || "").trim().toLowerCase();
+  };
+  const phone = norm(data.phone);
+  const parent = norm(data.parentName);
+  const girl = norm(data.girlName);
+  const family = norm(data.familyName);
+  for (let i = 1; i < values.length; i++) {
+    const rowPhone = norm(values[i][hm.phone - 1]);
+    if (phone && rowPhone && rowPhone === phone) return i + 1;
+    const rowParent = norm(values[i][hm.parentName - 1]);
+    const rowGirl = norm(values[i][hm.girlName - 1]);
+    const rowFamily = norm(values[i][hm.familyName - 1]);
+    if (parent && girl && rowParent === parent && rowGirl === girl && rowFamily === family) {
+      return i + 1;
+    }
+  }
+  return -1;
+}
+
+// כותב ערך כטקסט בלבד (מונע המרת תאריך/שעה אוטומטית עם הזזת אזור זמן)
+function setTextCell_(sheet, rowNumber, headerName, value) {
+  const hm = headerMap(sheet);
+  const col = hm[headerName];
+  if (!col) return;
+  const range = sheet.getRange(rowNumber, col);
+  range.setNumberFormat("@");
+  range.setValue(value === undefined || value === null ? "" : String(value));
 }
 
 function json(data) {
