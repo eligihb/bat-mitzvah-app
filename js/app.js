@@ -2620,8 +2620,8 @@ async function addExperienceFromForm() {
   const btn = document.getElementById("addExperienceBtn");
   if (btn) btn.disabled = true;
   showUploadProgress("expProgress", 0, `מעלה 0 מתוך ${files.length}`);
+  const uploaded = [];
   try {
-    let uploadedCount = 0;
     for (let idx = 0; idx < files.length; idx++) {
       const file = files[idx];
       const isVideo = String(file.type || "").startsWith("video") || /\.(mp4|mov|webm|m4v|ogg|avi)$/i.test(file.name || "");
@@ -2646,54 +2646,34 @@ async function addExperienceFromForm() {
       const imageUrl = upload.imageUrl || "";
       if (!imageUrl) throw new Error("לא התקבל קישור מהשרת");
 
-      await retryApiCall(() =>
-        Api.createExperience({
-          id: crypto.randomUUID(),
-          eventId,
-          userId: currentUser.id,
-          userName: currentUser.parentName,
-          text: isVideo ? "video" : "image",
-          imageUrl,
-          createdAt: new Date().toISOString(),
-        })
-      );
-      uploadedCount += 1;
+      const record = {
+        id: crypto.randomUUID(),
+        eventId,
+        userId: currentUser.id,
+        userName: currentUser.parentName,
+        text: isVideo ? "video" : "image",
+        imageUrl,
+        createdAt: new Date().toISOString(),
+      };
+      await retryApiCall(() => Api.createExperience(record));
+      uploaded.push(record);
     }
     showUploadProgress("expProgress", 100, "הושלם");
-    await syncFromServer({ silent: true });
-    showToast(uploadedCount > 1 ? `${uploadedCount} פריטים עלו לאלבום` : "הקובץ עלה לאלבום המשותף");
+    // הצגה מיידית (אופטימי) כדי שזה ירגיש מהיר, וסנכרון ברקע
+    experiences = [...uploaded, ...experiences];
+    saveJson("bm_experiences", experiences);
+    document.getElementById("expImageFile").value = "";
+    renderExperiences();
+    showToast(uploaded.length > 1 ? `${uploaded.length} פריטים עלו לענן` : "הקובץ עלה לענן");
+    syncFromServer({ silent: true });
   } catch (err) {
     const msg = String(err?.message || "");
     if (isUnknownActionError(err)) {
-      // נפילה חזרה שקטה — שומר מקומית בלי להציג למשתמש "נשמר מקומית"
-      try {
-        const locals = [];
-        for (const file of files) {
-          const isVideo = String(file.type || "").startsWith("video") || /\.(mp4|mov|webm|m4v|ogg|avi)$/i.test(file.name || "");
-          const imageUrl = await toBase64(file);
-          locals.push({
-            id: crypto.randomUUID(),
-            eventId,
-            userId: currentUser.id,
-            userName: currentUser.parentName,
-            text: isVideo ? "video" : "image",
-            imageUrl,
-            createdAt: new Date().toISOString(),
-            pendingSync: true,
-          });
-        }
-        pendingExperiences = [...locals, ...pendingExperiences];
-        saveJson("bm_pending_experiences", pendingExperiences);
-        experiences = mergePendingExperiences(experiences, pendingExperiences);
-        saveJson("bm_experiences", experiences);
-        renderAll();
-        showToast(locals.length > 1 ? `${locals.length} פריטים עלו לאלבום` : "הקובץ עלה לאלבום המשותף");
-      } catch (_) {
-        showToast("לא הצלחנו להעלות כרגע. נסו שוב בעוד רגע.");
-      }
+      // השרת לא פרוס נכון — לא מעמידים פנים שהצליח, כדי שלא ייווצרו "תמונות מקומיות" שלא בענן
+      alert("ההעלאה לענן נכשלה.\n\n" + REDEPLOY_MSG);
     } else {
       console.error(err);
-      showToast(`לא הצלחנו להעלות: ${msg.slice(0, 90)}`);
+      showToast(`ההעלאה נכשלה: ${msg.slice(0, 90)}`);
     }
   } finally {
     if (btn) btn.disabled = false;
