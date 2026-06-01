@@ -54,7 +54,9 @@ function setupBatMitzvahSheets() {
  */
 function authorizeDrive() {
   var folder = DriveApp.getFolderById(FOLDER_EXPERIENCES);
-  Logger.log("OK: " + folder.getName());
+  var probe = folder.createFile(Utilities.newBlob("ok", "text/plain", "_auth_probe.txt"));
+  probe.setTrashed(true);
+  Logger.log("OK: " + folder.getName() + " (כולל הרשאת כתיבה)");
   return folder.getName();
 }
 
@@ -88,19 +90,23 @@ function doGet(e) {
 function testDriveAccess_() {
   try {
     var folder = DriveApp.getFolderById(FOLDER_EXPERIENCES);
+    var probe = folder.createFile(Utilities.newBlob("ok", "text/plain", "_webapp_probe.txt"));
+    probe.setTrashed(true);
     return {
       success: true,
       driveOk: true,
+      writeOk: true,
       folderName: folder.getName(),
-      hint: "ה-Web App מורשה ל-Drive. אפשר להעלות תמונות.",
+      hint: "ה-Web App מורשה ל-Drive כולל העלאת קבצים.",
     };
   } catch (err) {
     return {
       success: false,
       driveOk: false,
+      writeOk: false,
       error: String(err),
       hint:
-        "ה-Web App עדיין לא מורשה ל-Drive. Deploy → Manage deployments → עיפרון → Execute as: Me → New version → Deploy. ואז הריצו authorizeDrive שוב.",
+        "ה-Web App עדיין לא מורשה לכתיבה ב-Drive. הריצו authorizeDrive מהעורך → Allow → Deploy → New version.",
     };
   }
 }
