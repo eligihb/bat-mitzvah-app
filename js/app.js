@@ -688,20 +688,37 @@ function bindEventForm() {
     isSavingEvent = true;
     setEventSubmitLoading(true);
 
-    let image = editingEventImage;
+    // העלאת תמונת אירוע ל-Drive (לא שומרים base64 בתא — חורג מ-50,000 תווים)
+    let newImageUrl = "";
     const file = document.getElementById("girlImage").files[0];
     if (file) {
-      image = await toBase64(file);
-    }
-    if (!image) {
-      image = APP_CONFIG.placeholderImage;
+      try {
+        const dataUrl = await toBase64(file);
+        const parts = splitDataUrl(dataUrl);
+        const up = await retryApiCall(() =>
+          Api.uploadExperienceImage({
+            fileName: file.name || `event_${Date.now()}.jpg`,
+            mimeType: file.type || parts.mimeType,
+            base64Data: parts.base64,
+          })
+        );
+        newImageUrl = up.imageUrl || "";
+        if (!newImageUrl) throw new Error("לא התקבל קישור לתמונה");
+      } catch (imgErr) {
+        console.error(imgErr);
+        alert("לא הצלחנו להעלות את התמונה. נסו תמונה אחרת או שמרו בלי תמונה.");
+        isSavingEvent = false;
+        setEventSubmitLoading(false);
+        setSyncStatus("");
+        return;
+      }
     }
 
     try {
       setSyncStatus(editingEventId ? "מעדכן אירוע..." : "שומר אירוע...");
 
       if (editingEventId) {
-        await Api.updateEvent({
+        const payload = {
           eventId: editingEventId,
           date,
           time,
@@ -709,8 +726,10 @@ function bindEventForm() {
           address,
           menu,
           hideAttendees: hideGuests,
-          image,
-        });
+        };
+        // מעדכנים תמונה רק אם נבחרה תמונה חדשה
+        if (newImageUrl) payload.image = newImageUrl;
+        await Api.updateEvent(payload);
       } else {
         await Api.createEvent({
           id: crypto.randomUUID(),
@@ -724,7 +743,7 @@ function bindEventForm() {
           address,
           menu,
           hideAttendees: hideGuests,
-          image,
+          image: newImageUrl || APP_CONFIG.placeholderImage,
           phone: currentUser.phone || "",
           role: currentUser.role,
         });
