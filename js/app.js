@@ -33,6 +33,7 @@ let selectedRole = APP_CONFIG.defaultRole;
 let hideGuests = false;
 let syncTimer = null;
 let isSyncing = false;
+let isExperienceUploading = false;
 let activeTab = sessionStorage.getItem("bm_active_tab") || "events";
 let editingEventId = null;
 let editingEventImage = "";
@@ -164,7 +165,8 @@ function renderAll() {
   renderCalendar();
   renderMessages();
   renderCredits();
-  renderExperiences();
+  if (isExperienceUploading) renderExperiencesListOnly();
+  else renderExperiences();
   renderAdminPanel();
   updateAddButton();
 }
@@ -750,6 +752,19 @@ function bindEventForm() {
         // מעדכנים תמונה רק אם נבחרה תמונה חדשה
         if (newImageUrl) payload.image = newImageUrl;
         await Api.updateEvent(payload);
+        const idx = events.findIndex((ev) => ev.id === editingEventId);
+        if (idx >= 0) {
+          events[idx] = {
+            ...events[idx],
+            date,
+            time,
+            location,
+            address,
+            menu,
+            hideGuests,
+            ...(newImageUrl ? { image: newImageUrl } : {}),
+          };
+        }
       } else {
         await Api.createEvent({
           id: crypto.randomUUID(),
@@ -1737,6 +1752,24 @@ function bindCredits() {
       addProviderFromModal();
       return;
     }
+    const ownerAddBtn = e.target.closest("[data-owner-add-category]");
+    if (ownerAddBtn) {
+      openOwnerQuickAddModal(ownerAddBtn.dataset.ownerAddCategory || "");
+      return;
+    }
+    if (e.target.closest("[data-owner-quick-save]")) {
+      await saveOwnerQuickAddProvider();
+      return;
+    }
+    if (e.target.closest("[data-owner-quick-close]")) {
+      closeOwnerQuickAddModal();
+      return;
+    }
+    const ownerRateBtn = e.target.closest("[data-owner-rate-credit]");
+    if (ownerRateBtn) {
+      await rateProviderCredit(ownerRateBtn.dataset.ownerRateCredit, Number(ownerRateBtn.dataset.ownerRateScore || 0));
+      return;
+    }
     const boardProviderBtn = e.target.closest("[data-credit-board-provider]");
     if (boardProviderBtn) {
       const name = boardProviderBtn.dataset.creditBoardProvider || "";
@@ -1878,35 +1911,27 @@ function renderOwnerCreditsForm() {
       <input id="creditEventId" type="hidden" value="${myEvent ? myEvent.id : ""}" />
       ${
         preEventOnly
-          ? `<div class="rounded-xl bg-yellow-500/10 border border-yellow-400/30 p-2 text-xs text-yellow-100 text-center">האירוע טרם התקיים — לפני האירוע ניתן להמליץ רק על צלמת, מצגת ועריכת וידאו 🎬</div>`
-          : `<div class="text-xs text-white/70">המלצה על ספקים ונותני שירות מהאירוע שלך</div>`
+          ? `<div class="rounded-xl bg-yellow-500/10 border border-yellow-400/30 p-2 text-xs text-yellow-100 text-center">לפני האירוע — בחר/י קטגוריה, הוסיפ/י נותן שירות, ודרג/י 🎬</div>`
+          : `<div class="text-xs text-white/70">בחר/י קטגוריה → הוסיפ/י נותן שירות → דרג/י בכוכבים</div>`
       }
-      <div id="ownerProvidersWrap" class="space-y-2"></div>
-      <div class="flex items-center justify-end">
-        <button type="button" data-open-provider-modal class="event-action-btn compact" aria-label="הוספת נותן שירות">
-          <i class="fa-solid fa-plus"></i>
-        </button>
+      <div id="ownerProvidersWrap" class="space-y-3"></div>
+    </div>
+    <div id="ownerQuickAddModal" class="hidden fixed inset-0 z-[80] items-center justify-center bg-black/70 p-4">
+      <div class="glass rounded-[24px] p-4 w-full max-w-md space-y-2">
+        <div class="font-black text-sm">הוספת נותן שירות — <span id="ownerQuickAddCategoryLabel"></span></div>
+        <input id="ownerQuickAddCategory" type="hidden" />
+        <input id="ownerQuickAddName" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם נותן השירות *" />
+        <input id="ownerQuickAddPhone" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="טלפון" />
+        <input id="ownerQuickAddEmail" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder='דוא"ל' />
+        <input id="ownerQuickAddCity" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="עיר" />
+        <textarea id="ownerQuickAddDetails" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[72px]" placeholder="פרטים נוספים"></textarea>
+        <div class="flex gap-2 pt-1">
+          <button type="button" data-owner-quick-save class="flex-1 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 p-2 text-sm font-black">שמירה</button>
+          <button type="button" data-owner-quick-close class="flex-1 rounded-xl bg-white/10 border border-white/10 p-2 text-sm">ביטול</button>
+        </div>
       </div>
-      <div id="ownerInlineProviderForm" class="hidden space-y-2 rounded-xl border border-white/10 bg-white/5 p-2">
-        <select id="providerCategoryInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">
-          ${categoryTypes.map((t) => `<option value="${t}">${t}</option>`).join("")}
-          ${preEventOnly ? "" : '<option value="אחר">אחר</option>'}
-        </select>
-        <input id="providerCategoryOtherInput" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="סוג אחר" />
-        <input id="providerNameInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם נותן השירות" />
-        <input id="providerPhoneInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="טלפון" />
-        <input id="providerEmailInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="אימייל" />
-        <input id="providerNoteInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="הערה קצרה על נותן השירות" />
-        <button type="button" data-save-provider class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm font-bold">אישור הוספה</button>
-      </div>
-      <textarea id="ownerCreditNote" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[110px]" placeholder="המלצה מפורטת"></textarea>
-      <button type="button" id="publishOwnerCreditBtn" class="w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">פרסום</button>
     </div>
   `;
-  document.getElementById("publishOwnerCreditBtn").onclick = publishOwnerCredits;
-  document.getElementById("providerCategoryInput").onchange = (e) => {
-    document.getElementById("providerCategoryOtherInput").classList.toggle("hidden", e.target.value !== "אחר");
-  };
   refreshOwnerProviders();
 }
 
@@ -2217,79 +2242,233 @@ function refreshGuestProviders() {
   if (praiseSection) praiseSection.classList.remove("hidden");
   setGuestPublishEnabled(true);
 
-  wrap.innerHTML = CREDIT_SERVICE_TYPES
-    .map((service, i) => {
-      const st = guestProviderState[service] || { selected: false, score: 0, note: "" };
-      return `
-        <div class="credit-provider-card rounded-xl border border-white/10 bg-white/5 p-2 ${st.selected ? "is-selected" : ""}" data-provider-card data-selected="${st.selected ? "1" : "0"}" data-provider-key="${escapeHtmlAttr(service)}">
-          <button type="button" data-credit-provider-toggle class="credit-provider-toggle w-full text-right text-sm font-bold">
-            <span class="credit-provider-icon">${serviceIcon(service)}</span>
-            <span>${service}</span>
-          </button>
-          <div class="text-xs text-white/70 mt-1">דרג/י בכוכבים — הבחירה תסומן אוטומטית</div>
-          <div id="guestProviderStars_${i}" class="credit-stars-wrap mt-1">
-            ${[1, 2, 3, 4, 5]
-              .map(
-                (n) =>
-                  `<button type="button" class="provider-star text-xl ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-provider-star="${n}" data-provider-score-id="guestProviderScore_${i}" aria-label="דירוג ${n}">★</button>`
-              )
-              .join("")}
-          </div>
-          <input id="guestProviderScore_${i}" data-provider-name="${escapeHtmlAttr(service)}" data-provider-category="${escapeHtmlAttr(service)}" type="hidden" value="${st.score}" />
-          <input id="guestProviderNote_${i}" class="w-full mt-1 rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs" placeholder="מילה טובה על ${service}" value="${escapeHtmlAttr(st.note)}" />
-        </div>
-      `;
-    })
-    .join("");
-  CREDIT_SERVICE_TYPES.forEach((service, i) => {
-    const noteInput = document.getElementById(`guestProviderNote_${i}`);
-    if (noteInput) {
-      noteInput.oninput = () => {
-        guestProviderState[service] = {
-          ...(guestProviderState[service] || { selected: false, score: 0, note: "" }),
-          note: noteInput.value || "",
-        };
+  let cardIndex = 0;
+  const blocks = CREDIT_SERVICE_TYPES.map((service) => {
+    const list = listEventProvidersByCategory(eventId, service);
+    if (!list.length) return "";
+    const cards = list.map((p) => renderGuestProviderCard(p, cardIndex++)).join("");
+    return `
+      <div class="owner-category-block rounded-xl border border-white/10 bg-white/5 p-2 mb-2">
+        <div class="font-bold text-sm mb-2">${serviceIcon(service)} ${service}</div>
+        ${cards}
+      </div>`;
+  }).filter(Boolean);
+  wrap.innerHTML =
+    blocks.join("") ||
+    creditBlockMessage("📋", "עדיין לא הוגדרו נותני שירות לאירוע זה — בעל/ת האירוע יכול/ה להוסיף בהמלצת בעל אירוע.");
+  wrap.querySelectorAll("[data-guest-provider-note]").forEach((noteInput) => {
+    const creditId = noteInput.dataset.guestProviderNote || "";
+    noteInput.oninput = () => {
+      guestProviderState[creditId] = {
+        ...(guestProviderState[creditId] || { selected: false, score: 0, note: "" }),
+        note: noteInput.value || "",
       };
-    }
+    };
   });
+}
+
+function renderGuestProviderCard(credit, indexBase = 0) {
+  const city = parseProviderCity(credit.note);
+  const details = parseProviderDetails(credit.note);
+  const st = guestProviderState[credit.id] || { selected: false, score: 0, note: "" };
+  const idx = indexBase;
+  return `
+    <div class="credit-provider-card rounded-xl border border-white/10 bg-black/20 p-2 mb-2 ${st.selected ? "is-selected" : ""}" data-provider-card data-selected="${st.selected ? "1" : "0"}" data-provider-key="${escapeHtmlAttr(credit.id)}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-sm font-bold truncate">${credit.professionalName}</div>
+          <div class="text-[11px] text-white/55 mt-0.5">${[credit.phone, credit.link, city].filter(Boolean).join(" • ")}</div>
+          ${details ? `<div class="text-[11px] text-white/45 mt-1">${escapeHtmlAttr(details)}</div>` : ""}
+        </div>
+        ${renderProviderContactActions(credit)}
+      </div>
+      <div class="text-xs text-white/70 mt-2">דרג/י בכוכבים</div>
+      <div id="guestProviderStars_${idx}" class="credit-stars-wrap mt-1">
+        ${[1, 2, 3, 4, 5]
+          .map(
+            (n) =>
+              `<button type="button" class="provider-star text-xl ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-provider-star="${n}" data-provider-score-id="guestProviderScore_${idx}" aria-label="דירוג ${n}">★</button>`
+          )
+          .join("")}
+      </div>
+      <input id="guestProviderScore_${idx}" data-provider-name="${escapeHtmlAttr(credit.professionalName)}" data-provider-category="${escapeHtmlAttr(credit.category || "")}" data-provider-credit-id="${escapeHtmlAttr(credit.id)}" type="hidden" value="${st.score}" />
+      <input id="guestProviderNote_${idx}" data-guest-provider-note="${escapeHtmlAttr(credit.id)}" class="w-full mt-1 rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs" placeholder="מילה טובה (אופציונלי)" value="${escapeHtmlAttr(st.note)}" />
+    </div>`;
 }
 
 function refreshOwnerProviders() {
   const eventId = document.getElementById("creditEventId")?.value || "";
   const wrap = document.getElementById("ownerProvidersWrap");
   if (!wrap) return;
-  let providers = collectOwnerRecommendationTargets(eventId);
   const ownerEvent = events.find((e) => e.id === eventId);
-  if (ownerEvent && !isEventPastByDate(ownerEvent.date)) {
-    providers = providers.filter((p) => PRE_EVENT_SERVICE_TYPES.includes(p.category));
-  }
-  wrap.innerHTML = providers.length
-    ? providers
-        .map(
-          (p, i) => {
-            const key = `${p.name}@@${p.category || ""}`;
-            const st = ownerProviderState[key] || { selected: false, score: 0 };
-            return `
-            <div class="credit-provider-card rounded-xl border border-white/10 bg-white/5 p-2 ${st.selected ? "is-selected" : ""}" data-provider-card data-selected="${st.selected ? "1" : "0"}" data-provider-key="${escapeHtmlAttr(key)}">
-              <button type="button" data-credit-provider-toggle class="credit-provider-toggle w-full text-right text-sm font-bold">
-                <span class="credit-provider-icon">${serviceIcon(p.category || p.name)}</span>
-                <span>${p.name}${p.category ? ` • ${p.category}` : ""}</span>
-              </button>
-              <div id="ownerProviderStars_${i}" class="credit-stars-wrap mt-1">
-                ${[1, 2, 3, 4, 5]
-                  .map(
-                    (n) =>
-                      `<button type="button" class="provider-star text-xl ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-provider-star="${n}" data-provider-score-id="ownerProviderScore_${i}" aria-label="דירוג ${n}">★</button>`
-                  )
-                  .join("")}
-              </div>
-              <input id="ownerProviderScore_${i}" data-provider-name="${escapeHtmlAttr(p.name)}" data-provider-category="${escapeHtmlAttr(p.category || "")}" type="hidden" value="${st.score}" />
-            </div>
-          `;
+  const preEventOnly = ownerEvent && !isEventPastByDate(ownerEvent.date);
+  const categories = preEventOnly ? PRE_EVENT_SERVICE_TYPES : CREDIT_SERVICE_TYPES;
+
+  wrap.innerHTML = categories
+    .map((category) => {
+      const list = listEventProvidersByCategory(eventId, category);
+      return `
+        <div class="owner-category-block rounded-xl border border-white/10 bg-white/5 p-2">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <div class="font-bold text-sm">${serviceIcon(category)} ${category}</div>
+            <button type="button" data-owner-add-category="${escapeHtmlAttr(category)}" class="rounded-lg bg-white/10 border border-white/10 px-2 py-1 text-xs font-bold">+ הוסף</button>
+          </div>
+          ${
+            list.length
+              ? list.map((p, i) => renderOwnerProviderCard(p, i)).join("")
+              : `<div class="text-[11px] text-white/45">לחצ/י "+ הוסף" כדי להוסיף נותן שירות</div>`
           }
-        )
-        .join("")
-    : '<div class="text-xs text-white/50">אין ספקים לאירוע זה. הוסיפי ספק חדש.</div>';
+        </div>`;
+    })
+    .join("");
+}
+
+function renderOwnerProviderCard(credit, index) {
+  const city = parseProviderCity(credit.note);
+  const details = parseProviderDetails(credit.note);
+  const ratings = credit.ratings || {};
+  const score = Number(ratings[currentUser?.id] || 0);
+  return `
+    <div class="rounded-xl border border-white/10 bg-black/20 p-2 mb-2" data-owner-provider-id="${escapeHtmlAttr(credit.id)}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-sm font-bold truncate">${credit.professionalName}</div>
+          <div class="text-[11px] text-white/55 mt-0.5">${[credit.phone, credit.link, city].filter(Boolean).join(" • ")}</div>
+          ${details ? `<div class="text-[11px] text-white/45 mt-1">${escapeHtmlAttr(details)}</div>` : ""}
+        </div>
+        ${renderProviderContactActions(credit)}
+      </div>
+      <div class="credit-stars-wrap mt-2">
+        ${[1, 2, 3, 4, 5]
+          .map(
+            (n) =>
+              `<button type="button" class="provider-star text-xl ${score >= n && score > 0 ? "text-yellow-300" : "text-white/35"}" data-owner-rate-credit="${escapeHtmlAttr(credit.id)}" data-owner-rate-score="${n}" aria-label="דירוג ${n}">★</button>`
+          )
+          .join("")}
+      </div>
+    </div>`;
+}
+
+function renderProviderContactActions(credit) {
+  const wa = whatsappLink(credit.phone);
+  const tel = credit.phone ? `tel:${String(credit.phone).replace(/\s/g, "")}` : "";
+  if (!wa && !tel) return "";
+  return `
+    <div class="flex items-center gap-1 shrink-0">
+      ${tel ? `<a href="${tel}" class="provider-contact-btn" aria-label="התקשרות"><i class="fa-solid fa-phone"></i></a>` : ""}
+      ${wa ? `<a href="${wa}" target="_blank" rel="noopener" class="provider-wa-btn compact" aria-label="וואטסאפ"><i class="fa-brands fa-whatsapp"></i></a>` : ""}
+    </div>`;
+}
+
+function listEventProvidersByCategory(eventId, category) {
+  return (credits || []).filter(
+    (c) =>
+      String(c.eventId || "") === String(eventId || "") &&
+      String(c.category || "") === String(category || "") &&
+      c.professionalName &&
+      isProviderEntry(c)
+  );
+}
+
+function formatProviderNote(city, details) {
+  const parts = [];
+  if (city) parts.push(`עיר: ${city}`);
+  if (details) parts.push(details);
+  return parts.join(" | ");
+}
+
+function parseProviderCity(note) {
+  const m = String(note || "").match(/עיר:\s*([^|]+)/);
+  return m ? m[1].trim() : "";
+}
+
+function parseProviderDetails(note) {
+  const raw = String(note || "");
+  const withoutCity = raw.replace(/עיר:\s*[^|]+\s*\|\s*/i, "").replace(/עיר:\s*[^|]+$/i, "").trim();
+  return withoutCity;
+}
+
+function openOwnerQuickAddModal(category) {
+  const modal = document.getElementById("ownerQuickAddModal");
+  if (!modal) return;
+  document.getElementById("ownerQuickAddCategory").value = category;
+  document.getElementById("ownerQuickAddCategoryLabel").textContent = category;
+  ["ownerQuickAddName", "ownerQuickAddPhone", "ownerQuickAddEmail", "ownerQuickAddCity", "ownerQuickAddDetails"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function closeOwnerQuickAddModal() {
+  const modal = document.getElementById("ownerQuickAddModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+async function saveOwnerQuickAddProvider() {
+  const eventId = document.getElementById("creditEventId")?.value || "";
+  const category = document.getElementById("ownerQuickAddCategory")?.value || "";
+  const name = document.getElementById("ownerQuickAddName")?.value.trim();
+  const phone = document.getElementById("ownerQuickAddPhone")?.value.trim();
+  const email = document.getElementById("ownerQuickAddEmail")?.value.trim();
+  const city = document.getElementById("ownerQuickAddCity")?.value.trim();
+  const details = document.getElementById("ownerQuickAddDetails")?.value.trim();
+  if (!eventId || !category || !name) {
+    showToast("יש למלא קטגוריה ושם נותן שירות");
+    return;
+  }
+  try {
+    const record = {
+      id: crypto.randomUUID(),
+      eventId,
+      category,
+      professionalName: name,
+      phone,
+      link: email,
+      note: formatProviderNote(city, details),
+      tags: "__provider__",
+      sentiment: "",
+      contact: [phone, email, city].filter(Boolean).join(" | "),
+      ownerUserId: currentUser.id,
+      ownerName: currentUser.parentName,
+      ratings: {},
+      createdAt: new Date().toISOString(),
+    };
+    await Api.createCredit({ ...record, ratings: JSON.stringify({}) });
+    credits = [record, ...credits];
+    saveJson("bm_credits", credits);
+    closeOwnerQuickAddModal();
+    refreshOwnerProviders();
+    showToast("נותן השירות נוסף");
+    syncFromServer({ silent: true });
+  } catch (err) {
+    console.error(err);
+    showToast("לא הצלחנו להוסיף נותן שירות");
+  }
+}
+
+async function rateProviderCredit(creditId, score) {
+  const credit = credits.find((c) => c.id === creditId);
+  if (!credit || !currentUser) return;
+  const ratings = { ...(credit.ratings || {}), [currentUser.id]: score };
+  try {
+    await Api.rateCredit({
+      creditId,
+      ratings: JSON.stringify(ratings),
+      sentiment: "like",
+    });
+    credit.ratings = ratings;
+    credit.sentiment = "like";
+    saveJson("bm_credits", credits);
+    if (creditScreen === "owner") refreshOwnerProviders();
+    showToast("הדירוג נשמר");
+  } catch (err) {
+    console.error(err);
+    showToast("לא הצלחנו לשמור דירוג");
+  }
 }
 
 async function publishGuestCredits() {
@@ -2543,14 +2722,12 @@ function whatsappLink(phone) {
 }
 
 function collectProvidersForEvent(eventId) {
-  const providers = new Map();
-  credits.forEach((c) => {
-    if (String(c.eventId || "") !== String(eventId || "")) return;
-    if (!c.professionalName) return;
-    const key = c.professionalName.trim();
-    if (!providers.has(key)) providers.set(key, { name: key, category: c.category || "" });
-  });
-  return Array.from(providers.values());
+  return (credits || []).filter(
+    (c) =>
+      String(c.eventId || "") === String(eventId || "") &&
+      c.professionalName &&
+      isProviderEntry(c)
+  );
 }
 
 function collectOwnerRecommendationTargets(eventId) {
@@ -2801,8 +2978,75 @@ function experienceMediaType(exp) {
   return "image";
 }
 
+function getVisibleExperiencesGrouped() {
+  const media = experiences.filter((exp) => exp.imageUrl);
+  const visible = experiencesFilterEventId
+    ? media.filter((m) => String(m.eventId) === String(experiencesFilterEventId))
+    : media;
+  return visible.reduce((acc, item) => {
+    const key = item.eventId || "unknown";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+}
+
+function renderExperiencesListOnly() {
+  const list = document.getElementById("experiencesList");
+  if (!list) return;
+  const grouped = getVisibleExperiencesGrouped();
+  const keys = Object.keys(grouped);
+  list.innerHTML = keys.length
+    ? keys
+        .map((eventId) => {
+          const event = events.find((e) => e.id === eventId);
+          const title = event ? `האירוע של ${event.girlName}` : "אלבום כללי";
+          const cards = grouped[eventId]
+            .map((exp) => {
+              const type = experienceMediaType(exp);
+              const fileName = `${(event ? event.girlName : "media")}_${String(exp.id).slice(0, 6)}.${type === "video" ? "mp4" : "jpg"}`;
+              const mediaEl =
+                type === "video"
+                  ? `<video src="${exp.imageUrl}" class="w-full rounded-xl max-h-64 bg-black" controls playsinline></video>`
+                  : `<img src="${exp.imageUrl}" class="w-full rounded-xl object-cover max-h-64" alt="">`;
+              const canDelete = canDeleteExperience(exp);
+              return `
+                <div class="relative mb-3">
+                  <label class="exp-check-wrap">
+                    <input type="checkbox" class="exp-select" data-url="${escapeHtmlAttr(exp.imageUrl)}" data-name="${escapeHtmlAttr(fileName)}" />
+                  </label>
+                  <div class="exp-actions">
+                    <button type="button" class="exp-action-btn download" data-download-exp-url="${escapeHtmlAttr(exp.imageUrl)}" data-download-exp-name="${escapeHtmlAttr(fileName)}" aria-label="הורדה" title="הורדה">
+                      <i class="fa-solid fa-download"></i>
+                    </button>
+                    <button type="button" class="exp-action-btn delete ${canDelete ? "" : "is-disabled"}" data-delete-experience-id="${exp.id}" ${canDelete ? "" : "disabled"} aria-label="מחיקה" title="${canDelete ? "מחיקה" : "רק מי שהעלה / בעל האירוע / מנהל יכול למחוק"}">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
+                  ${type === "video" ? '<span class="exp-video-badge">🎬 סרטון</span>' : ""}
+                  ${mediaEl}
+                  <div class="text-[11px] text-white/50 mt-1">${exp.userName} • ${new Date(exp.createdAt).toLocaleString("he-IL")}</div>
+                </div>
+              `;
+            })
+            .join("");
+          return `
+            <div class="glass rounded-2xl p-3">
+              <div class="font-black text-sm mb-2">${title} <span class="text-white/40 font-normal">(${grouped[eventId].length})</span></div>
+              <div>${cards}</div>
+            </div>
+          `;
+        })
+        .join("")
+    : '<div class="text-center text-white/40 text-sm">עדיין אין תמונות או סרטונים באלבומים</div>';
+}
+
 function renderExperiences() {
   const tab = document.getElementById("experiencesTab");
+  if (isExperienceUploading && tab?.querySelector("#experiencesList")) {
+    renderExperiencesListOnly();
+    return;
+  }
   const eventOptions = events
     .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
     .join("");
@@ -2812,17 +3056,6 @@ function renderExperiences() {
     .filter((e) => media.some((m) => String(m.eventId) === String(e.id)))
     .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
     .join("");
-
-  const visible = experiencesFilterEventId
-    ? media.filter((m) => String(m.eventId) === String(experiencesFilterEventId))
-    : media;
-
-  const grouped = visible.reduce((acc, item) => {
-    const key = item.eventId || "unknown";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {});
 
   tab.innerHTML = `
     <div class="glass rounded-[28px] p-4">
@@ -2873,56 +3106,11 @@ function renderExperiences() {
   filterSelect.value = experiencesFilterEventId;
   filterSelect.onchange = () => {
     experiencesFilterEventId = filterSelect.value;
-    renderExperiences();
+    renderExperiencesListOnly();
   };
   document.getElementById("expSelectAllBtn").onclick = toggleSelectAllExperiences;
   document.getElementById("expDownloadBtn").onclick = downloadSelectedExperiences;
-
-  const list = document.getElementById("experiencesList");
-  const keys = Object.keys(grouped);
-  list.innerHTML = keys.length
-    ? keys
-        .map((eventId) => {
-          const event = events.find((e) => e.id === eventId);
-          const title = event ? `האירוע של ${event.girlName}` : "אלבום כללי";
-          const cards = grouped[eventId]
-            .map((exp) => {
-              const type = experienceMediaType(exp);
-              const fileName = `${(event ? event.girlName : "media")}_${String(exp.id).slice(0, 6)}.${type === "video" ? "mp4" : "jpg"}`;
-              const mediaEl =
-                type === "video"
-                  ? `<video src="${exp.imageUrl}" class="w-full rounded-xl max-h-64 bg-black" controls playsinline></video>`
-                  : `<img src="${exp.imageUrl}" class="w-full rounded-xl object-cover max-h-64" alt="">`;
-              const canDelete = canDeleteExperience(exp);
-              return `
-                <div class="relative mb-3">
-                  <label class="exp-check-wrap">
-                    <input type="checkbox" class="exp-select" data-url="${escapeHtmlAttr(exp.imageUrl)}" data-name="${escapeHtmlAttr(fileName)}" />
-                  </label>
-                  <div class="exp-actions">
-                    <button type="button" class="exp-action-btn download" data-download-exp-url="${escapeHtmlAttr(exp.imageUrl)}" data-download-exp-name="${escapeHtmlAttr(fileName)}" aria-label="הורדה" title="הורדה">
-                      <i class="fa-solid fa-download"></i>
-                    </button>
-                    <button type="button" class="exp-action-btn delete ${canDelete ? "" : "is-disabled"}" data-delete-experience-id="${exp.id}" ${canDelete ? "" : "disabled"} aria-label="מחיקה" title="${canDelete ? "מחיקה" : "רק מי שהעלה / בעל האירוע / מנהל יכול למחוק"}">
-                      <i class="fa-solid fa-trash"></i>
-                    </button>
-                  </div>
-                  ${type === "video" ? '<span class="exp-video-badge">🎬 סרטון</span>' : ""}
-                  ${mediaEl}
-                  <div class="text-[11px] text-white/50 mt-1">${exp.userName} • ${new Date(exp.createdAt).toLocaleString("he-IL")}</div>
-                </div>
-              `;
-            })
-            .join("");
-          return `
-            <div class="glass rounded-2xl p-3">
-              <div class="font-black text-sm mb-2">${title} <span class="text-white/40 font-normal">(${grouped[eventId].length})</span></div>
-              <div>${cards}</div>
-            </div>
-          `;
-        })
-        .join("")
-    : '<div class="text-center text-white/40 text-sm">עדיין אין תמונות או סרטונים באלבומים</div>';
+  renderExperiencesListOnly();
 }
 
 function toggleSelectAllExperiences() {
@@ -2984,6 +3172,7 @@ async function addExperienceFromForm() {
   }
   const btn = document.getElementById("addExperienceBtn");
   if (btn) btn.disabled = true;
+  isExperienceUploading = true;
   showUploadProgress("expProgress", 0, `מעלה 0 מתוך ${files.length}`);
   const uploaded = [];
   try {
@@ -3042,19 +3231,23 @@ async function addExperienceFromForm() {
     experiences = [...uploaded, ...experiences];
     saveJson("bm_experiences", experiences);
     document.getElementById("expImageFile").value = "";
-    renderExperiences();
+    renderExperiencesListOnly();
     showToast(uploaded.length > 1 ? `${uploaded.length} פריטים עלו לענן` : "הקובץ עלה לענן");
     syncFromServer({ silent: true });
   } catch (err) {
     const msg = String(err?.message || "");
-    if (isUnknownActionError(err)) {
-      // השרת לא פרוס נכון — לא מעמידים פנים שהצליח, כדי שלא ייווצרו "תמונות מקומיות" שלא בענן
-      alert("ההעלאה לענן נכשלה.\n\n" + REDEPLOY_MSG);
+    if (isUnknownActionError(err) || /DriveApp|הרשאה|permission/i.test(msg)) {
+      alert(
+        "ההעלאה לענן נכשלה — חסרה הרשאת Drive.\n\n" +
+          "פתח/י Apps Script → בחר/י authorizeDrive → Run → אשר/י הרשאות.\n\n" +
+          REDEPLOY_MSG
+      );
     } else {
       console.error(err);
-      showToast(`ההעלאה נכשלה: ${msg.slice(0, 90)}`);
+      showToast(`ההעלאה נכשלה — הקובץ נשאר נבחר, אפשר לנסות שוב`);
     }
   } finally {
+    isExperienceUploading = false;
     if (btn) btn.disabled = false;
     hideUploadProgress("expProgress");
   }

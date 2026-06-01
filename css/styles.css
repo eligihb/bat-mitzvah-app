@@ -997,6 +997,30 @@ body {
   text-decoration: none;
 }
 
+.provider-wa-btn.compact {
+  width: 2rem;
+  height: 2rem;
+  font-size: 1rem;
+}
+
+.provider-contact-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.owner-category-block {
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .provider-badge {
   display: inline-flex;
   align-items: center;

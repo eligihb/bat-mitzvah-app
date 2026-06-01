@@ -427,10 +427,43 @@ function getSheetData(sheet) {
     .map(function (row) {
       const obj = {};
       headers.forEach(function (header, index) {
-        if (header) obj[header] = row[index];
+        if (header) obj[header] = formatSheetCell_(header, row[index]);
       });
       return obj;
     });
+}
+
+// מחזיר תאריך/שעה כטקסט קבוע (מונע הזזות אזור זמן ב-JSON)
+function formatSheetCell_(header, value) {
+  if (value === "" || value === null || value === undefined) return "";
+  const tz = Session.getScriptTimeZone() || "Asia/Jerusalem";
+  if (header === "date") {
+    if (value instanceof Date) {
+      return Utilities.formatDate(value, tz, "yyyy-MM-dd");
+    }
+    if (typeof value === "number" && value > 30000) {
+      var d = new Date(Math.round((value - 25569) * 86400000));
+      return Utilities.formatDate(d, tz, "yyyy-MM-dd");
+    }
+    var s = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    return s;
+  }
+  if (header === "time") {
+    if (value instanceof Date) {
+      return Utilities.formatDate(value, tz, "HH:mm");
+    }
+    if (typeof value === "number" && value > 0 && value < 1) {
+      var totalMinutes = Math.round(value * 24 * 60);
+      var h = Math.floor(totalMinutes / 60) % 24;
+      var m = totalMinutes % 60;
+      return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+    }
+    var t = String(value).trim();
+    if (/^\d{1,2}:\d{2}/.test(t)) return t.slice(0, 5);
+    return t;
+  }
+  return value;
 }
 
 function headerMap(sheet) {
@@ -504,6 +537,7 @@ function setTextCell_(sheet, rowNumber, headerName, value) {
   const col = hm[headerName];
   if (!col) return;
   const range = sheet.getRange(rowNumber, col);
+  range.clearContent();
   range.setNumberFormat("@");
   range.setValue(value === undefined || value === null ? "" : String(value));
 }
