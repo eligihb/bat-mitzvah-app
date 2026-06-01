@@ -61,8 +61,13 @@ function authorizeDrive() {
 // =========================
 // GET
 // =========================
-function doGet() {
+function doGet(e) {
   try {
+    const params = (e && e.parameter) || {};
+    if (params.driveTest === "1") {
+      return json(testDriveAccess_());
+    }
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     ensureAllSheets_(ss);
     return json({
@@ -76,6 +81,27 @@ function doGet() {
     });
   } catch (err) {
     return json({ success: false, error: String(err) });
+  }
+}
+
+/** בדיקת הרשאת Drive דרך ה-Web App (לא דרך העורך!) — פתחו: .../exec?driveTest=1 */
+function testDriveAccess_() {
+  try {
+    var folder = DriveApp.getFolderById(FOLDER_EXPERIENCES);
+    return {
+      success: true,
+      driveOk: true,
+      folderName: folder.getName(),
+      hint: "ה-Web App מורשה ל-Drive. אפשר להעלות תמונות.",
+    };
+  } catch (err) {
+    return {
+      success: false,
+      driveOk: false,
+      error: String(err),
+      hint:
+        "ה-Web App עדיין לא מורשה ל-Drive. Deploy → Manage deployments → עיפרון → Execute as: Me → New version → Deploy. ואז הריצו authorizeDrive שוב.",
+    };
   }
 }
 
