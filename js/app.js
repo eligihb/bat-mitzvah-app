@@ -579,6 +579,24 @@ function canManageEvent(event) {
   );
 }
 
+// האם זה האירוע של המשתמש עצמו (בלי חריגת מנהל)
+function isOwnEvent(event) {
+  if (!event || !currentUser) return false;
+  if (event.ownerId && String(event.ownerId) === String(currentUser.id)) return true;
+  return (
+    event.girlName === currentUser.girlName &&
+    (event.familyName || "") === (currentUser.familyName || "")
+  );
+}
+
+function creditBlockMessage(icon, text) {
+  return `
+    <div class="credit-block-msg rounded-2xl border border-pink-400/30 bg-pink-500/10 p-4 text-center">
+      <div class="text-3xl mb-2">${icon}</div>
+      <div class="text-sm leading-6 text-white/90">${text}</div>
+    </div>`;
+}
+
 function resetEventForm() {
   document.getElementById("eventForm").reset();
   editingEventId = null;
@@ -2002,12 +2020,38 @@ function allEventsSortedForCredit() {
   return [...past, ...upcoming];
 }
 
+function setGuestPublishEnabled(enabled) {
+  const btn = document.getElementById("publishGuestCreditBtn");
+  if (!btn) return;
+  btn.disabled = !enabled;
+  btn.classList.toggle("opacity-40", !enabled);
+  btn.classList.toggle("pointer-events-none", !enabled);
+}
+
 function refreshGuestProviders() {
   const eventId = document.getElementById("creditEventId")?.value || "";
   const wrap = document.getElementById("guestProvidersWrap");
   if (!wrap) return;
   guestCreditSelectedEventId = eventId;
   document.getElementById("creditManualEvent")?.classList.toggle("hidden", eventId !== "__external__");
+
+  // חסימות לפי האירוע שנבחר
+  const selectedEvent = events.find((e) => e.id === eventId);
+  if (selectedEvent && isOwnEvent(selectedEvent)) {
+    wrap.innerHTML = creditBlockMessage(
+      "🙃",
+      'אינך יכול לפרגן לאירוע שלך, אך אתה יכול בהחלט להמליץ על נותני שירות שאהבת — עברו למסך "המלצת בעל אירוע".'
+    );
+    setGuestPublishEnabled(false);
+    return;
+  }
+  if (selectedEvent && !isEventPastByDate(selectedEvent.date)) {
+    wrap.innerHTML = creditBlockMessage("😜", "לא ניתן לפרגן לאירוע שעדיין לא התקיים — תחזרו אחרי החגיגה!");
+    setGuestPublishEnabled(false);
+    return;
+  }
+  setGuestPublishEnabled(true);
+
   wrap.innerHTML = CREDIT_SERVICE_TYPES
     .map((service, i) => {
       const st = guestProviderState[service] || { selected: false, score: 0, note: "" };
@@ -2088,8 +2132,12 @@ async function publishGuestCredits() {
     return;
   }
   const selectedEvent = events.find((e) => e.id === selectedEventId);
+  if (selectedEvent && isOwnEvent(selectedEvent)) {
+    showToast("אינך יכול לפרגן לאירוע שלך — אפשר להמליץ על נותני שירות במסך המלצת בעל אירוע");
+    return;
+  }
   if (selectedEvent && !isEventPastByDate(selectedEvent.date)) {
-    showToast("אפשר לפרגן רק אחרי שהאירוע התקיים");
+    showToast("לא ניתן לפרגן לאירוע שעדיין לא התקיים");
     return;
   }
   const selectedCards = Array.from(document.querySelectorAll("#guestProvidersWrap [data-provider-card][data-selected='1']"));

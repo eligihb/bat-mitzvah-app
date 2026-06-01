@@ -51,30 +51,36 @@ const Api = {
     return this.post({ action: "uploadExperienceImage", ...payload });
   },
 
-  /** העלאה עם דיווח התקדמות אמיתי (אחוזים) דרך XHR */
+  /** העלאה עם דיווח התקדמות אמיתי (אחוזים) דרך XHR, עם נפילה חזרה ל-fetch */
   uploadExperienceImageWithProgress(payload, onProgress) {
     return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", APP_CONFIG.scriptUrl, true);
-      xhr.setRequestHeader("Content-Type", "text/plain;charset=utf-8");
-      if (xhr.upload && typeof onProgress === "function") {
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            onProgress(Math.round((e.loaded / e.total) * 100));
+      const fallback = () => this.uploadExperienceImage(payload).then(resolve, reject);
+      let xhr;
+      try {
+        xhr = new XMLHttpRequest();
+        xhr.open("POST", APP_CONFIG.scriptUrl, true);
+        xhr.setRequestHeader("Content-Type", "text/plain;charset=utf-8");
+        if (xhr.upload && typeof onProgress === "function") {
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+          };
+        }
+        xhr.onload = () => {
+          let data;
+          try {
+            data = JSON.parse(xhr.responseText || "{}");
+          } catch (err) {
+            // תשובה לא צפויה (למשל הפניה/HTML) — ננסה דרך fetch
+            return fallback();
           }
-        };
-      }
-      xhr.onload = () => {
-        try {
-          const data = JSON.parse(xhr.responseText || "{}");
           if (!data.success) return reject(new Error(data.error || "שגיאה בשרת"));
           resolve(data);
-        } catch (err) {
-          reject(new Error("תשובת שרת לא תקינה"));
-        }
-      };
-      xhr.onerror = () => reject(new Error("שגיאה בשליחה לשרת"));
-      xhr.send(JSON.stringify({ action: "uploadExperienceImage", ...payload }));
+        };
+        xhr.onerror = () => fallback();
+        xhr.send(JSON.stringify({ action: "uploadExperienceImage", ...payload }));
+      } catch (err) {
+        fallback();
+      }
     });
   },
 
