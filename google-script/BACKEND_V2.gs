@@ -4,8 +4,37 @@ const SHEET_MESSAGES = "Messages";
 const SHEET_CREDITS = "Credits";
 const SHEET_EXPERIENCES = "Experiences";
 
-// תיקיית דרייב לתמונות אלבום
+// תיקיית דרייב לתמונות/סרטונים של האלבום
 const FOLDER_EXPERIENCES = "1MljLXWRmcrBJ3mWosLrliCyytmasy8ti";
+
+// כותרות נדרשות לכל גיליון (שורה 1)
+const SHEET_HEADERS = {
+  Events: [
+    "id", "ownerId", "ownerName", "girlName", "familyName",
+    "date", "time", "location", "address", "menu",
+    "hideAttendees", "image", "timestamp", "phone", "role",
+  ],
+  RSVP: ["eventId", "userId", "userName", "status", "timestamp"],
+  Messages: ["id", "userName", "messageText", "timestamp"],
+  Credits: [
+    "id", "eventId", "category", "professionalName", "contact",
+    "phone", "link", "note", "tags", "sentiment",
+    "ownerUserId", "ownerName", "ratings", "createdAt",
+  ],
+  Experiences: ["id", "eventId", "userId", "userName", "text", "imageUrl", "createdAt"],
+};
+
+/**
+ * הרץ פעם אחת מהעורך (בחר setupBatMitzvahSheets ולחץ Run).
+ * יוצר גיליונות חסרים ומוסיף עמודות חסרות — בלי למחוק נתונים.
+ */
+function setupBatMitzvahSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureAllSheets_(ss);
+  SpreadsheetApp.getUi().alert(
+    "ההתקנה הושלמה.\nכל הגיליונות והעמודות קיימים.\nכעת: Deploy → New deployment → Web app"
+  );
+}
 
 // =========================
 // GET
@@ -13,6 +42,7 @@ const FOLDER_EXPERIENCES = "1MljLXWRmcrBJ3mWosLrliCyytmasy8ti";
 function doGet() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ensureAllSheets_(ss);
     return json({
       success: true,
       events: getSheetData(ss.getSheetByName(SHEET_EVENTS)),
@@ -34,6 +64,7 @@ function doPost(e) {
     const data = JSON.parse((e && e.postData && e.postData.contents) || "{}");
     const action = data.action;
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ensureAllSheets_(ss);
 
     if (action === "createEvent") {
       const sheet = ss.getSheetByName(SHEET_EVENTS);
@@ -72,6 +103,13 @@ function doPost(e) {
         setIfProvided(sheet, row, "image", data.image);
       }
 
+      return json({ success: true });
+    }
+
+    if (action === "deleteEvent") {
+      const sheet = ss.getSheetByName(SHEET_EVENTS);
+      const row = findRowById(sheet, "id", data.eventId);
+      if (row >= 2) sheet.deleteRow(row);
       return json({ success: true });
     }
 
@@ -119,13 +157,6 @@ function doPost(e) {
     if (action === "deleteMessage") {
       const sheet = ss.getSheetByName(SHEET_MESSAGES);
       const row = findRowById(sheet, "id", data.messageId);
-      if (row >= 2) sheet.deleteRow(row);
-      return json({ success: true });
-    }
-
-    if (action === "deleteEvent") {
-      const sheet = ss.getSheetByName(SHEET_EVENTS);
-      const row = findRowById(sheet, "id", data.eventId);
       if (row >= 2) sheet.deleteRow(row);
       return json({ success: true });
     }
@@ -225,6 +256,54 @@ function doPost(e) {
 }
 
 // =========================
+// התקנת גיליונות / עמודות
+// =========================
+function ensureAllSheets_(ss) {
+  Object.keys(SHEET_HEADERS).forEach(function (name) {
+    ensureSheetHeaders_(ss, name, SHEET_HEADERS[name]);
+  });
+}
+
+function ensureSheetHeaders_(ss, sheetName, requiredHeaders) {
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
+    sheet.setFrozenRows(1);
+    return;
+  }
+
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var normalized = headers.map(function (h) {
+    return String(h || "").trim();
+  });
+
+  var isEmptyHeader = !normalized[0] || normalized.every(function (h) {
+    return !h;
+  });
+  if (isEmptyHeader) {
+    sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
+    sheet.setFrozenRows(1);
+    return;
+  }
+
+  var present = {};
+  normalized.forEach(function (h) {
+    if (h) present[h] = true;
+  });
+
+  var missing = requiredHeaders.filter(function (h) {
+    return !present[h];
+  });
+
+  if (missing.length) {
+    sheet.getRange(1, normalized.length + 1, 1, missing.length).setValues([missing]);
+  }
+  sheet.setFrozenRows(1);
+}
+
+// =========================
 // HELPERS
 // =========================
 function getSheetData(sheet) {
@@ -236,13 +315,19 @@ function getSheetData(sheet) {
     return String(h || "").trim();
   });
 
-  return values.map(function (row) {
-    const obj = {};
-    headers.forEach(function (header, index) {
-      obj[header] = row[index];
+  return values
+    .filter(function (row) {
+      return row.some(function (cell) {
+        return cell !== "" && cell !== null;
+      });
+    })
+    .map(function (row) {
+      const obj = {};
+      headers.forEach(function (header, index) {
+        if (header) obj[header] = row[index];
+      });
+      return obj;
     });
-    return obj;
-  });
 }
 
 function headerMap(sheet) {
@@ -255,7 +340,6 @@ function headerMap(sheet) {
 }
 
 function appendByHeaders(sheet, obj) {
-  const hm = headerMap(sheet);
   const maxCol = sheet.getLastColumn();
   const headers = sheet.getRange(1, 1, 1, maxCol).getValues()[0];
   const row = headers.map(function (h) {
