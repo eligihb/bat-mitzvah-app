@@ -1667,6 +1667,21 @@ body.lightbox-open {
   left: 0.5rem;
 }
 
+.board-praise-btn {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(236, 72, 153, 0.45);
+  background: rgba(236, 72, 153, 0.18);
+  color: #fce7f3;
+  white-space: nowrap;
+}
+
+.board-praise-panel .board-praise-event {
+  color: #fff;
+}
+
 .lightbox-counter {
   position: absolute;
   bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));

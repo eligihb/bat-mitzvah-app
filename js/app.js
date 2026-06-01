@@ -7,10 +7,10 @@ let currentUser = loadJson(APP_CONFIG.storage.user);
 let events = [];
 let messages = [];
 let users = [];
-let credits = loadJson("bm_credits") || [];
-let experiences = loadJson("bm_experiences") || [];
-let pendingCredits = loadJson("bm_pending_credits") || [];
-let pendingExperiences = loadJson("bm_pending_experiences") || [];
+let credits = [];
+let experiences = [];
+let pendingCredits = [];
+let pendingExperiences = [];
 let pendingCreditEventId = "";
 let creditScreen = "home";
 let creditBoardExpandedProvider = "";
@@ -26,6 +26,8 @@ let guestCreditManualEventName = "";
 let guestCreditNoteDraft = "";
 let guestCreditTagsSelected = [];
 let guestCreditFreshLoad = true;
+let boardPraiseKey = "";
+const boardPraiseState = {};
 const CREDIT_SERVICE_TYPES = ["צילום", "מקום אירוע", "מצגת/סרטון", "אוכל", "עיצוב", "הפעלה"];
 // נותני שירות שרלוונטי להמליץ עליהם גם לפני האירוע (צלמת, מצגת/עורך וידאו)
 const PRE_EVENT_SERVICE_TYPES = ["צילום", "מצגת/סרטון"];
@@ -76,6 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindFloatingAdd();
   bindGlobalNav();
   bindLightbox();
+  bindEventImageErrors();
   bindLogout();
   bindProfileEdit();
 
@@ -103,6 +106,17 @@ function loadJson(key) {
 
 function saveJson(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
+}
+
+/** מוחק מטמון מקומי של נתוני ענן — מקור האמת הוא השרת בלבד */
+function clearCloudDataCache() {
+  credits = [];
+  experiences = [];
+  pendingCredits = [];
+  pendingExperiences = [];
+  ["bm_credits", "bm_experiences", "bm_pending_credits", "bm_pending_experiences"].forEach((k) =>
+    localStorage.removeItem(k)
+  );
 }
 
 // ─── סנכרון עם Google Sheets ───────────────────────────────
@@ -146,6 +160,7 @@ async function syncFromServer({ silent = false } = {}) {
     users = normalized.users || [];
     credits = mergePendingCredits(normalized.credits || [], pendingCredits);
     experiences = mergePendingExperiences(normalized.experiences || [], pendingExperiences);
+    // מטמון mirror בלבד — מקור האמת הוא השרת
     saveJson("bm_credits", credits);
     saveJson("bm_experiences", experiences);
     renderAll();
@@ -359,6 +374,7 @@ async function showApp() {
   document.getElementById("navAdmin").classList.toggle("hidden", !currentUser?.isAdmin);
   guestCreditFreshLoad = true;
 
+  clearCloudDataCache();
   switchTab(activeTab, false);
   await syncFromServer({ silent: true });
   maybeNotifyOtherParentEvent();
@@ -374,6 +390,7 @@ function bindLogout() {
 
 function logout() {
   stopAutoSync();
+  clearCloudDataCache();
   localStorage.removeItem(APP_CONFIG.storage.user);
   sessionStorage.removeItem("bm_active_tab");
   currentUser = null;
@@ -551,6 +568,24 @@ function bindFloatingAdd() {
   document.getElementById("navAdd").addEventListener("click", openFamilyEventModal);
 }
 
+function bindEventImageErrors() {
+  document.getElementById("eventsTab")?.addEventListener(
+    "error",
+    (e) => {
+      const img = e.target;
+      if (img?.matches?.("img[data-event-img]")) {
+        img.onerror = null;
+        img.src = APP_CONFIG.placeholderImage;
+      }
+    },
+    true
+  );
+  document.getElementById("eventCurrentImageEl")?.addEventListener("error", (e) => {
+    e.target.onerror = null;
+    e.target.src = APP_CONFIG.placeholderImage;
+  });
+}
+
 function bindGlobalNav() {
   document.getElementById("homeBtn")?.addEventListener("click", () => switchTab("events"));
 }
@@ -684,7 +719,7 @@ function renderEventImagePreview() {
 
   const showCurrent = !!editingEventImage && !removeEventImage && sanitizeEventImage(editingEventImage) !== APP_CONFIG.placeholderImage;
   preview.classList.toggle("hidden", !showCurrent);
-  if (showCurrent) imgEl.src = sanitizeEventImage(editingEventImage);
+  if (showCurrent) imgEl.src = eventImageDisplayUrl(editingEventImage);
 
   const file = fileInput?.files?.[0];
   if (newChip && newName) {
@@ -1590,7 +1625,7 @@ function renderEvents() {
         }
         <div class="flex gap-3 items-start">
           <div class="flex gap-4 flex-1 min-w-0">
-            <img src="${img}" class="w-20 h-20 shrink-0 rounded-full object-cover border-4 border-white/10" alt="">
+            <img src="${img}" data-event-img class="w-20 h-20 shrink-0 rounded-full object-cover border-4 border-white/10" alt="" referrerpolicy="no-referrer" loading="lazy" />
             <div class="flex-1 min-w-0">
               <h3 class="font-black text-lg">בת מצווה ל${event.girlName} ✨</h3>
               <div class="text-white/50 text-sm mt-1">תאריך: ${formattedDate} • שעה: ${formattedTime}</div>
@@ -1974,6 +2009,41 @@ function bindCredits() {
       renderCredits();
       return;
     }
+    const boardPraiseToggle = e.target.closest("[data-board-praise-toggle]");
+    if (boardPraiseToggle) {
+      const key = boardPraiseToggle.dataset.boardPraiseToggle || "";
+      boardPraiseKey = boardPraiseKey === key ? "" : key;
+      if (boardPraiseKey && !boardPraiseState[key]) {
+        const firstPast = pastEventsSortedDesc()[0];
+        boardPraiseState[key] = { eventId: firstPast?.id || "", score: 0 };
+      }
+      renderCredits();
+      return;
+    }
+    const boardStarBtn = e.target.closest("[data-board-praise-star]");
+    if (boardStarBtn) {
+      const key = boardStarBtn.dataset.boardPraiseKey || "";
+      const score = Number(boardStarBtn.dataset.boardPraiseStar || 0);
+      boardPraiseState[key] = { ...(boardPraiseState[key] || {}), score };
+      const wrap = boardStarBtn.closest(".credit-stars-wrap");
+      if (wrap) {
+        wrap.querySelectorAll("[data-board-praise-star]").forEach((starEl) => {
+          const n = Number(starEl.dataset.boardPraiseStar || 0);
+          starEl.classList.toggle("text-yellow-300", n <= score);
+          starEl.classList.toggle("text-white/35", n > score);
+        });
+      }
+      return;
+    }
+    const boardSubmitBtn = e.target.closest("[data-board-praise-submit]");
+    if (boardSubmitBtn) {
+      await submitBoardPraise(
+        boardSubmitBtn.dataset.boardPraiseSubmit,
+        boardSubmitBtn.dataset.providerName,
+        boardSubmitBtn.dataset.providerCategory
+      );
+      return;
+    }
   });
 }
 
@@ -2171,32 +2241,61 @@ function renderCreditsBoard() {
   );
 }
 
-// ספריית נותני שירות עם דירוג, מספר מדרגים, מספר אירועים וכפתור וואטסאפ
+// ספריית נותני שירות — עם פרגון מהיר מהלוח
 function renderProvidersDirectory() {
   const providers = aggregateAllProviders();
   if (!providers.length) return "";
+  const pastEvents = pastEventsSortedDesc();
+  const eventOptions = pastEvents
+    .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
+    .join("");
   const rows = providers
     .map((p) => {
       const wa = whatsappLink(p.phone);
       const stars = p.avg === "—" ? "" : `★ ${p.avg}`;
+      const key = `${p.name}@@${p.category}`;
+      const st = boardPraiseState[key] || { eventId: pastEvents[0]?.id || "", score: 0 };
+      const expanded = boardPraiseKey === key;
+      const praiseStars = [1, 2, 3, 4, 5]
+        .map(
+          (n) =>
+            `<button type="button" class="provider-star text-lg ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-board-praise-star="${n}" data-board-praise-key="${escapeHtmlAttr(key)}" aria-label="דירוג ${n}">★</button>`
+        )
+        .join("");
       return `
         <div class="provider-dir-row rounded-xl bg-white/5 border border-white/10 p-2 mb-2">
           <div class="flex items-center justify-between gap-2">
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <div class="font-bold text-sm truncate">${serviceIcon(p.category)} ${p.name}</div>
               <div class="text-[11px] text-white/55 mt-0.5">${p.category || "נותן שירות"}</div>
             </div>
-            ${
-              wa
-                ? `<a href="${wa}" target="_blank" rel="noopener" class="provider-wa-btn" aria-label="וואטסאפ"><i class="fa-brands fa-whatsapp"></i></a>`
-                : ""
-            }
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" class="board-praise-btn" data-board-praise-toggle="${escapeHtmlAttr(key)}" aria-label="פרגן">פרגן ★</button>
+              ${
+                wa
+                  ? `<a href="${wa}" target="_blank" rel="noopener" class="provider-wa-btn" aria-label="וואטסאפ"><i class="fa-brands fa-whatsapp"></i></a>`
+                  : ""
+              }
+            </div>
           </div>
           <div class="flex items-center gap-3 mt-2 text-[11px]">
             <span class="provider-badge">${stars || "אין דירוג"}</span>
             <span class="provider-badge">${p.ratingCount} מדרגים</span>
             <span class="provider-badge">${p.eventCount} אירועים</span>
           </div>
+          ${
+            expanded
+              ? `<div class="board-praise-panel mt-2 pt-2 border-t border-white/10">
+                  <div class="text-[11px] text-white/60 mb-1">פרגון מהיר — בחר/י אירוע ודרג/י</div>
+                  <select class="board-praise-event w-full rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs mb-2" data-board-praise-event="${escapeHtmlAttr(key)}">
+                    <option value="">בחר אירוע שהתקיים</option>
+                    ${eventOptions}
+                  </select>
+                  <div class="credit-stars-wrap">${praiseStars}</div>
+                  <button type="button" class="w-full mt-2 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 p-2 text-xs font-black" data-board-praise-submit="${escapeHtmlAttr(key)}" data-provider-name="${escapeHtmlAttr(p.name)}" data-provider-category="${escapeHtmlAttr(p.category)}">פרסום פרגון</button>
+                </div>`
+              : ""
+          }
         </div>`;
     })
     .join("");
@@ -2206,6 +2305,46 @@ function renderProvidersDirectory() {
       ${rows}
     </div>
   `;
+}
+
+async function submitBoardPraise(key, providerName, category) {
+  const st = boardPraiseState[key] || { eventId: "", score: 0 };
+  const select = document.querySelector(`[data-board-praise-event="${CSS.escape(key)}"]`);
+  const eventId = select?.value || st.eventId;
+  const score = st.score || 0;
+  if (!eventId) {
+    showToast("בחר/י אירוע שהתקיים");
+    return;
+  }
+  if (score <= 0) {
+    showToast("בחר/י דירוג בכוכבים");
+    return;
+  }
+  const event = events.find((e) => e.id === eventId);
+  if (event && isOwnEvent(event)) {
+    showToast("לא ניתן לפרגן לאירוע שלך — השתמש/י בהמלצת בעל אירוע");
+    return;
+  }
+  try {
+    await Api.createCredit({
+      id: crypto.randomUUID(),
+      eventId,
+      category,
+      professionalName: providerName,
+      tags: "__guest__",
+      sentiment: "like",
+      ownerUserId: currentUser.id,
+      ownerName: currentUser.parentName,
+      ratings: JSON.stringify({ [currentUser.id]: score }),
+      createdAt: new Date().toISOString(),
+    });
+    boardPraiseKey = "";
+    showToast("הפרגון פורסם ✓");
+    await syncFromServer({ silent: true });
+  } catch (err) {
+    console.error(err);
+    showToast("לא הצלחנו לפרסם");
+  }
 }
 
 // פאנל ניהול קרדיטים/המלצות בתוך לוח הקרדיטים (למנהל בלבד)
@@ -3155,12 +3294,23 @@ function guestProviderStateReset() {
 }
 
 function sanitizeEventImage(value) {
+  return eventImageDisplayUrl(value);
+}
+
+function eventImageDisplayUrl(value) {
   const raw = String(value || "").trim();
-  if (!raw) return APP_CONFIG.placeholderImage;
-  if (raw.startsWith("data:image/")) return raw;
-  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  if (!raw || raw === "undefined" || raw === "null") return APP_CONFIG.placeholderImage;
+  if (raw.startsWith("data:image/")) {
+    return raw.length > 120 ? raw : APP_CONFIG.placeholderImage;
+  }
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    const m = /[?&]id=([^&]+)/.exec(raw);
+    if (raw.includes("drive.google.com") && m) {
+      return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w400`;
+    }
+    return raw;
+  }
   if (raw.startsWith("assets/")) return raw;
-  if (raw === "undefined" || raw === "null") return APP_CONFIG.placeholderImage;
   return APP_CONFIG.placeholderImage;
 }
 
@@ -3957,21 +4107,17 @@ async function retryApiCall(fn, retries = 1) {
 }
 
 function mergePendingCredits(serverCredits, pending) {
-  const map = new Map();
-  [...pending, ...serverCredits].forEach((c) => {
-    const key = String(c.id || crypto.randomUUID());
-    map.set(key, c);
-  });
-  return Array.from(map.values());
+  const serverIds = new Set((serverCredits || []).map((c) => String(c.id)));
+  const extras = (pending || []).filter((c) => c.id && !serverIds.has(String(c.id)));
+  return [...(serverCredits || []), ...extras];
 }
 
 function mergePendingExperiences(serverExperiences, pending) {
-  const map = new Map();
-  [...pending, ...serverExperiences].forEach((exp) => {
-    const key = String(exp.id || crypto.randomUUID());
-    map.set(key, exp);
-  });
-  return Array.from(map.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const serverIds = new Set((serverExperiences || []).map((e) => String(e.id)));
+  const extras = (pending || []).filter((e) => e.id && !serverIds.has(String(e.id)));
+  return [...(serverExperiences || []), ...extras].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 }
 
 function relativeDaysLabel(dateObj, now = new Date()) {
