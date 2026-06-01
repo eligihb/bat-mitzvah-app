@@ -37,6 +37,8 @@ let isExperienceUploading = false;
 let activeTab = sessionStorage.getItem("bm_active_tab") || "events";
 let editingEventId = null;
 let editingEventImage = "";
+let removeEventImage = false;
+const eventSavePatchById = new Map();
 let isSavingEvent = false;
 let selectedEventMenuChoice = "";
 let toastTimer = null;
@@ -60,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindModal();
   bindEventMenuControls();
   bindEventForm();
+  bindEventImageControls();
   bindNavigation();
   bindMessages();
   bindCredits();
@@ -130,6 +133,7 @@ async function syncFromServer({ silent = false } = {}) {
       data.users || []
     );
     events = normalized.events;
+    applyEventSavePatches();
     messages = normalized.messages;
     users = normalized.users || [];
     credits = mergePendingCredits(normalized.credits || [], pendingCredits);
@@ -609,16 +613,126 @@ function creditBlockMessage(icon, text) {
     </div>`;
 }
 
+function rememberEventSavePatch(eventId, fields) {
+  if (!eventId) return;
+  eventSavePatchById.set(String(eventId), { fields, at: Date.now() });
+}
+
+function applyEventSavePatches() {
+  const now = Date.now();
+  eventSavePatchById.forEach((entry, id) => {
+    if (now - entry.at > 120000) {
+      eventSavePatchById.delete(id);
+      return;
+    }
+    const idx = events.findIndex((e) => String(e.id) === String(id));
+    if (idx >= 0) events[idx] = { ...events[idx], ...entry.fields };
+  });
+}
+
+function eventFormDateValue(rawDate) {
+  const s = String(rawDate || "").trim();
+  if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+  }
+  const p = parseEventDateTime(s, "12:00");
+  if (p) {
+    return `${p.getFullYear()}-${String(p.getMonth() + 1).padStart(2, "0")}-${String(p.getDate()).padStart(2, "0")}`;
+  }
+  return s.slice(0, 10);
+}
+
+function eventFormTimeValue(rawTime) {
+  const s = String(rawTime || "").trim();
+  if (!s) return "";
+  if (/^\d{1,2}:\d{2}/.test(s)) {
+    const [h, m] = s.split(":");
+    return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+  }
+  if (s.includes("T")) {
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", hour12: false });
+    }
+  }
+  return "";
+}
+
+function renderEventImagePreview() {
+  const preview = document.getElementById("eventCurrentImagePreview");
+  const imgEl = document.getElementById("eventCurrentImageEl");
+  const fileInput = document.getElementById("girlImage");
+  const newChip = document.getElementById("eventNewImageChip");
+  const newName = document.getElementById("eventNewImageName");
+  if (!preview || !imgEl) return;
+
+  const showCurrent = !!editingEventImage && !removeEventImage && sanitizeEventImage(editingEventImage) !== APP_CONFIG.placeholderImage;
+  preview.classList.toggle("hidden", !showCurrent);
+  if (showCurrent) imgEl.src = sanitizeEventImage(editingEventImage);
+
+  const file = fileInput?.files?.[0];
+  if (newChip && newName) {
+    newChip.classList.toggle("hidden", !file);
+    if (file) newName.textContent = file.name;
+  }
+}
+
+function bindEventImageControls() {
+  document.getElementById("removeEventImageBtn")?.addEventListener("click", () => {
+    removeEventImage = true;
+    editingEventImage = "";
+    const fileInput = document.getElementById("girlImage");
+    if (fileInput) fileInput.value = "";
+    renderEventImagePreview();
+  });
+  document.getElementById("clearNewImageBtn")?.addEventListener("click", () => {
+    const fileInput = document.getElementById("girlImage");
+    if (fileInput) fileInput.value = "";
+    renderEventImagePreview();
+  });
+  document.getElementById("girlImage")?.addEventListener("change", () => {
+    removeEventImage = false;
+    renderEventImagePreview();
+  });
+}
+
+async function uploadEventImageFile(file) {
+  const dataUrl = await toBase64(file);
+  const parts = splitDataUrl(dataUrl);
+  const up = await retryApiCall(() =>
+    Api.uploadExperienceImage({
+      fileName: file.name || `event_${Date.now()}.jpg`,
+      mimeType: file.type || parts.mimeType,
+      base64Data: parts.base64,
+    })
+  );
+  const url = up.imageUrl || "";
+  if (!url) throw new Error("לא התקבל קישור לתמונה");
+  return url;
+}
+
+function isDrivePermissionError(err) {
+  const msg = String(err?.message || err || "");
+  return /DriveApp|הרשאה|permission|authorization/i.test(msg);
+}
+
 function resetEventForm() {
+  removeEventImage = false;
   document.getElementById("eventForm").reset();
   editingEventId = null;
   editingEventImage = "";
   hideGuests = false;
   setEventMenuValue("");
-  document.getElementById("currentImageHint").classList.add("hidden");
+  document.getElementById("currentImageHint")?.classList.add("hidden");
   document.getElementById("modalTitle").textContent = "הוספת אירוע";
   document.getElementById("eventSubmitBtn").textContent = "פרסום אירוע 🚀";
   setEventSubmitLoading(false);
+  renderEventImagePreview();
 }
 
 function openModalForCreate() {
@@ -635,21 +749,19 @@ function openModalForEdit(eventId) {
   resetEventForm();
   editingEventId = event.id;
   editingEventImage = event.image || "";
+  removeEventImage = false;
 
-  document.getElementById("eventDate").value = event.date;
-  document.getElementById("eventTime").value = event.time;
-  document.getElementById("eventLocation").value = event.location;
-  document.getElementById("eventAddress").value = event.address;
+  document.getElementById("eventDate").value = eventFormDateValue(event.date);
+  document.getElementById("eventTime").value = eventFormTimeValue(event.time);
+  document.getElementById("eventLocation").value = event.location || "";
+  document.getElementById("eventAddress").value = event.address || "";
   setEventMenuValue(event.menu);
 
   hideGuests = event.hideGuests;
 
-  if (editingEventImage) {
-    document.getElementById("currentImageHint").classList.remove("hidden");
-  }
-
   document.getElementById("modalTitle").textContent = "עריכת אירוע";
   document.getElementById("eventSubmitBtn").textContent = "שמירת שינויים ✓";
+  renderEventImagePreview();
 
   const modal = document.getElementById("eventModal");
   modal.classList.remove("hidden");
@@ -718,29 +830,27 @@ function bindEventForm() {
     isSavingEvent = true;
     setEventSubmitLoading(true);
 
-    // העלאת תמונת אירוע ל-Drive (לא שומרים base64 בתא — חורג מ-50,000 תווים)
+    // העלאת תמונה — רק אם נבחר קובץ חדש; כישלון לא חוסם עריכת שאר השדות
     let newImageUrl = "";
     const file = document.getElementById("girlImage").files[0];
     if (file) {
       try {
-        const dataUrl = await toBase64(file);
-        const parts = splitDataUrl(dataUrl);
-        const up = await retryApiCall(() =>
-          Api.uploadExperienceImage({
-            fileName: file.name || `event_${Date.now()}.jpg`,
-            mimeType: file.type || parts.mimeType,
-            base64Data: parts.base64,
-          })
-        );
-        newImageUrl = up.imageUrl || "";
-        if (!newImageUrl) throw new Error("לא התקבל קישור לתמונה");
+        newImageUrl = await uploadEventImageFile(file);
       } catch (imgErr) {
         console.error(imgErr);
-        alert("לא הצלחנו להעלות את התמונה. נסו תמונה אחרת או שמרו בלי תמונה.");
-        isSavingEvent = false;
-        setEventSubmitLoading(false);
-        setSyncStatus("");
-        return;
+        if (editingEventId) {
+          const cont = confirm(
+            "העלאת התמונה נכשלה (חסרה הרשאת Drive ב-Apps Script).\n\nלשמור את שאר השינויים בלי לעדכן תמונה?"
+          );
+          if (!cont) {
+            isSavingEvent = false;
+            setEventSubmitLoading(false);
+            setSyncStatus("");
+            return;
+          }
+        } else {
+          showToast("התמונה לא עלתה — האירוע יישמר עם תמונת ברירת מחדל");
+        }
       }
     }
 
@@ -757,22 +867,18 @@ function bindEventForm() {
           menu,
           hideAttendees: hideGuests,
         };
-        // מעדכנים תמונה רק אם נבחרה תמונה חדשה
         if (newImageUrl) payload.image = newImageUrl;
-        await Api.updateEvent(payload);
-        const idx = events.findIndex((ev) => ev.id === editingEventId);
-        if (idx >= 0) {
-          events[idx] = {
-            ...events[idx],
-            date,
-            time,
-            location,
-            address,
-            menu,
-            hideGuests,
-            ...(newImageUrl ? { image: newImageUrl } : {}),
-          };
+        if (removeEventImage) {
+          payload.removeImage = true;
+          payload.image = APP_CONFIG.placeholderImage;
         }
+        await Api.updateEvent(payload);
+        const patch = { date, time, location, address, menu, hideGuests };
+        if (newImageUrl) patch.image = newImageUrl;
+        if (removeEventImage) patch.image = APP_CONFIG.placeholderImage;
+        rememberEventSavePatch(editingEventId, patch);
+        const idx = events.findIndex((ev) => ev.id === editingEventId);
+        if (idx >= 0) events[idx] = { ...events[idx], ...patch };
       } else {
         await Api.createEvent({
           id: crypto.randomUUID(),
@@ -793,6 +899,7 @@ function bindEventForm() {
       }
 
       closeModal();
+      renderAll();
       await syncFromServer();
     } catch (err) {
       console.error(err);

@@ -16,7 +16,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=48" />
+  <link rel="stylesheet" href="css/styles.css?v=49" />
 </head>
 <body>
 
@@ -130,7 +130,7 @@
               <div class="login-footer-inline">
                 <span>יישומון זה נבנה על ידי <span class="login-footer-brand">YE</span> ©</span>
               </div>
-              <div class="login-version">גרסה 117.2</div>
+              <div class="login-version">גרסה 117.3</div>
             </form>
           </div>
         </div>
@@ -243,8 +243,20 @@
 
           <div>
             <label class="block text-sm font-bold mb-1" for="girlImage">תמונת הילדה</label>
-            <input type="file" id="girlImage" accept="image/*" class="w-full text-sm" />
-            <div id="currentImageHint" class="hidden text-xs text-white/50 mt-1">יש תמונה קיימת — בחרו קובץ חדש רק להחלפה</div>
+            <div id="eventCurrentImagePreview" class="event-image-preview hidden">
+              <img id="eventCurrentImageEl" alt="תמונה נוכחית" class="event-image-preview-img" />
+              <button type="button" id="removeEventImageBtn" class="event-image-remove-btn" aria-label="הסרת תמונה">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <input type="file" id="girlImage" accept="image/*" class="w-full text-sm mt-2" />
+            <div id="eventNewImageChip" class="event-new-image-chip hidden">
+              <span id="eventNewImageName"></span>
+              <button type="button" id="clearNewImageBtn" class="event-image-clear-new" aria-label="ביטול בחירת קובץ">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <div id="currentImageHint" class="hidden text-xs text-white/50 mt-1">בחרו קובץ חדש רק להחלפת התמונה</div>
           </div>
 
           <div id="shabbatWarning" class="hidden text-red-300 bg-red-500/10 border border-red-500/30 rounded-2xl p-3 text-sm">
@@ -301,8 +313,8 @@
 
   <div id="toastMsg" class="toast hidden"></div>
 
-  <script src="js/config.js?v=48"></script>
-  <script src="js/api.js?v=48"></script>
-  <script src="js/app.js?v=48"></script>
+  <script src="js/config.js?v=49"></script>
+  <script src="js/api.js?v=49"></script>
+  <script src="js/app.js?v=49"></script>
 </body>
 </html>

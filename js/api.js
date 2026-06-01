@@ -260,6 +260,13 @@ function sheetDate(value) {
       return toIsoDate(fromSerial);
     }
   }
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value.trim())) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      if (y >= 2020 && y <= 2100) return toIsoDate(d);
+    }
+  }
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
     const iso = value.slice(0, 10);
     const year = Number(iso.slice(0, 4));
@@ -299,6 +306,14 @@ function sheetTime(value) {
     const h = String(Math.floor(totalMinutes / 60) % 24).padStart(2, "0");
     const m = String(totalMinutes % 60).padStart(2, "0");
     return `${h}:${m}`;
+  }
+  if (typeof value === "string" && value.includes("T")) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) {
+      if (d.getFullYear() <= 1900) {
+        return d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", hour12: false });
+      }
+    }
   }
   if (typeof value === "string" && /^\d{1,2}:\d{2}/.test(value)) {
     const [h, m] = value.split(":");

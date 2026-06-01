@@ -126,11 +126,13 @@ function doPost(e) {
       setIfProvided(sheet, row, "address", data.address);
       setIfProvided(sheet, row, "menu", data.menu);
       setIfProvided(sheet, row, "hideAttendees", data.hideAttendees);
-      if (data.image !== undefined && data.image !== "") {
+      if (data.removeImage === true) {
+        setIfProvided(sheet, row, "image", data.image || "");
+      } else if (data.image !== undefined && data.image !== "") {
         setIfProvided(sheet, row, "image", data.image);
       }
 
-      return json({ success: true });
+      return json({ success: true, date: data.date, time: data.time });
     }
 
     if (action === "deleteEvent") {
