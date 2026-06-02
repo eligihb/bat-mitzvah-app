@@ -1,8 +1,8 @@
 ﻿/**
- * ×™×©×•×ž×•×Ÿ ××™×¨×•×¢×™ ×‘×ª ×ž×¦×•×•×” â€” ×œ×•×’×™×§×ª ×”××¤×œ×™×§×¦×™×”
+ * ישומון אירועי בת מצווה — לוגיקת האפליקציה
  */
 
-// â”€â”€â”€ ×ž×¦×‘ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── מצב ───────────────────────────────────────────────────
 let currentUser = loadJson(APP_CONFIG.storage.user);
 let events = [];
 let messages = [];
@@ -30,9 +30,9 @@ let boardPraiseKey = "";
 const boardPraiseState = {};
 let creditBoardView = "latest";
 let isAppBootLoading = false;
-const CREDIT_SERVICE_TYPES = ["×¦×™×œ×•×", "×ž×§×•× ××™×¨×•×¢", "×ž×¦×’×ª/×¡×¨×˜×•×Ÿ", "××•×›×œ", "×¢×™×¦×•×‘", "×”×¤×¢×œ×”"];
-// × ×•×ª× ×™ ×©×™×¨×•×ª ×©×¨×œ×•×•× ×˜×™ ×œ×”×ž×œ×™×¥ ×¢×œ×™×”× ×’× ×œ×¤× ×™ ×”××™×¨×•×¢ (×¦×œ×ž×ª, ×ž×¦×’×ª/×¢×•×¨×š ×•×™×“××•)
-const PRE_EVENT_SERVICE_TYPES = ["×¦×™×œ×•×", "×ž×¦×’×ª/×¡×¨×˜×•×Ÿ"];
+const CREDIT_SERVICE_TYPES = ["צילום", "מקום אירוע", "מצגת/סרטון", "אוכל", "עיצוב", "הפעלה"];
+// נותני שירות שרלוונטי להמליץ עליהם גם לפני האירוע (צלמת, מצגת/עורך וידאו)
+const PRE_EVENT_SERVICE_TYPES = ["צילום", "מצגת/סרטון"];
 let selectedRole = APP_CONFIG.defaultRole;
 let hideGuests = false;
 let syncTimer = null;
@@ -62,18 +62,18 @@ function isAdminByPhoneAndPass(phone, pass) {
   return normalized === normalizePhone(APP_CONFIG.adminPhone) && pass === APP_CONFIG.adminPassword;
 }
 
-// â”€â”€â”€ ×’×¨×¡×” ×•×ž× ×™×¢×ª cache ×™×©×Ÿ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── גרסה ומניעת cache ישן ─────────────────────────────────
 function applyVersionLabels() {
-  const label = `×’×¨×¡×” ${APP_CONFIG.appVersion || "?"}`;
+  const ver = APP_CONFIG.appVersion || "?";
   document.querySelectorAll("[data-version-label]").forEach((el) => {
-    el.textContent = label;
+    el.innerHTML = `<span dir="rtl">גרסה</span> <span class="login-version-num" dir="ltr">${ver}</span>`;
   });
 }
 
 function reloadForAppUpdate(targetVersion, reason) {
   const key = "bm_reload_attempt";
   if (sessionStorage.getItem(key) === targetVersion) {
-    console.warn("×¢×“×›×•×Ÿ ×’×¨×¡×” × ×›×©×œ ×œ××—×¨ ×¨×¢× ×•×Ÿ:", reason, targetVersion);
+    console.warn("עדכון גרסה נכשל לאחר רענון:", reason, targetVersion);
     return false;
   }
   sessionStorage.setItem(key, targetVersion);
@@ -110,11 +110,11 @@ async function checkServerAppVersion() {
       reloadForAppUpdate(serverVer, "server-newer");
     }
   } catch (_) {
-    /* offline / fetch blocked â€” ignore */
+    /* offline / fetch blocked — ignore */
   }
 }
 
-// â”€â”€â”€ ×”×¤×¢×œ×” â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── הפעלה ─────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   applyVersionLabels();
   if (ensureHtmlJsVersionMatch()) return;
@@ -156,7 +156,7 @@ function hideSplashAfterDelay() {
   }, 2000);
 }
 
-// â”€â”€â”€ ××—×¡×•×Ÿ (×ž×©×ª×ž×© ×‘×œ×‘×“) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── אחסון (משתמש בלבד) ────────────────────────────────────
 function loadJson(key) {
   const raw = localStorage.getItem(key);
   return raw ? JSON.parse(raw) : null;
@@ -166,7 +166,7 @@ function saveJson(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
-/** ×ž×•×—×§ ×ž×˜×ž×•×Ÿ ×ž×§×•×ž×™ ×©×œ × ×ª×•× ×™ ×¢× ×Ÿ â€” ×ž×§×•×¨ ×”××ž×ª ×”×•× ×”×©×¨×ª ×‘×œ×‘×“ */
+/** מוחק מטמון מקומי של נתוני ענן — מקור האמת הוא השרת בלבד */
 function clearCloudDataCache() {
   credits = [];
   experiences = [];
@@ -186,7 +186,7 @@ function setAppBootLoading(on, text) {
   if (label && text) label.textContent = text;
 }
 
-// â”€â”€â”€ ×¡× ×›×¨×•×Ÿ ×¢× Google Sheets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── סנכרון עם Google Sheets ───────────────────────────────
 function setSyncStatus(text, isError = false) {
   const el = document.getElementById("syncStatus");
   if (!isError) {
@@ -209,8 +209,8 @@ function setSyncStatus(text, isError = false) {
 async function syncFromServer({ silent = false, boot = false } = {}) {
   if (isSyncing) return;
   isSyncing = true;
-  if (boot) setAppBootLoading(true, "×˜×•×¢×Ÿ × ×ª×•× ×™× ×ž×”×¢× ×Ÿâ€¦");
-  else if (!silent) setSyncStatus("×ž×¡× ×›×¨×Ÿ × ×ª×•× ×™×...");
+  if (boot) setAppBootLoading(true, "טוען נתונים מהענן…");
+  else if (!silent) setSyncStatus("מסנכרן נתונים...");
 
   try {
     const data = await Api.fetchAll();
@@ -228,14 +228,14 @@ async function syncFromServer({ silent = false, boot = false } = {}) {
     users = normalized.users || [];
     credits = mergePendingCredits(normalized.credits || [], pendingCredits);
     experiences = mergePendingExperiences(normalized.experiences || [], pendingExperiences);
-    // ×ž×˜×ž×•×Ÿ mirror ×‘×œ×‘×“ â€” ×ž×§×•×¨ ×”××ž×ª ×”×•× ×”×©×¨×ª
+    // מטמון mirror בלבד — מקור האמת הוא השרת
     saveJson("bm_credits", credits);
     saveJson("bm_experiences", experiences);
     renderAll();
     if (!silent) setSyncStatus("");
   } catch (err) {
     console.error(err);
-    if (!silent) setSyncStatus("×œ× ×”×¦×œ×—× ×• ×œ×˜×¢×•×Ÿ ×ž×”×©×¨×ª â€” × ×¡×• ×©×•×‘", true);
+    if (!silent) setSyncStatus("לא הצלחנו לטעון מהשרת — נסו שוב", true);
   } finally {
     isSyncing = false;
     if (boot) setAppBootLoading(false);
@@ -284,12 +284,12 @@ function maybeNotifyOtherParentEvent() {
   );
   if (hasOtherParentEvent) {
     setTimeout(() => {
-      showToast("×”××™×¨×•×¢ ×›×‘×¨ ×”×•×–×Ÿ ×¢×œ ×™×“×™ ×”×”×•×¨×” ×”××—×¨");
+      showToast("האירוע כבר הוזן על ידי ההורה האחר");
     }, 500);
   }
 }
 
-// â”€â”€â”€ ×”×ª×—×‘×¨×•×ª â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── התחברות ───────────────────────────────────────────────
 function bindLogin() {
   document.getElementById("loginForm").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -301,7 +301,7 @@ function bindLogin() {
     const adminPass = document.getElementById("adminPass").value.trim();
 
     if (!parentName || !girlName || !familyName) {
-      alert("×™×© ×œ×ž×œ× ××ª ×›×œ ×©×“×•×ª ×”×—×•×‘×”");
+      alert("יש למלא את כל שדות החובה");
       return;
     }
 
@@ -338,7 +338,7 @@ function bindLogin() {
   });
 }
 
-// ×¨×™×©×•×/×¢×“×›×•×Ÿ ×”×ž×©×ª×ž×© ×‘×©×¨×ª (×œ× ×—×•×¡× ××ª ×”×›× ×™×¡×” ×× × ×›×©×œ)
+// רישום/עדכון המשתמש בשרת (לא חוסם את הכניסה אם נכשל)
 function registerCurrentUser() {
   if (!currentUser?.id) return;
   Api.registerUser({
@@ -361,12 +361,12 @@ function bindRoleButtons() {
 }
 
 function updateRoleButtonStyles(role) {
-  const mom = document.querySelector('.roleBtn[data-role="××ž×"]');
-  const dad = document.querySelector('.roleBtn[data-role="××‘×"]');
+  const mom = document.querySelector('.roleBtn[data-role="אמא"]');
+  const dad = document.querySelector('.roleBtn[data-role="אבא"]');
   if (!mom || !dad) return;
 
-  mom.className = `roleBtn role-btn-base rounded-2xl p-3 font-bold ${role === "××ž×" ? "role-mom-active" : "role-mom-idle"}`;
-  dad.className = `roleBtn role-btn-base rounded-2xl p-3 font-bold ${role === "××‘×" ? "role-dad-active" : "role-dad-idle"}`;
+  mom.className = `roleBtn role-btn-base rounded-2xl p-3 font-bold ${role === "אמא" ? "role-mom-active" : "role-mom-idle"}`;
+  dad.className = `roleBtn role-btn-base rounded-2xl p-3 font-bold ${role === "אבא" ? "role-dad-active" : "role-dad-idle"}`;
 }
 
 function bindTwinToggle() {
@@ -435,7 +435,7 @@ function updateAdminFieldVisibility() {
   }
 }
 
-// â”€â”€â”€ ×ž×¡×›×™× â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── מסכים ──────────────────────────────────────────────────
 async function showApp() {
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("appScreen").classList.remove("hidden");
@@ -444,7 +444,7 @@ async function showApp() {
   guestCreditFreshLoad = true;
 
   clearCloudDataCache();
-  setAppBootLoading(true, "×˜×•×¢×Ÿ × ×ª×•× ×™× ×ž×”×¢× ×Ÿâ€¦");
+  setAppBootLoading(true, "טוען נתונים מהענן…");
   switchTab(activeTab, false);
   await syncFromServer({ silent: true, boot: true });
   maybeNotifyOtherParentEvent();
@@ -453,7 +453,7 @@ async function showApp() {
 
 function bindLogout() {
   document.getElementById("logoutBtn").addEventListener("click", () => {
-    if (!confirm("×œ×”×ª× ×ª×§ ×ž×”×™×©×•×ž×•×Ÿ?")) return;
+    if (!confirm("להתנתק מהישומון?")) return;
     logout();
   });
 }
@@ -489,28 +489,28 @@ function logout() {
   switchTab("events", false);
 }
 
-// â”€â”€â”€ ×›×•×ª×¨×ª â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── כותרת ─────────────────────────────────────────────────
 function renderHeader() {
   const hour = new Date().getHours();
-  const greet = hour < 12 ? "×‘×•×§×¨ ×˜×•×‘" : hour < 18 ? "×¦×”×¨×™×™× ×˜×•×‘×™×" : "×¢×¨×‘ ×˜×•×‘";
+  const greet = hour < 12 ? "בוקר טוב" : hour < 18 ? "צהריים טובים" : "ערב טוב";
   document.getElementById("headerGreeting").textContent = greet;
   if (currentUser.isAdmin) {
-    document.getElementById("headerRole").textContent = "×ž× ×”×œ ×ž×¢×¨×›×ª";
+    document.getElementById("headerRole").textContent = "מנהל מערכת";
     setContactActions();
     return;
   }
   const girls = currentUser.twinName
-    ? `${currentUser.girlName} ×•${currentUser.twinName}`
+    ? `${currentUser.girlName} ו${currentUser.twinName}`
     : currentUser.girlName;
   document.getElementById("headerRole").textContent =
-    `${currentUser.role} ×©×œ ${girls} ${currentUser.familyName || ""}`.trim();
+    `${currentUser.role} של ${girls} ${currentUser.familyName || ""}`.trim();
   setContactActions();
 }
 
 function setContactActions() {
   const callBtn = document.getElementById("callBtn");
   const waBtn = document.getElementById("waBtn");
-  // ×œ×ž× ×”×œ â€” ××™×Ÿ ×¦×•×¨×š ×‘××™×™×§×•× ×™ ×”×ª×§×©×¨×•×ª ××™×©×™×™× ×‘×›×•×ª×¨×ª
+  // למנהל — אין צורך באייקוני התקשרות אישיים בכותרת
   if (currentUser?.isAdmin) {
     callBtn.classList.add("hidden");
     waBtn.classList.add("hidden");
@@ -536,11 +536,11 @@ function setContactActions() {
 function bindProfileEdit() {
   document.getElementById("editProfileBtn").addEventListener("click", () => {
     if (!currentUser) return;
-    const nextParent = prompt("×¢×“×›×•×Ÿ ×©× ×”×•×¨×”:", currentUser.parentName);
+    const nextParent = prompt("עדכון שם הורה:", currentUser.parentName);
     if (!nextParent) return;
-    const nextGirl = prompt("×¢×“×›×•×Ÿ ×©× ×™×œ×“×”:", currentUser.girlName);
+    const nextGirl = prompt("עדכון שם ילדה:", currentUser.girlName);
     if (!nextGirl) return;
-    const nextFamily = prompt("×¢×“×›×•×Ÿ ×©× ×ž×©×¤×—×”:", currentUser.familyName || "");
+    const nextFamily = prompt("עדכון שם משפחה:", currentUser.familyName || "");
     if (!nextFamily) return;
 
     const oldGirl = currentUser.girlName;
@@ -560,11 +560,11 @@ function bindProfileEdit() {
     });
 
     renderAll();
-    showToast("×”×¤×¨×•×¤×™×œ ×¢×•×“×›×Ÿ");
+    showToast("הפרופיל עודכן");
   });
 }
 
-// â”€â”€â”€ ××™×¨×•×¢×™× ×§×¨×•×‘×™× â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── אירועים קרובים ────────────────────────────────────────
 function renderUpcoming() {
   const bar = document.getElementById("upcomingBar");
   const now = new Date();
@@ -582,7 +582,7 @@ function renderUpcoming() {
     .slice(0, 3);
 
   if (!upcoming.length) {
-    bar.innerHTML = "××™×Ÿ ××™×¨×•×¢×™× ×§×¨×•×‘×™×";
+    bar.innerHTML = "אין אירועים קרובים";
     bar.onclick = null;
     return;
   }
@@ -604,15 +604,15 @@ function renderUpcoming() {
 
   bar.innerHTML = `
     <div class="space-y-1.5">
-      <div class="text-xs opacity-90 mb-1">××™×¨×•×¢×™× ×§×¨×•×‘×™×</div>
+      <div class="text-xs opacity-90 mb-1">אירועים קרובים</div>
       ${upcoming
         .map((e) => {
           const d = parseEventDateTime(e.date, e.time);
-          const rel = d ? relativeDaysLabel(d, now) : "×‘×§×¨×•×‘";
-          return `<div>ðŸŽ‰ ×”××™×¨×•×¢ ×©×œ <span class="font-black">${e.girlName}</span> ${rel}</div>`;
+          const rel = d ? relativeDaysLabel(d, now) : "בקרוב";
+          return `<div>🎉 האירוע של <span class="font-black">${e.girlName}</span> ${rel}</div>`;
         })
         .join("")}
-      <div class="text-xs opacity-90 pt-1">×œ×©×‘×•×¢ ×”×§×¨×•×‘: ${weekCount} | ×œ×—×•×“×© ×”×§×¨×•×‘: ${monthCount}</div>
+      <div class="text-xs opacity-90 pt-1">לשבוע הקרוב: ${weekCount} | לחודש הקרוב: ${monthCount}</div>
     </div>
   `;
 
@@ -622,7 +622,7 @@ function renderUpcoming() {
   };
 }
 
-// â”€â”€â”€ ×”×•×¡×¤×ª / ×¢×¨×™×›×ª ××™×¨×•×¢ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── הוספת / עריכת אירוע ───────────────────────────────────
 function openFamilyEventModal() {
   const familyEvent = events.find(
     (e) =>
@@ -696,7 +696,7 @@ function getEventMenuValue() {
 
 function setEventMenuValue(value) {
   const normalized = (value || "").trim();
-  const preset = ["×—×œ×‘×™ ðŸ¥›", "×‘×©×¨×™ ðŸ¥©"].includes(normalized) ? normalized : "";
+  const preset = ["חלבי 🥛", "בשרי 🥩"].includes(normalized) ? normalized : "";
   selectedEventMenuChoice = preset;
   document.getElementById("eventMenuOther").value = preset ? "" : normalized;
   renderMenuChoiceState();
@@ -711,7 +711,7 @@ function canManageEvent(event) {
   );
 }
 
-// ×”×× ×–×” ×”××™×¨×•×¢ ×©×œ ×”×ž×©×ª×ž×© ×¢×¦×ž×• (×‘×œ×™ ×—×¨×™×’×ª ×ž× ×”×œ)
+// האם זה האירוע של המשתמש עצמו (בלי חריגת מנהל)
 function isOwnEvent(event) {
   if (!event || !currentUser) return false;
   if (event.ownerId && String(event.ownerId) === String(currentUser.id)) return true;
@@ -828,13 +828,13 @@ async function uploadEventImageFile(file) {
     })
   );
   const url = up.imageUrl || "";
-  if (!url) throw new Error("×œ× ×”×ª×§×‘×œ ×§×™×©×•×¨ ×œ×ª×ž×•× ×”");
+  if (!url) throw new Error("לא התקבל קישור לתמונה");
   return url;
 }
 
 function isDrivePermissionError(err) {
   const msg = String(err?.message || err || "");
-  return /DriveApp|×”×¨×©××”|permission|authorization/i.test(msg);
+  return /DriveApp|הרשאה|permission|authorization/i.test(msg);
 }
 
 function resetEventForm() {
@@ -848,8 +848,8 @@ function resetEventForm() {
   hideGuests = false;
   setEventMenuValue("");
   document.getElementById("currentImageHint")?.classList.add("hidden");
-  document.getElementById("modalTitle").textContent = "×”×•×¡×¤×ª ××™×¨×•×¢";
-  document.getElementById("eventSubmitBtn").textContent = "×¤×¨×¡×•× ××™×¨×•×¢ ðŸš€";
+  document.getElementById("modalTitle").textContent = "הוספת אירוע";
+  document.getElementById("eventSubmitBtn").textContent = "פרסום אירוע 🚀";
   setEventSubmitLoading(false);
   renderEventImagePreview();
 }
@@ -885,8 +885,8 @@ function openModalForEdit(eventId) {
 
   hideGuests = event.hideGuests;
 
-  document.getElementById("modalTitle").textContent = "×¢×¨×™×›×ª ××™×¨×•×¢";
-  document.getElementById("eventSubmitBtn").textContent = "×©×ž×™×¨×ª ×©×™× ×•×™×™× âœ“";
+  document.getElementById("modalTitle").textContent = "עריכת אירוע";
+  document.getElementById("eventSubmitBtn").textContent = "שמירת שינויים ✓";
   renderEventImagePreview();
 
   const modal = document.getElementById("eventModal");
@@ -910,8 +910,8 @@ function setEventSubmitLoading(loading) {
 
   if (loading) {
     btn.dataset.originalText = btn.textContent;
-    btn.textContent = "×©×•×ž×¨...";
-    progressText.textContent = editingEventId ? "×ž×¢×“×›×Ÿ ××™×¨×•×¢..." : "×™×•×¦×¨ ××™×¨×•×¢...";
+    btn.textContent = "שומר...";
+    progressText.textContent = editingEventId ? "מעדכן אירוע..." : "יוצר אירוע...";
   } else if (btn.dataset.originalText) {
     btn.textContent = btn.dataset.originalText;
     delete btn.dataset.originalText;
@@ -949,7 +949,7 @@ function bindEventForm() {
     const eventNote = document.getElementById("eventCustomNote")?.value.trim().slice(0, 120) || "";
 
     if (!date || !time || !location || !address || !menu) {
-      alert("×™×© ×œ×ž×œ× ××ª ×›×œ ×”×©×“×•×ª");
+      alert("יש למלא את כל השדות");
       return;
     }
 
@@ -959,14 +959,14 @@ function bindEventForm() {
       (ev) => normalizeGirl(ev.girlName) === targetGirl && (!editingEventId || ev.id !== editingEventId)
     );
     if (duplicateEvents.length) {
-      alert("×›×‘×¨ ×§×™×™× ××™×¨×•×¢ ×œ×™×œ×“×” ×”×–×• ×‘×ž×¢×¨×›×ª. ×œ× × ×™×ª×Ÿ ×œ×™×¦×•×¨ ××™×¨×•×¢ × ×•×¡×£.");
+      alert("כבר קיים אירוע לילדה הזו במערכת. לא ניתן ליצור אירוע נוסף.");
       return;
     }
 
     isSavingEvent = true;
     setEventSubmitLoading(true);
 
-    // ×”×¢×œ××ª ×ª×ž×•× ×” â€” ×¨×§ ×× × ×‘×—×¨ ×§×•×‘×¥ ×—×“×©; ×›×™×©×œ×•×Ÿ ×œ× ×—×•×¡× ×¢×¨×™×›×ª ×©××¨ ×”×©×“×•×ª
+    // העלאת תמונה — רק אם נבחר קובץ חדש; כישלון לא חוסם עריכת שאר השדות
     let newImageUrl = "";
     const file = document.getElementById("girlImage").files[0];
     if (file) {
@@ -976,7 +976,7 @@ function bindEventForm() {
         console.error(imgErr);
         if (editingEventId) {
           const cont = confirm(
-            "×”×¢×œ××ª ×”×ª×ž×•× ×” × ×›×©×œ×” (×—×¡×¨×” ×”×¨×©××ª Drive ×‘-Apps Script).\n\n×œ×©×ž×•×¨ ××ª ×©××¨ ×”×©×™× ×•×™×™× ×‘×œ×™ ×œ×¢×“×›×Ÿ ×ª×ž×•× ×”?"
+            "העלאת התמונה נכשלה (חסרה הרשאת Drive ב-Apps Script).\n\nלשמור את שאר השינויים בלי לעדכן תמונה?"
           );
           if (!cont) {
             isSavingEvent = false;
@@ -985,13 +985,13 @@ function bindEventForm() {
             return;
           }
         } else {
-          showToast("×”×ª×ž×•× ×” ×œ× ×¢×œ×ª×” â€” ×”××™×¨×•×¢ ×™×™×©×ž×¨ ×¢× ×ª×ž×•× ×ª ×‘×¨×™×¨×ª ×ž×—×“×œ");
+          showToast("התמונה לא עלתה — האירוע יישמר עם תמונת ברירת מחדל");
         }
       }
     }
 
     try {
-      setSyncStatus(editingEventId ? "×ž×¢×“×›×Ÿ ××™×¨×•×¢..." : "×©×•×ž×¨ ××™×¨×•×¢...");
+      setSyncStatus(editingEventId ? "מעדכן אירוע..." : "שומר אירוע...");
 
       if (editingEventId) {
         const payload = {
@@ -1041,7 +1041,7 @@ function bindEventForm() {
       syncFromServer({ silent: true });
     } catch (err) {
       console.error(err);
-      alert(editingEventId ? "×œ× ×”×¦×œ×—× ×• ×œ×¢×“×›×Ÿ ××ª ×”××™×¨×•×¢." : "×œ× ×”×¦×œ×—× ×• ×œ×©×ž×•×¨ ××ª ×”××™×¨×•×¢.");
+      alert(editingEventId ? "לא הצלחנו לעדכן את האירוע." : "לא הצלחנו לשמור את האירוע.");
       setSyncStatus("");
     } finally {
       isSavingEvent = false;
@@ -1053,48 +1053,48 @@ function bindEventForm() {
 async function deleteEventById(eventId) {
   const event = events.find((e) => e.id === eventId);
   if (!event || !canManageEvent(event)) return;
-  if (!confirm(`×œ×ž×—×•×§ ××ª ×”××™×¨×•×¢ ×©×œ ${event.girlName}?`)) return;
+  if (!confirm(`למחוק את האירוע של ${event.girlName}?`)) return;
 
   try {
-    setSyncStatus("×ž×•×—×§ ××™×¨×•×¢...");
+    setSyncStatus("מוחק אירוע...");
     await Api.deleteEvent(eventId);
     await syncFromServer();
   } catch (err) {
     console.error(err);
-    alert("×œ× ×”×¦×œ×—× ×• ×œ×ž×—×•×§ ××ª ×”××™×¨×•×¢.");
+    alert("לא הצלחנו למחוק את האירוע.");
     setSyncStatus("");
   }
 }
 
 async function deleteMessageById(messageId) {
   if (!currentUser?.isAdmin) return;
-  if (!confirm("×œ×ž×—×•×§ ××ª ×”×”×•×“×¢×” ×”×–×•?")) return;
+  if (!confirm("למחוק את ההודעה הזו?")) return;
   try {
     await Api.deleteMessage(messageId);
     messages = messages.filter((m) => m.id !== messageId);
     await syncFromServer({ silent: true });
-    showToast("×”×”×•×“×¢×” × ×ž×—×§×”");
+    showToast("ההודעה נמחקה");
   } catch (err) {
     console.error(err);
     const msg = String(err?.message || "");
     if (msg.includes("Unknown action")) {
-      alert("×ž×—×™×§×ª ×”×•×“×¢×•×ª ×“×•×¨×©×ª ×¢×“×›×•×Ÿ Apps Script (×¤×¢×•×œ×ª deleteMessage). ×¢×“×›×Ÿ ×•×¤×¨×•×¡ ×ž×—×“×© ××ª ×”×¡×§×¨×™×¤×˜.");
+      alert("מחיקת הודעות דורשת עדכון Apps Script (פעולת deleteMessage). עדכן ופרוס מחדש את הסקריפט.");
     } else {
-      alert("×œ× ×”×¦×œ×—× ×• ×œ×ž×—×•×§ ×”×•×“×¢×”.");
+      alert("לא הצלחנו למחוק הודעה.");
     }
   }
 }
 
-// ×”×•×“×¢×” ××—×™×“×” ×›×©× ×“×¨×©×ª ×¤×¨×™×¡×” ×ž×—×“×© ×©×œ ×”×¡×§×¨×™×¤×˜
+// הודעה אחידה כשנדרשת פריסה מחדש של הסקריפט
 const REDEPLOY_MSG =
-  "×”×©×¨×ª ×¢×“×™×™×Ÿ ×ž×¨×™×¥ ×’×¨×¡×” ×™×©× ×” ×©×œ ×”×¡×§×¨×™×¤×˜.\n\n×›×“×™ ×œ×ª×§×Ÿ: Apps Script â†’ Deploy â†’ Manage deployments â†’ ×œ×—×¦×• ×¢×œ ×”×¢×™×¤×¨×•×Ÿ (×¢×¨×™×›×”) â†’ Version: New version â†’ Deploy.\n(××œ ×ª×™×¦×¨×• ×¤×¨×™×¡×” ×—×“×©×” â€” ×–×” ×™×•×¦×¨ ×›×ª×•×‘×ª ×—×“×©×”.)";
+  "השרת עדיין מריץ גרסה ישנה של הסקריפט.\n\nכדי לתקן: Apps Script → Deploy → Manage deployments → לחצו על העיפרון (עריכה) → Version: New version → Deploy.\n(אל תיצרו פריסה חדשה — זה יוצר כתובת חדשה.)";
 
 function isUnknownActionError(err) {
   const msg = String(err?.message || "");
-  return msg.includes("Unknown action") || msg.includes("×œ× × ×ª×ž×š");
+  return msg.includes("Unknown action") || msg.includes("לא נתמך");
 }
 
-// × ×™×§×•×™ ×ž×˜×ž×•×Ÿ ×ž×§×•×ž×™ (×¤×¨×™×˜×™× "×ž×ž×ª×™× ×™×" ×©× ×©×ž×¨×• ×›×©×”×©×¨×ª ×œ× ×ª×ž×š) ×œ×¤×™ ×§×˜×’×•×¨×™×”
+// ניקוי מטמון מקומי (פריטים "ממתינים" שנשמרו כשהשרת לא תמך) לפי קטגוריה
 function clearLocalCaches(scope) {
   if (scope === "credits" || scope === "all") {
     pendingCredits = [];
@@ -1106,32 +1106,32 @@ function clearLocalCaches(scope) {
   }
 }
 
-// ×›×¤×ª×•×¨ "× ×™×§×•×™ ×ž×˜×ž×Ÿ ×•×¨×¢× ×•×Ÿ" â€” ×ž×•×—×§ ×¨×¤××™× ×ž×§×•×ž×™×™× ×•×ž×¡× ×›×¨×Ÿ ×ž×—×“×© ×ž×”×©×¨×ª
+// כפתור "ניקוי מטמן ורענון" — מוחק רפאים מקומיים ומסנכרן מחדש מהשרת
 async function adminClearLocalAndResync() {
   if (!currentUser?.isAdmin) return;
   clearLocalCaches("all");
   saveJson("bm_credits", []);
   saveJson("bm_experiences", []);
   await syncFromServer({ silent: true });
-  showToast("×”×ž×˜×ž×•×Ÿ × ×•×§×” ×•×”× ×ª×•× ×™× ×¡×•× ×›×¨× ×• ×ž×”×©×¨×ª");
+  showToast("המטמון נוקה והנתונים סונכרנו מהשרת");
 }
 
-// ×ž×—×™×§×” ×ž×”×™×¨×” ×©×œ ×’×™×œ×™×•×Ÿ ×©×œ× ×¢× × ×¤×™×œ×” ×—×–×¨×” ×œ×ž×—×™×§×” ×¤×¨-×¤×¨×™×˜
+// מחיקה מהירה של גיליון שלם עם נפילה חזרה למחיקה פר-פריט
 async function adminClearTarget(target, label, localScope, perItemFallback) {
   if (!currentUser?.isAdmin) return;
-  if (!confirm(`×œ×ž×—×•×§ ${label}?`)) return;
+  if (!confirm(`למחוק ${label}?`)) return;
   try {
     await Api.clearSheet(target);
     if (localScope) clearLocalCaches(localScope);
     await syncFromServer({ silent: true });
-    showToast(`${label} × ×ž×—×§×•`);
+    showToast(`${label} נמחקו`);
     return;
   } catch (err) {
     if (!isUnknownActionError(err)) {
       console.error(err);
     }
   }
-  // × ×¤×™×œ×” ×—×–×¨×”: ×ž×—×™×§×” ×¤×¨-×¤×¨×™×˜ (×× ×”×©×¨×ª ×œ× ×ª×•×ž×š ×‘-clearSheet)
+  // נפילה חזרה: מחיקה פר-פריט (אם השרת לא תומך ב-clearSheet)
   if (typeof perItemFallback === "function") {
     await perItemFallback();
   } else {
@@ -1141,7 +1141,7 @@ async function adminClearTarget(target, label, localScope, perItemFallback) {
 
 async function deletePerItem(list, deleteFn, label, afterPurge) {
   if (!list.length) {
-    showToast(`××™×Ÿ ${label} ×œ×ž×—×™×§×”`);
+    showToast(`אין ${label} למחיקה`);
     return;
   }
   let ok = 0;
@@ -1157,61 +1157,61 @@ async function deletePerItem(list, deleteFn, label, afterPurge) {
   if (typeof afterPurge === "function") afterPurge();
   await syncFromServer({ silent: true });
   if (ok) {
-    showToast(`${label} × ×ž×—×§×•`);
+    showToast(`${label} נמחקו`);
   } else if (unknownAction) {
     alert(REDEPLOY_MSG);
   } else {
-    alert(`×œ× ×”×¦×œ×—× ×• ×œ×ž×—×•×§ ${label}.`);
+    alert(`לא הצלחנו למחוק ${label}.`);
   }
 }
 
 async function adminDeleteAllEvents() {
-  await adminClearTarget("events", "×›×œ ×”××™×¨×•×¢×™×", null, () =>
-    deletePerItem([...events], (ev) => Api.deleteEvent(ev.id), "××™×¨×•×¢×™×")
+  await adminClearTarget("events", "כל האירועים", null, () =>
+    deletePerItem([...events], (ev) => Api.deleteEvent(ev.id), "אירועים")
   );
 }
 
 async function adminDeleteAllMessages() {
-  await adminClearTarget("messages", "×›×œ ×”×”×•×“×¢×•×ª", null, () =>
-    deletePerItem([...messages], (m) => Api.deleteMessage(m.id), "×”×•×“×¢×•×ª")
+  await adminClearTarget("messages", "כל ההודעות", null, () =>
+    deletePerItem([...messages], (m) => Api.deleteMessage(m.id), "הודעות")
   );
 }
 
 async function adminDeleteAllRsvps() {
-  await adminClearTarget("rsvps", "×›×œ ××™×©×•×¨×™ ×”×”×’×¢×”");
+  await adminClearTarget("rsvps", "כל אישורי ההגעה");
 }
 
 async function adminDeleteAllCredits() {
-  // ×§×¨×“×™×˜×™× = ×¤×¨×’×•× ×™× ×•× ×•×ª× ×™ ×©×™×¨×•×ª (×œ× ×”×ž×œ×¦×•×ª ×‘×¢×œ×™ ××™×¨×•×¢)
+  // קרדיטים = פרגונים ונותני שירות (לא המלצות בעלי אירוע)
   if (!currentUser?.isAdmin) return;
-  if (!confirm("×œ×ž×—×•×§ ××ª ×›×œ ×”×§×¨×“×™×˜×™×?")) return;
+  if (!confirm("למחוק את כל הקרדיטים?")) return;
   const list = (credits || []).filter((c) => !isOwnerRecommendation(c));
   await deletePerItem(
     list,
     (c) => Api.deleteCredit(c.id),
-    "×§×¨×“×™×˜×™×",
+    "קרדיטים",
     () => list.forEach((c) => purgeCreditLocally(c.id))
   );
 }
 
 async function adminDeleteAllRecommendations() {
   if (!currentUser?.isAdmin) return;
-  if (!confirm("×œ×ž×—×•×§ ××ª ×›×œ ×”×”×ž×œ×¦×•×ª?")) return;
+  if (!confirm("למחוק את כל ההמלצות?")) return;
   const list = (credits || []).filter((c) => isOwnerRecommendation(c));
   await deletePerItem(
     list,
     (c) => Api.deleteCredit(c.id),
-    "×”×ž×œ×¦×•×ª",
+    "המלצות",
     () => list.forEach((c) => purgeCreditLocally(c.id))
   );
 }
 
 async function adminDeleteAllExperiences() {
-  await adminClearTarget("experiences", "×›×œ ×”×ª×ž×•× ×•×ª", "experiences", () =>
+  await adminClearTarget("experiences", "כל התמונות", "experiences", () =>
     deletePerItem(
       experiences.filter((e) => e.imageUrl),
       (e) => Api.deleteExperience(e.id),
-      "×ª×ž×•× ×•×ª",
+      "תמונות",
       () => {
         pendingExperiences = [];
         saveJson("bm_pending_experiences", pendingExperiences);
@@ -1221,32 +1221,32 @@ async function adminDeleteAllExperiences() {
 }
 
 async function adminDeleteAllUsers() {
-  await adminClearTarget("users", "×›×œ ×”×ž×©×ª×ž×©×™×");
+  await adminClearTarget("users", "כל המשתמשים");
 }
 
 async function adminDeleteEverything() {
   if (!currentUser?.isAdmin) return;
-  if (!confirm("âš ï¸ ×¤×¢×•×œ×” ×–×• ×ª×ž×—×§ ××ª ×›×œ ×”× ×ª×•× ×™×: ×ž×©×ª×ž×©×™×, ××™×¨×•×¢×™×, ××™×©×•×¨×™ ×”×’×¢×”, ×§×¨×“×™×˜×™×, ×”×ž×œ×¦×•×ª, ×ª×ž×•× ×•×ª ×•×”×•×“×¢×•×ª. ×œ×”×ž×©×™×š?")) return;
+  if (!confirm("⚠️ פעולה זו תמחק את כל הנתונים: משתמשים, אירועים, אישורי הגעה, קרדיטים, המלצות, תמונות והודעות. להמשיך?")) return;
   try {
     await Api.deleteAllData();
     clearLocalCaches("all");
     saveJson("bm_credits", []);
     saveJson("bm_experiences", []);
     await syncFromServer({ silent: true });
-    showToast("×›×œ ×”× ×ª×•× ×™× × ×ž×—×§×•");
+    showToast("כל הנתונים נמחקו");
   } catch (err) {
     if (isUnknownActionError(err)) {
       alert(REDEPLOY_MSG);
     } else {
       console.error(err);
-      alert("×œ× ×”×¦×œ×—× ×• ×œ×ž×—×•×§ ××ª ×›×œ ×”× ×ª×•× ×™×.");
+      alert("לא הצלחנו למחוק את כל הנתונים.");
     }
   }
 }
 
 async function deleteUserById(userId) {
   if (!currentUser?.isAdmin) return;
-  if (!confirm("×œ×ž×—×•×§ ×ž×©×ª×ž×© ×–×”?")) return;
+  if (!confirm("למחוק משתמש זה?")) return;
   const ids = String(userId || "")
     .split(",")
     .map((s) => s.trim())
@@ -1257,18 +1257,18 @@ async function deleteUserById(userId) {
     }
     users = users.filter((u) => !ids.includes(String(u.id)));
     await syncFromServer({ silent: true });
-    showToast("×”×ž×©×ª×ž×© × ×ž×—×§");
+    showToast("המשתמש נמחק");
   } catch (err) {
     if (isUnknownActionError(err)) {
       alert(REDEPLOY_MSG);
     } else {
       console.error(err);
-      alert("×œ× ×”×¦×œ×—× ×• ×œ×ž×—×•×§ ××ª ×”×ž×©×ª×ž×©.");
+      alert("לא הצלחנו למחוק את המשתמש.");
     }
   }
 }
 
-// ×™×™×¦×•× ×˜×‘×œ×” ×œ-CSV (× ×¤×ª×— ×‘××§×¡×œ, ×›×•×œ×œ BOM ×œ×¢×‘×¨×™×ª ×ª×§×™× ×”)
+// ייצוא טבלה ל-CSV (נפתח באקסל, כולל BOM לעברית תקינה)
 function downloadCsv(filename, headerRow, dataRows) {
   const escapeCell = (v) => {
     const s = String(v == null ? "" : v).replace(/"/g, '""');
@@ -1289,23 +1289,23 @@ function downloadCsv(filename, headerRow, dataRows) {
 function exportProvidersCsv() {
   const providers = aggregateAllProviders();
   if (!providers.length) {
-    showToast("××™×Ÿ × ×•×ª× ×™ ×©×™×¨×•×ª ×œ×™×™×¦×•×");
+    showToast("אין נותני שירות לייצוא");
     return;
   }
   const rows = providers.map((p) => [
     p.name,
     p.category || "",
-    p.avg === "â€”" ? "" : p.avg,
+    p.avg === "—" ? "" : p.avg,
     p.ratingCount,
     p.eventCount,
     p.phone || "",
   ]);
   downloadCsv(
     "providers.csv",
-    ["×©× × ×•×ª×Ÿ ×©×™×¨×•×ª", "×§×˜×’×•×¨×™×”", "×“×™×¨×•×’ ×ž×ž×•×¦×¢", "×›×ž×•×ª ×ž×“×¨×’×™×", "×›×ž×•×ª ××™×¨×•×¢×™×", "×˜×œ×¤×•×Ÿ"],
+    ["שם נותן שירות", "קטגוריה", "דירוג ממוצע", "כמות מדרגים", "כמות אירועים", "טלפון"],
     rows
   );
-  showToast("×“×•×— × ×•×ª× ×™ ×©×™×¨×•×ª ×™×•×¦×");
+  showToast("דוח נותני שירות יוצא");
 }
 
 function exportVenuesCsv() {
@@ -1317,14 +1317,14 @@ function exportVenuesCsv() {
       return [e.location || "", e.address || "", e.girlName || "", dateText];
     });
   if (!rows.length) {
-    showToast("××™×Ÿ ××•×œ×ž×•×ª ×œ×™×™×¦×•×");
+    showToast("אין אולמות לייצוא");
     return;
   }
-  downloadCsv("venues.csv", ["××•×œ×", "×›×ª×•×‘×ª", "××™×¨×•×¢ (×‘×ª)", "×ª××¨×™×š"], rows);
-  showToast("×“×•×— ××•×œ×ž×•×ª ×™×•×¦×");
+  downloadCsv("venues.csv", ["אולם", "כתובת", "אירוע (בת)", "תאריך"], rows);
+  showToast("דוח אולמות יוצא");
 }
 
-// ×ž×–×”×” ×™×™×—×•×“×™ ×˜×‘×¢×™ ×œ×ž×©×ª×ž×©: ×œ×¤×™ ×˜×œ×¤×•×Ÿ, ×•×× ××™×Ÿ â€” ×œ×¤×™ ×©× ×”×•×¨×”+×™×œ×“×”+×ž×©×¤×—×”
+// מזהה ייחודי טבעי למשתמש: לפי טלפון, ואם אין — לפי שם הורה+ילדה+משפחה
 function userNaturalKey(u) {
   const phone = String(u.phone || "").replace(/\D/g, "");
   if (phone) return "p:" + phone;
@@ -1336,7 +1336,7 @@ function userNaturalKey(u) {
   );
 }
 
-// ×ž××—×“ ×›× ×™×¡×•×ª ×—×•×–×¨×•×ª ×©×œ ××•×ª×• ×ž×©×ª×ž×© ×œ×¨×©×•×ž×” ××—×ª (×ž××¡×£ ××ª ×›×œ ×”-ids ×œ×ž×—×™×§×”)
+// מאחד כניסות חוזרות של אותו משתמש לרשומה אחת (מאסף את כל ה-ids למחיקה)
 function dedupeUsers(list) {
   const map = new Map();
   (list || []).forEach((u) => {
@@ -1354,7 +1354,7 @@ function dedupeUsers(list) {
   return Array.from(map.values());
 }
 
-// ×ž×§×‘×¥ ×ž×©×ª×ž×©×™× ×œ×¤×™ ×”×™×œ×“×” (×”×•×¨×™× ×©×œ ××•×ª×” ×™×œ×“×” ×™×•×¦×’×• ×™×—×“)
+// מקבץ משתמשים לפי הילדה (הורים של אותה ילדה יוצגו יחד)
 function groupUsersByGirl(list) {
   const groups = new Map();
   dedupeUsers(list).forEach((u) => {
@@ -1386,7 +1386,7 @@ async function deleteCreditById(creditId) {
     currentUser?.isAdmin ||
     (isProviderEntry(credit) && event && canManageEvent(event));
   if (!canDelete) return;
-  if (!confirm("×œ×ž×—×•×§ ×¤×¨×™×˜ ×–×”?")) return;
+  if (!confirm("למחוק פריט זה?")) return;
   try {
     await Api.deleteCredit(creditId);
   } catch (err) {
@@ -1401,13 +1401,13 @@ async function deleteCreditById(creditId) {
   else if (creditScreen === "guest") refreshGuestProviders();
   else renderCredits();
   syncFromServer({ silent: true });
-  showToast("× ×ž×—×§");
+  showToast("נמחק");
 }
 
 async function deleteExperienceById(experienceId) {
   const exp = experiences.find((e) => e.id === experienceId);
   if (!exp || !canDeleteExperience(exp)) return;
-  if (!confirm("×œ×ž×—×•×§ ××ª ×”×ª×ž×•× ×”?")) return;
+  if (!confirm("למחוק את התמונה?")) return;
   try {
     await Api.deleteExperience(experienceId);
     experiences = experiences.filter((e) => e.id !== experienceId);
@@ -1415,13 +1415,13 @@ async function deleteExperienceById(experienceId) {
     saveJson("bm_pending_experiences", pendingExperiences);
     saveJson("bm_experiences", experiences);
     await syncFromServer({ silent: true });
-    showToast("×”×ª×ž×•× ×” × ×ž×—×§×”");
+    showToast("התמונה נמחקה");
   } catch (err) {
     if (isUnknownActionError(err)) {
       alert(REDEPLOY_MSG);
     } else {
       console.error(err);
-      alert("×œ× ×”×¦×œ×—× ×• ×œ×ž×—×•×§ ××ª ×”×ª×ž×•× ×”.");
+      alert("לא הצלחנו למחוק את התמונה.");
     }
   }
 }
@@ -1433,7 +1433,7 @@ async function toggleEventGuestsVisibility(eventId) {
   const nextHide = !event.hideGuests;
   event.hideGuests = nextHide;
   renderEvents();
-  showToast(nextHide ? "×ž×©×ª×ž×©×™× ××—×¨×™× ×œ× ×™×¨××• ×ª×•×›×Ÿ ×–×”" : "×”×—×©×™×¤×” ×œ×ž×©×ª×ž×©×™× ××—×¨×™× ×—×–×¨×”");
+  showToast(nextHide ? "משתמשים אחרים לא יראו תוכן זה" : "החשיפה למשתמשים אחרים חזרה");
 
   try {
     await Api.updateEvent({
@@ -1447,9 +1447,9 @@ async function toggleEventGuestsVisibility(eventId) {
     renderEvents();
     const msg = String(err?.message || "");
     if (msg.includes("Unknown action")) {
-      alert("×œ× ×”×¦×œ×—× ×• ×œ×¢×“×›×Ÿ ××ª ×ž×¦×‘ ×”×”×¡×ª×¨×” ×›×¨×’×¢. × ×¡×• ×©×•×‘ ×‘×¢×•×“ ×¨×’×¢.");
+      alert("לא הצלחנו לעדכן את מצב ההסתרה כרגע. נסו שוב בעוד רגע.");
     } else {
-      alert("×œ× ×”×¦×œ×—× ×• ×œ×¢×“×›×Ÿ ××ª ×ž×¦×‘ ×”×”×¡×ª×¨×”.");
+      alert("לא הצלחנו לעדכן את מצב ההסתרה.");
     }
   }
 }
@@ -1482,11 +1482,11 @@ function renderAdminPanel() {
       ${actions ? `<div class="admin-data-actions">${actions}</div>` : ""}
     </div>`;
 
-  const adminDeleteBtn = (attrs, label = "×ž×—×™×§×”") =>
+  const adminDeleteBtn = (attrs, label = "מחיקה") =>
     `<button type="button" class="admin-icon-btn admin-icon-btn-danger" ${attrs} aria-label="${label}"><i class="fa-solid fa-trash"></i></button>`;
 
   const adminEditBtn = (attrs) =>
-    `<button type="button" class="admin-icon-btn admin-icon-btn-edit" ${attrs} aria-label="×¢×¨×™×›×”"><i class="fa-solid fa-pen"></i></button>`;
+    `<button type="button" class="admin-icon-btn admin-icon-btn-edit" ${attrs} aria-label="עריכה"><i class="fa-solid fa-pen"></i></button>`;
 
   const emptyState = (txt) => `<div class="admin-empty">${txt}</div>`;
   const kpi = (label, value, icon) =>
@@ -1497,24 +1497,24 @@ function renderAdminPanel() {
   tab.innerHTML = `
     <div class="admin-panel">
       <header class="admin-panel-head">
-        <h2 class="admin-panel-title">×¤×× ×œ × ×™×”×•×œ</h2>
-        <p class="admin-panel-sub">×¡×§×™×¨×”, ×™×™×¦×•× ×•× ×™×”×•×œ × ×ª×•× ×™ ×”×ž×¢×¨×›×ª</p>
+        <h2 class="admin-panel-title">פאנל ניהול</h2>
+        <p class="admin-panel-sub">סקירה, ייצוא וניהול נתוני המערכת</p>
       </header>
       <div class="admin-kpi-grid">
-        ${kpi("×ž×©×ª×ž×©×™×", uniqueUserCount, "ðŸ‘¥")}
-        ${kpi("××™×¨×•×¢×™×", events.length, "ðŸŽ‰")}
-        ${kpi("××™×©×•×¨×™ ×”×’×¢×”", rsvpCount, "âœ…")}
-        ${kpi("×ª×ž×•× ×•×ª", photoList.length, "ðŸ–¼ï¸")}
+        ${kpi("משתמשים", uniqueUserCount, "👥")}
+        ${kpi("אירועים", events.length, "🎉")}
+        ${kpi("אישורי הגעה", rsvpCount, "✅")}
+        ${kpi("תמונות", photoList.length, "🖼️")}
       </div>
       <div class="admin-toolbar">
-        <button type="button" id="adminRefreshBtn" class="admin-btn admin-btn-neutral"><i class="fa-solid fa-rotate"></i> ×¨×¢× ×•×Ÿ</button>
-        <button type="button" id="adminClearLocalBtn" class="admin-btn admin-btn-neutral"><i class="fa-solid fa-broom"></i> × ×™×§×•×™ ×ž×˜×ž×•×Ÿ</button>
-        <button type="button" id="adminExportProvidersBtn" class="admin-btn admin-btn-primary"><i class="fa-solid fa-file-export"></i> ×™×™×¦×•× × ×•×ª× ×™ ×©×™×¨×•×ª</button>
-        <button type="button" id="adminExportVenuesBtn" class="admin-btn admin-btn-primary"><i class="fa-solid fa-building"></i> ×™×™×¦×•× ××•×œ×ž×•×ª</button>
+        <button type="button" id="adminRefreshBtn" class="admin-btn admin-btn-neutral"><i class="fa-solid fa-rotate"></i> רענון</button>
+        <button type="button" id="adminClearLocalBtn" class="admin-btn admin-btn-neutral"><i class="fa-solid fa-broom"></i> ניקוי מטמון</button>
+        <button type="button" id="adminExportProvidersBtn" class="admin-btn admin-btn-primary"><i class="fa-solid fa-file-export"></i> ייצוא נותני שירות</button>
+        <button type="button" id="adminExportVenuesBtn" class="admin-btn admin-btn-primary"><i class="fa-solid fa-building"></i> ייצוא אולמות</button>
       </div>
 
       <section class="admin-section">
-        <div class="admin-section-head"><h3 class="admin-section-title">×ž×©×ª×ž×©×™× ×¨×©×•×ž×™×</h3><span class="admin-section-count">${uniqueUserCount}</span></div>
+        <div class="admin-section-head"><h3 class="admin-section-title">משתמשים רשומים</h3><span class="admin-section-count">${uniqueUserCount}</span></div>
         <div class="admin-section-body">
           ${
             userGroups.length
@@ -1522,78 +1522,78 @@ function renderAdminPanel() {
                   .map((g) => {
                     const girlTitle = g.girlName
                       ? `${g.girlName}${g.familyName ? " " + g.familyName : ""}`
-                      : "×œ×œ× ×©×™×•×š ×œ×™×œ×“×”";
+                      : "ללא שיוך לילדה";
                     const parents = g.members
                       .map((u) =>
                         adminCard(
-                          u.parentName || "â€”",
-                          [u.role, u.phone].filter(Boolean).join(" â€¢ "),
+                          u.parentName || "—",
+                          [u.role, u.phone].filter(Boolean).join(" • "),
                           adminDeleteBtn(`data-admin-delete-user-id="${(u._ids || [u.id]).join(",")}"`)
                         )
                       )
                       .join("");
-                    return `<div class="admin-group-card"><div class="admin-group-title">×‘×ª: ${girlTitle}${g.members.length > 1 ? ` <span class="admin-group-badge">${g.members.length} ×”×•×¨×™×</span>` : ""}</div>${parents}</div>`;
+                    return `<div class="admin-group-card"><div class="admin-group-title">בת: ${girlTitle}${g.members.length > 1 ? ` <span class="admin-group-badge">${g.members.length} הורים</span>` : ""}</div>${parents}</div>`;
                   })
                   .join("")
-              : emptyState("××™×Ÿ ×ž×©×ª×ž×©×™× ×¨×©×•×ž×™× â€” ×™×™×¨×©×ž×• ××•×˜×•×ž×˜×™×ª ×‘×›× ×™×¡×”")
+              : emptyState("אין משתמשים רשומים — יירשמו אוטומטית בכניסה")
           }
         </div>
       </section>
 
       <section class="admin-section">
-        <div class="admin-section-head"><h3 class="admin-section-title">××™×¨×•×¢×™×</h3><span class="admin-section-count">${events.length}</span></div>
+        <div class="admin-section-head"><h3 class="admin-section-title">אירועים</h3><span class="admin-section-count">${events.length}</span></div>
         <div class="admin-section-body">
           ${
             sortedEvents.length
               ? sortedEvents
                   .map((event) =>
                     adminCard(
-                      `×‘×ª ×ž×¦×•×•×” ${event.girlName}`,
-                      `${event.date || "â€”"} â€¢ ${event.time || "â€”"}${event.location ? " â€¢ " + event.location : ""}${event.ownerName ? " â€¢ " + event.ownerName : ""}`,
-                      `${adminEditBtn(`data-admin-edit-id="${event.id}"`)}${adminDeleteBtn(`data-admin-delete-id="${event.id}"`, "×ž×—×™×§×ª ××™×¨×•×¢")}`
+                      `בת מצווה ${event.girlName}`,
+                      `${event.date || "—"} • ${event.time || "—"}${event.location ? " • " + event.location : ""}${event.ownerName ? " • " + event.ownerName : ""}`,
+                      `${adminEditBtn(`data-admin-edit-id="${event.id}"`)}${adminDeleteBtn(`data-admin-delete-id="${event.id}"`, "מחיקת אירוע")}`
                     )
                   )
                   .join("")
-              : emptyState("××™×Ÿ ××™×¨×•×¢×™× ×‘×ž×¢×¨×›×ª")
+              : emptyState("אין אירועים במערכת")
           }
         </div>
       </section>
 
       <details class="admin-details">
-        <summary class="admin-details-summary">× ×•×ª× ×™ ×©×™×¨×•×ª (${providerList.length}) Â· ×§×¨×“×™×˜×™× (${creditList.length}) Â· ×”×ž×œ×¦×•×ª (${recList.length})</summary>
+        <summary class="admin-details-summary">נותני שירות (${providerList.length}) · קרדיטים (${creditList.length}) · המלצות (${recList.length})</summary>
         <div class="admin-section-body admin-section-body-nested">
-          <div class="admin-subsection-title">× ×•×ª× ×™ ×©×™×¨×•×ª</div>
-          ${providerList.length ? providerList.map((c) => adminCard(adminCreditLabel(c), c.phone || c.link || "", adminDeleteBtn(`data-admin-delete-credit-id="${c.id}"`))).join("") : emptyState("××™×Ÿ × ×•×ª× ×™ ×©×™×¨×•×ª")}
-          <div class="admin-subsection-title">×§×¨×“×™×˜×™× / ×¤×¨×’×•× ×™×</div>
-          ${creditList.length ? creditList.map((c) => adminCard(adminCreditLabel(c), "", adminDeleteBtn(`data-admin-delete-credit-id="${c.id}"`))).join("") : emptyState("××™×Ÿ ×§×¨×“×™×˜×™×")}
-          <div class="admin-subsection-title">×”×ž×œ×¦×•×ª ×‘×¢×œ×™ ××™×¨×•×¢</div>
-          ${recList.length ? recList.map((c) => adminCard(adminCreditLabel(c), "", adminDeleteBtn(`data-admin-delete-credit-id="${c.id}"`))).join("") : emptyState("××™×Ÿ ×”×ž×œ×¦×•×ª")}
+          <div class="admin-subsection-title">נותני שירות</div>
+          ${providerList.length ? providerList.map((c) => adminCard(adminCreditLabel(c), c.phone || c.link || "", adminDeleteBtn(`data-admin-delete-credit-id="${c.id}"`))).join("") : emptyState("אין נותני שירות")}
+          <div class="admin-subsection-title">קרדיטים / פרגונים</div>
+          ${creditList.length ? creditList.map((c) => adminCard(adminCreditLabel(c), "", adminDeleteBtn(`data-admin-delete-credit-id="${c.id}"`))).join("") : emptyState("אין קרדיטים")}
+          <div class="admin-subsection-title">המלצות בעלי אירוע</div>
+          ${recList.length ? recList.map((c) => adminCard(adminCreditLabel(c), "", adminDeleteBtn(`data-admin-delete-credit-id="${c.id}"`))).join("") : emptyState("אין המלצות")}
         </div>
       </details>
 
       <details class="admin-details">
-        <summary class="admin-details-summary">×ª×ž×•× ×•×ª ×•×¡×¨×˜×•× ×™× (${photoList.length}) Â· ×”×•×“×¢×•×ª (${messages.length})</summary>
+        <summary class="admin-details-summary">תמונות וסרטונים (${photoList.length}) · הודעות (${messages.length})</summary>
         <div class="admin-section-body admin-section-body-nested">
-          <div class="admin-subsection-title">×ª×ž×•× ×•×ª / ×¡×¨×˜×•× ×™×</div>
+          <div class="admin-subsection-title">תמונות / סרטונים</div>
           ${
             photoList.length
               ? photoList
                   .map((exp) => {
                     const ev = events.find((e) => e.id === exp.eventId);
                     return adminCard(
-                      `${experienceMediaType(exp) === "video" ? "×¡×¨×˜×•×Ÿ" : "×ª×ž×•× ×”"} â€” ${ev ? ev.girlName : "×›×œ×œ×™"}`,
+                      `${experienceMediaType(exp) === "video" ? "סרטון" : "תמונה"} — ${ev ? ev.girlName : "כללי"}`,
                       exp.userName || "",
-                      adminDeleteBtn(`data-admin-delete-experience-id="${exp.id}"`, "×ž×—×™×§×ª ×ª×ž×•× ×”")
+                      adminDeleteBtn(`data-admin-delete-experience-id="${exp.id}"`, "מחיקת תמונה")
                     );
                   })
                   .join("")
-              : emptyState("××™×Ÿ ×ª×ž×•× ×•×ª")
+              : emptyState("אין תמונות")
           }
-          <div class="admin-subsection-title">×”×•×“×¢×•×ª</div>
+          <div class="admin-subsection-title">הודעות</div>
           ${
             messages.length
-              ? messages.map((msg) => adminCard(msg.text, msg.name, adminDeleteBtn(`data-admin-delete-message-id="${msg.id}"`, "×ž×—×™×§×ª ×”×•×“×¢×”"))).join("")
-              : emptyState("××™×Ÿ ×”×•×“×¢×•×ª")
+              ? messages.map((msg) => adminCard(msg.text, msg.name, adminDeleteBtn(`data-admin-delete-message-id="${msg.id}"`, "מחיקת הודעה"))).join("")
+              : emptyState("אין הודעות")
           }
         </div>
       </details>
@@ -1601,21 +1601,21 @@ function renderAdminPanel() {
       <div class="admin-danger-wrap">
         <button type="button" id="adminToggleDangerBtn" class="admin-danger-toggle" aria-expanded="${dangerOpen ? "true" : "false"}">
           <i class="fa-solid fa-triangle-exclamation"></i>
-          <span>××–×•×¨ ×ž×¡×•×›×Ÿ â€” ×ž×—×™×§×•×ª ×”×ž×•× ×™×•×ª</span>
+          <span>אזור מסוכן — מחיקות המוניות</span>
           <i class="fa-solid fa-chevron-down admin-danger-chevron ${dangerOpen ? "is-open" : ""}"></i>
         </button>
         <div id="adminDangerZone" class="admin-danger-zone ${dangerOpen ? "" : "hidden"}">
-          <p class="admin-danger-note">×¤×¢×•×œ×•×ª ××œ×• ×‘×œ×ª×™ ×”×¤×™×›×•×ª. ×ž×•×ž×œ×¥ ×œ×™×™×¦× ×“×•×— ×œ×¤× ×™ ×ž×—×™×§×”.</p>
+          <p class="admin-danger-note">פעולות אלו בלתי הפיכות. מומלץ לייצא דוח לפני מחיקה.</p>
           <div class="admin-danger-grid">
-            <button type="button" id="adminDeleteAllUsersBtn" class="admin-btn admin-btn-danger-outline">×ž×—×™×§×ª ×›×œ ×”×ž×©×ª×ž×©×™×</button>
-            <button type="button" id="adminDeleteAllEventsBtn" class="admin-btn admin-btn-danger-outline">×ž×—×™×§×ª ×›×œ ×”××™×¨×•×¢×™×</button>
-            <button type="button" id="adminDeleteAllRsvpsBtn" class="admin-btn admin-btn-danger-outline">×ž×—×™×§×ª ××™×©×•×¨×™ ×”×’×¢×”</button>
-            <button type="button" id="adminDeleteAllCreditsBtn" class="admin-btn admin-btn-danger-outline">×ž×—×™×§×ª ×›×œ ×”×§×¨×“×™×˜×™×</button>
-            <button type="button" id="adminDeleteAllRecommendationsBtn" class="admin-btn admin-btn-danger-outline">×ž×—×™×§×ª ×›×œ ×”×”×ž×œ×¦×•×ª</button>
-            <button type="button" id="adminDeleteAllExperiencesBtn" class="admin-btn admin-btn-danger-outline">×ž×—×™×§×ª ×›×œ ×”×ª×ž×•× ×•×ª</button>
-            <button type="button" id="adminDeleteAllMessagesBtn" class="admin-btn admin-btn-danger-outline">×ž×—×™×§×ª ×›×œ ×”×”×•×“×¢×•×ª</button>
+            <button type="button" id="adminDeleteAllUsersBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל המשתמשים</button>
+            <button type="button" id="adminDeleteAllEventsBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל האירועים</button>
+            <button type="button" id="adminDeleteAllRsvpsBtn" class="admin-btn admin-btn-danger-outline">מחיקת אישורי הגעה</button>
+            <button type="button" id="adminDeleteAllCreditsBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל הקרדיטים</button>
+            <button type="button" id="adminDeleteAllRecommendationsBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל ההמלצות</button>
+            <button type="button" id="adminDeleteAllExperiencesBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל התמונות</button>
+            <button type="button" id="adminDeleteAllMessagesBtn" class="admin-btn admin-btn-danger-outline">מחיקת כל ההודעות</button>
           </div>
-          <button type="button" id="adminDeleteEverythingBtn" class="admin-btn admin-btn-danger-solid">×ž×—×™×§×ª ×›×œ ×”× ×ª×•× ×™× ×‘×ž×¢×¨×›×ª</button>
+          <button type="button" id="adminDeleteEverythingBtn" class="admin-btn admin-btn-danger-solid">מחיקת כל הנתונים במערכת</button>
         </div>
       </div>
     </div>
@@ -1625,19 +1625,19 @@ function renderAdminPanel() {
 
 function adminCreditLabel(c) {
   const event = events.find((e) => e.id === c.eventId);
-  const eventName = event ? `×”××™×¨×•×¢ ×©×œ ${event.girlName}` : "××™×¨×•×¢ ×—×™×¦×•× ×™";
-  const who = c.professionalName || c.category || (c.note ? c.note.slice(0, 30) : "×¤×¨×’×•×Ÿ");
-  return `${who} â€¢ ${eventName}`;
+  const eventName = event ? `האירוע של ${event.girlName}` : "אירוע חיצוני";
+  const who = c.professionalName || c.category || (c.note ? c.note.slice(0, 30) : "פרגון");
+  return `${who} • ${eventName}`;
 }
 
-// â”€â”€â”€ ×¨×©×™×ž×ª ××™×¨×•×¢×™× â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── רשימת אירועים ─────────────────────────────────────────
 function renderEvents() {
   const container = document.getElementById("eventsTab");
   container.innerHTML = "";
 
   if (!events.length) {
     container.innerHTML =
-      '<div class="glass rounded-[28px] p-6 text-center text-white/50 text-sm">×¢×“×™×™×Ÿ ××™×Ÿ ××™×¨×•×¢×™× â€” ×”×•×¡×™×¤×• ××ª ×”×¨××©×•×Ÿ ðŸŽ‰</div>';
+      '<div class="glass rounded-[28px] p-6 text-center text-white/50 text-sm">עדיין אין אירועים — הוסיפו את הראשון 🎉</div>';
     return;
   }
 
@@ -1657,17 +1657,17 @@ function renderEvents() {
     const isPastEvent = typeof dayDiff === "number" ? dayDiff < 0 : false;
     const isTomorrowEvent = dayDiff === 1;
     const countdownLabel = isPastEvent
-      ? "×”××™×¨×•×¢ ×”×ª×§×™×™×"
+      ? "האירוע התקיים"
       : dayDiff === 0
-        ? "×”××™×¨×•×¢ ×”×™×•×"
+        ? "האירוע היום"
         : typeof dayDiff === "number"
-          ? `×¢×•×“ ${dayDiff} ×™×ž×™×`
-          : "×ª××¨×™×š ×œ× ×–×ž×™×Ÿ";
-    const formattedDate = d ? d.toLocaleDateString("he-IL") : event.date || "â€”";
+          ? `עוד ${dayDiff} ימים`
+          : "תאריך לא זמין";
+    const formattedDate = d ? d.toLocaleDateString("he-IL") : event.date || "—";
     const formattedTime =
       d && event.time
         ? d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })
-        : event.time || "â€”";
+        : event.time || "—";
 
     const img = sanitizeEventImage(event.image);
     const eventRecommendations = credits
@@ -1678,16 +1678,16 @@ function renderEvents() {
       "beforeend",
       `
       <div class="event-card event-card-shell glass rounded-[34px] p-5 ${isOwnerEvent ? "my-event-card" : ""} ${isPastEvent ? "past-event-card" : ""}">
-        ${isTomorrowEvent ? '<div class="my-event-title" style="background:rgba(244,63,94,.22);border-color:rgba(251,113,133,.7);color:#ffe4e6;">×”××™×¨×•×¢ ×ž×ª×§×™×™× ×‘×¢×•×“ ×™×•×</div>' : ""}
-        ${isOwnerEvent ? '<div class="my-event-title">×”××™×¨×•×¢ ×©×œ×™</div>' : ""}
+        ${isTomorrowEvent ? '<div class="my-event-title" style="background:rgba(244,63,94,.22);border-color:rgba(251,113,133,.7);color:#ffe4e6;">האירוע מתקיים בעוד יום</div>' : ""}
+        ${isOwnerEvent ? '<div class="my-event-title">האירוע שלי</div>' : ""}
         ${
           isFamily
             ? `
         <div class="event-actions event-actions-top-left">
-          <button type="button" class="event-action-btn compact edit" data-edit-id="${event.id}" aria-label="×¢×¨×™×›×”">
+          <button type="button" class="event-action-btn compact edit" data-edit-id="${event.id}" aria-label="עריכה">
             <i class="fa-solid fa-pen"></i>
           </button>
-          <button type="button" class="event-action-btn compact delete" data-delete-id="${event.id}" aria-label="×ž×—×™×§×”">
+          <button type="button" class="event-action-btn compact delete" data-delete-id="${event.id}" aria-label="מחיקה">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>`
@@ -1697,35 +1697,35 @@ function renderEvents() {
           <div class="flex gap-4 flex-1 min-w-0">
             <img src="${img}" data-event-img class="w-20 h-20 shrink-0 rounded-full object-cover border-4 border-white/10" alt="" referrerpolicy="no-referrer" loading="lazy" />
             <div class="flex-1 min-w-0">
-              <h3 class="font-black text-lg">×‘×ª ×ž×¦×•×•×” ×œ${event.girlName} âœ¨</h3>
-              <div class="text-white/50 text-sm mt-1">×ª××¨×™×š: ${formattedDate} â€¢ ×©×¢×”: ${formattedTime}</div>
+              <h3 class="font-black text-lg">בת מצווה ל${event.girlName} ✨</h3>
+              <div class="text-white/50 text-sm mt-1">תאריך: ${formattedDate} • שעה: ${formattedTime}</div>
               <div class="event-countdown mt-2"><i class="fa-regular fa-clock"></i> ${countdownLabel}</div>
               <div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">${event.menu}</div>
             </div>
           </div>
         </div>
         <div class="bg-white/5 rounded-2xl p-4 mt-4 text-sm space-y-2">
-          <div>ðŸ“ ${event.location}</div>
+          <div>📍 ${event.location}</div>
           <div class="flex items-center justify-between gap-2 flex-wrap">
-            <span>ðŸ—ºï¸ ${event.address}</span>
+            <span>🗺️ ${event.address}</span>
             ${
               event.address
-                ? `<button type="button" class="waze-live-btn" data-waze-address="${encodeURIComponent(event.address)}" aria-label="× ×™×•×•×˜ ×‘-Waze">
+                ? `<button type="button" class="waze-live-btn" data-waze-address="${encodeURIComponent(event.address)}" aria-label="ניווט ב-Waze">
               <i class="fa-brands fa-waze"></i>
-              <span>× ×™×•×•×˜</span>
+              <span>ניווט</span>
             </button>`
                 : ""
             }
           </div>
-          ${event.eventNote ? `<div class="text-purple-200/90 text-xs mt-1">ðŸ’¡ ${escapeHtmlAttr(event.eventNote)}</div>` : ""}
+          ${event.eventNote ? `<div class="text-purple-200/90 text-xs mt-1">💡 ${escapeHtmlAttr(event.eventNote)}</div>` : ""}
         </div>
         ${
           !isFamily && !isPastEvent
             ? `
         <div class="grid grid-cols-3 gap-2 mt-4">
-          <button type="button" class="rsvp-btn ${rsvpClass(myVote, "yes")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="yes">×ž×’×™×¢ ðŸ‘</button>
-          <button type="button" class="rsvp-btn ${rsvpClass(myVote, "maybe")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="maybe">××•×œ×™ ðŸ¤”</button>
-          <button type="button" class="rsvp-btn ${rsvpClass(myVote, "no")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="no">×œ× ×ž×’×™×¢ ðŸ‘Ž</button>
+          <button type="button" class="rsvp-btn ${rsvpClass(myVote, "yes")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="yes">מגיע 👍</button>
+          <button type="button" class="rsvp-btn ${rsvpClass(myVote, "maybe")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="maybe">אולי 🤔</button>
+          <button type="button" class="rsvp-btn ${rsvpClass(myVote, "no")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="no">לא מגיע 👎</button>
         </div>`
             : ""
         }
@@ -1734,17 +1734,17 @@ function renderEvents() {
             ? `<div class="mt-4 pt-4 border-t border-white/10">
           ${
             event.hideGuests && !isFamily
-              ? `<div class="text-white/40 text-sm">××™×©×•×¨×™ ×”×”×’×¢×” ×ž×•×¡×ª×¨×™× ðŸ”’</div>`
+              ? `<div class="text-white/40 text-sm">אישורי ההגעה מוסתרים 🔒</div>`
               : `
           <div class="rsvp-summary-row text-sm">
             <div class="flex gap-4 flex-wrap rsvp-summary-counts">
-            <div class="text-green-300">×ž×’×™×¢×™×: ${yes}</div>
-            <div class="text-yellow-300">××•×œ×™: ${maybe}</div>
-            <div class="text-red-300">×œ× ×ž×’×™×¢×™×: ${no}</div>
+            <div class="text-green-300">מגיעים: ${yes}</div>
+            <div class="text-yellow-300">אולי: ${maybe}</div>
+            <div class="text-red-300">לא מגיעים: ${no}</div>
             </div>
             ${
               isFamily
-                ? `<button type="button" class="hide-rsvp-btn" data-toggle-hide-id="${event.id}" title="×”×¡×ª×¨ ×ž×ž×©×ª×ž×©×™× ××—×¨×™×" aria-label="×”×¡×ª×¨ ×ª×•×›×Ÿ ×ž×ž×©×ª×ž×©×™× ××—×¨×™×">
+                ? `<button type="button" class="hide-rsvp-btn" data-toggle-hide-id="${event.id}" title="הסתר ממשתמשים אחרים" aria-label="הסתר תוכן ממשתמשים אחרים">
                     <i class="fa-solid fa-eye-slash"></i>
                   </button>`
                 : ""
@@ -1753,7 +1753,7 @@ function renderEvents() {
           }
           ${
             isFamily && event.hideGuests
-              ? `<div class="text-[12px] text-purple-200/85 mt-2">×ª×•×›×Ÿ ×–×” ×™×•×¡×ª×¨ ×ž×ž×©×ª×ž×©×™× ××—×¨×™×</div>`
+              ? `<div class="text-[12px] text-purple-200/85 mt-2">תוכן זה יוסתר ממשתמשים אחרים</div>`
               : ""
           }
         </div>`
@@ -1761,19 +1761,19 @@ function renderEvents() {
         }
         ${
           !isOwnerEvent && isPastEvent
-            ? `<button type="button" class="w-full mt-3 rounded-xl bg-white/10 p-2 text-sm font-bold" data-quick-credit-event="${event.id}">×”×•×¡×¤×ª ×§×¨×“×™×˜ ×œ××™×¨×•×¢ ×–×”</button>`
+            ? `<button type="button" class="w-full mt-3 rounded-xl bg-white/10 p-2 text-sm font-bold" data-quick-credit-event="${event.id}">הוספת קרדיט לאירוע זה</button>`
             : ""
         }
         ${
           isPastEvent
             ? `<div class="mt-3 rounded-xl bg-white/5 border border-white/10 p-2">
-                <div class="text-xs text-white/70 mb-1">×§×¨×“×™×˜×™× ×œ××™×¨×•×¢ ×©×”×ª×§×™×™×</div>
+                <div class="text-xs text-white/70 mb-1">קרדיטים לאירוע שהתקיים</div>
                 ${
                   eventRecommendations.length
                     ? eventRecommendations
-                        .map((c) => `<div class="text-xs text-white/85">${c.professionalName || "×¡×¤×§"} â€¢ ${c.note || "×œ×œ× ×”×¢×¨×”"}</div>`)
+                        .map((c) => `<div class="text-xs text-white/85">${c.professionalName || "ספק"} • ${c.note || "ללא הערה"}</div>`)
                         .join("")
-                    : '<div class="text-xs text-white/50">×¢×“×™×™×Ÿ ××™×Ÿ ×§×¨×“×™×˜×™× ×œ××™×¨×•×¢ ×–×”</div>'
+                    : '<div class="text-xs text-white/50">עדיין אין קרדיטים לאירוע זה</div>'
                 }
               </div>`
             : ""
@@ -1811,19 +1811,19 @@ async function vote(eventId, status) {
     console.error(err);
     delete event.rsvp[currentUser.id];
     renderEvents();
-    alert("×œ× ×”×¦×œ×—× ×• ×œ×©×ž×•×¨ ××ª ×”×ª×©×•×‘×”. × ×¡×• ×©×•×‘.");
+    alert("לא הצלחנו לשמור את התשובה. נסו שוב.");
   }
 }
 
-// â”€â”€â”€ ×œ×•×— ×©× ×” â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── לוח שנה ───────────────────────────────────────────────
 function renderCalendar() {
   const now = new Date();
   const month = calendarCursor.getMonth();
   const year = calendarCursor.getFullYear();
   const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const monthNames = ["×™× ×•××¨", "×¤×‘×¨×•××¨", "×ž×¨×¥", "××¤×¨×™×œ", "×ž××™", "×™×•× ×™", "×™×•×œ×™", "××•×’×•×¡×˜", "×¡×¤×˜×ž×‘×¨", "××•×§×˜×•×‘×¨", "× ×•×‘×ž×‘×¨", "×“×¦×ž×‘×¨"];
+  const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
   const days = new Date(year, month + 1, 0).getDate();
-  const weekdays = ["×", "×‘", "×’", "×“", "×”", "×•", "×©"];
+  const weekdays = ["א", "ב", "ג", "ד", "ה", "ו", "ש"];
 
   const cells = Array.from({ length: days }, (_, i) => {
     const day = i + 1;
@@ -1842,7 +1842,7 @@ function renderCalendar() {
                     )}" data-calendar-event-id="${e.id}">${e.girlName}</button>`
                 )
                 .join("")
-            : `<div class="calendar-no-event">××™×Ÿ ××™×¨×•×¢×™×</div>`
+            : `<div class="calendar-no-event">אין אירועים</div>`
         }
       </div>`;
   }).join("");
@@ -1851,13 +1851,13 @@ function renderCalendar() {
     <div class="glass rounded-2xl p-2 mb-3">
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-1">
-          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="year-prev">×©× ×” -</button>
-          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="month-prev">×—×•×“×© -</button>
+          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="year-prev">שנה -</button>
+          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="month-prev">חודש -</button>
         </div>
         <div class="text-sm font-black">${monthNames[month]} ${year}</div>
         <div class="flex items-center gap-1">
-          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="month-next">×—×•×“×© +</button>
-          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="year-next">×©× ×” +</button>
+          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="month-next">חודש +</button>
+          <button type="button" class="rounded-xl bg-white/10 border border-white/10 px-2 py-1 text-xs" data-cal-nav="year-next">שנה +</button>
         </div>
       </div>
     </div>
@@ -1875,7 +1875,7 @@ function calendarGirlColorClass(girlName) {
   return `${palette[Math.abs(hash) % palette.length]} text-white`;
 }
 
-// â”€â”€â”€ ×”×•×“×¢×•×ª â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── הודעות ────────────────────────────────────────────────
 function bindMessages() {
   document.getElementById("publishMessageBtn").addEventListener("click", publishMessage);
 }
@@ -1888,7 +1888,7 @@ async function publishMessage() {
   const msgId = crypto.randomUUID();
 
   try {
-    setSyncStatus("×©×•×œ×— ×”×•×“×¢×”...");
+    setSyncStatus("שולח הודעה...");
     await Api.createMessage({
       id: msgId,
       userName: currentUser.parentName,
@@ -1898,7 +1898,7 @@ async function publishMessage() {
     await syncFromServer();
   } catch (err) {
     console.error(err);
-    alert("×œ× ×”×¦×œ×—× ×• ×œ×¤×¨×¡× ××ª ×”×”×•×“×¢×”. × ×¡×• ×©×•×‘.");
+    alert("לא הצלחנו לפרסם את ההודעה. נסו שוב.");
     setSyncStatus("");
   }
 }
@@ -1918,10 +1918,10 @@ function renderMessages() {
     </div>`
         )
         .join("")
-    : '<div class="text-center text-white/40 text-sm">×¢×“×™×™×Ÿ ××™×Ÿ ×”×•×“×¢×•×ª</div>';
+    : '<div class="text-center text-white/40 text-sm">עדיין אין הודעות</div>';
 }
 
-// â”€â”€â”€ ×§×¨×“×™×˜×™× â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── קרדיטים ───────────────────────────────────────────────
 function bindCredits() {
   document.getElementById("creditsTab").addEventListener("click", async (e) => {
     const boardDelBtn = e.target.closest("[data-board-delete-credit-id]");
@@ -2145,18 +2145,18 @@ function renderCredits() {
       <div class="glass rounded-[28px] credit-home-shell">
         <div class="credit-home-grid">
           <button type="button" data-credit-screen="guest" class="credit-home-card credit-home-card-guest">
-            <span class="credit-home-icon">ðŸ’</span>
-            <span class="credit-home-title">×¤×¨×’×Ÿ ×œ××™×¨×•×¢</span>
-            <span class="credit-home-sub">×“×¨×’/×™ × ×•×ª× ×™ ×©×™×¨×•×ª</span>
+            <span class="credit-home-icon">💝</span>
+            <span class="credit-home-title">פרגן לאירוע</span>
+            <span class="credit-home-sub">דרג/י נותני שירות</span>
           </button>
           <button type="button" data-credit-screen="owner" class="credit-home-card credit-home-card-owner">
-            <span class="credit-home-icon">ðŸŒŸ</span>
-            <span class="credit-home-title">×”×ž×œ×¦×ª ×‘×¢×œ/×ª ××™×¨×•×¢</span>
-            <span class="credit-home-sub">× ×•×ª× ×™ ×©×™×¨×•×ª ×©×œ×™</span>
+            <span class="credit-home-icon">🌟</span>
+            <span class="credit-home-title">המלצת בעל/ת אירוע</span>
+            <span class="credit-home-sub">נותני שירות שלי</span>
           </button>
         </div>
         <button type="button" data-credit-screen="board" class="credit-home-board">
-          ×œ×•×— ×§×¨×“×™×˜×™× <span class="credit-home-board-icon">ðŸ“Š</span>
+          לוח קרדיטים <span class="credit-home-board-icon">📊</span>
         </button>
       </div>
     `;
@@ -2184,18 +2184,18 @@ function renderGuestCreditsForm() {
       ${pastHint}
       <select id="creditEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">
         ${options}
-        <option value="__external__">××™×¨×•×¢ ××—×¨ / ×”×•×¡×¤×” ×™×“× ×™×ª</option>
+        <option value="__external__">אירוע אחר / הוספה ידנית</option>
       </select>
       <div id="creditOwnEventHint" class="credit-info-hint credit-info-hint-warn hidden" role="status"></div>
-      <input id="creditManualEvent" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="×©× ××™×¨×•×¢ ×—×™×¦×•× ×™" />
-      <div class="text-xs text-white/70">×“×¨×’/×™ ×œ×¤×™ ×¡×•×’ ×©×™×¨×•×ª â€” ×’× ×‘×œ×™ ×©× × ×•×ª×Ÿ ×¡×¤×¦×™×¤×™</div>
+      <input id="creditManualEvent" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם אירוע חיצוני" />
+      <div class="text-xs text-white/70">דרג/י לפי סוג שירות — גם בלי שם נותן ספציפי</div>
       <div id="guestProvidersWrap" class="space-y-2"></div>
       <div id="guestGeneralPraiseSection" class="border-t border-white/10 pt-3 mt-2">
-        <div class="text-sm font-black text-center mb-2">âœ¨ ×¤×¨×’×•×Ÿ ×›×œ×œ×™ ×¢×œ ×”××™×¨×•×¢ âœ¨</div>
+        <div class="text-sm font-black text-center mb-2">✨ פרגון כללי על האירוע ✨</div>
         ${renderGlowStarRating("guestEventScoreWrap", guestEventScoreSelected)}
-        <textarea id="guestCreditNote" class="w-full mt-2 rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[72px]" placeholder="×”×¢×¨×” (××•×¤×¦×™×•× ×œ×™)">${escapeHtmlAttr(guestCreditNoteDraft)}</textarea>
+        <textarea id="guestCreditNote" class="w-full mt-2 rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[72px]" placeholder="הערה (אופציונלי)">${escapeHtmlAttr(guestCreditNoteDraft)}</textarea>
       </div>
-      <button type="button" id="publishGuestCreditBtn" class="w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">×¤×¨×¡×•×</button>
+      <button type="button" id="publishGuestCreditBtn" class="w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">פרסום</button>
     </div>`
   );
   const creditEventSelect = document.getElementById("creditEventId");
@@ -2253,7 +2253,7 @@ function renderOwnerCreditsForm() {
     tab.innerHTML = `
       ${creditsTopNav("owner")}
       <div class="glass rounded-[28px] p-4 text-center text-sm text-white/70">
-        ×œ× × ×ž×¦× ××™×¨×•×¢ ×‘×‘×¢×œ×•×ª×›×. ×¦×¨×• ×§×•×“× ××™×¨×•×¢ ×›×“×™ ×œ×”×ž×œ×™×¥ ×¢×œ × ×•×ª× ×™ ×”×©×™×¨×•×ª.
+        לא נמצא אירוע בבעלותכם. צרו קודם אירוע כדי להמליץ על נותני השירות.
       </div>
     `;
     return;
@@ -2266,28 +2266,28 @@ function renderOwnerCreditsForm() {
     "owner",
     `
     <div class="glass rounded-[28px] p-4 space-y-2">
-      <div class="rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">×”××™×¨×•×¢ ×©×œ ${myEvent ? myEvent.girlName : "â€”"}${dateText ? ` â€¢ ${dateText}` : ""}</div>
+      <div class="rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">האירוע של ${myEvent ? myEvent.girlName : "—"}${dateText ? ` • ${dateText}` : ""}</div>
       <input id="creditEventId" type="hidden" value="${myEvent ? myEvent.id : ""}" />
       ${
         preEventOnly
-          ? `<div class="rounded-xl bg-yellow-500/10 border border-yellow-400/30 p-2 text-xs text-yellow-100 text-center">×”××™×¨×•×¢ ×¢×•×“ ×œ× ×”×ª×§×™×™× â€” ×‘××¤×©×¨×•×ª×›× ×œ×‘×—×•×¨ × ×•×ª× ×™ ×©×™×¨×•×ª ×©× ×™×ª×Ÿ ×œ×”×ž×œ×™×¥ ×¢×œ×™×”× ×›×‘×¨ ×¢×›×©×™×• ×•×œ×“×¨×’ ××•×ª×.</div>`
-          : `<div class="text-xs text-white/70">×‘×—×¨/×™ ×§×˜×’×•×¨×™×” â†’ ×”×•×¡×™×¤/×™ × ×•×ª×Ÿ ×©×™×¨×•×ª â†’ ×“×¨×’/×™ ×‘×›×•×›×‘×™×</div>`
+          ? `<div class="rounded-xl bg-yellow-500/10 border border-yellow-400/30 p-2 text-xs text-yellow-100 text-center">האירוע עוד לא התקיים — באפשרותכם לבחור נותני שירות שניתן להמליץ עליהם כבר עכשיו ולדרג אותם.</div>`
+          : `<div class="text-xs text-white/70">בחר/י קטגוריה → הוסיפ/י נותן שירות → דרג/י בכוכבים</div>`
       }
       <div id="ownerProvidersWrap" class="space-y-3"></div>
     </div>
     <div id="ownerQuickAddModal" class="hidden fixed inset-0 z-[80] items-center justify-center bg-black/70 p-4">
       <div class="glass rounded-[24px] p-4 w-full max-w-md space-y-2 relative">
-        <button type="button" data-owner-quick-close class="screen-exit-btn screen-exit-in-modal" aria-label="×¡×’×™×¨×” ×‘×œ×™ ×©×ž×™×¨×”"><i class="fa-solid fa-xmark"></i></button>
-        <div id="ownerQuickAddTitle" class="font-black text-sm pt-1">×”×•×¡×¤×ª × ×•×ª×Ÿ ×©×™×¨×•×ª â€” <span id="ownerQuickAddCategoryLabel"></span></div>
+        <button type="button" data-owner-quick-close class="screen-exit-btn screen-exit-in-modal" aria-label="סגירה בלי שמירה"><i class="fa-solid fa-xmark"></i></button>
+        <div id="ownerQuickAddTitle" class="font-black text-sm pt-1">הוספת נותן שירות — <span id="ownerQuickAddCategoryLabel"></span></div>
         <input id="ownerQuickAddCategory" type="hidden" />
-        <input id="ownerQuickAddName" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="×©× × ×•×ª×Ÿ ×”×©×™×¨×•×ª *" />
-        <input id="ownerQuickAddPhone" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="×˜×œ×¤×•×Ÿ" />
-        <input id="ownerQuickAddEmail" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder='×“×•×"×œ' />
-        <input id="ownerQuickAddCity" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="×¢×™×¨" />
-        <textarea id="ownerQuickAddDetails" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[72px]" placeholder="×¤×¨×˜×™× × ×•×¡×¤×™×"></textarea>
+        <input id="ownerQuickAddName" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם נותן השירות *" />
+        <input id="ownerQuickAddPhone" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="טלפון" />
+        <input id="ownerQuickAddEmail" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder='דוא"ל' />
+        <input id="ownerQuickAddCity" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="עיר" />
+        <textarea id="ownerQuickAddDetails" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm min-h-[72px]" placeholder="פרטים נוספים"></textarea>
         <div class="flex gap-2 pt-1">
-          <button type="button" data-owner-quick-save class="flex-1 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 p-2 text-sm font-black">×©×ž×™×¨×”</button>
-          <button type="button" data-owner-quick-close class="flex-1 rounded-xl bg-white/10 border border-white/10 p-2 text-sm">×‘×™×˜×•×œ</button>
+          <button type="button" data-owner-quick-save class="flex-1 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 p-2 text-sm font-black">שמירה</button>
+          <button type="button" data-owner-quick-close class="flex-1 rounded-xl bg-white/10 border border-white/10 p-2 text-sm">ביטול</button>
         </div>
       </div>
     </div>`
@@ -2314,9 +2314,9 @@ function renderCreditsBoard() {
   const tab = document.getElementById("creditsTab");
   const viewTabs = `
     <div class="board-view-tabs">
-      <button type="button" class="board-view-tab ${creditBoardView === "latest" ? "is-active" : ""}" data-board-view="latest">ðŸ• ××—×¨×•× ×™×</button>
-      <button type="button" class="board-view-tab ${creditBoardView === "event" ? "is-active" : ""}" data-board-view="event">ðŸ“… ×œ×¤×™ ××™×¨×•×¢</button>
-      <button type="button" class="board-view-tab ${creditBoardView === "category" ? "is-active" : ""}" data-board-view="category">ðŸ·ï¸ ×œ×¤×™ ×§×˜×’×•×¨×™×”</button>
+      <button type="button" class="board-view-tab ${creditBoardView === "latest" ? "is-active" : ""}" data-board-view="latest">🕐 אחרונים</button>
+      <button type="button" class="board-view-tab ${creditBoardView === "event" ? "is-active" : ""}" data-board-view="event">📅 לפי אירוע</button>
+      <button type="button" class="board-view-tab ${creditBoardView === "category" ? "is-active" : ""}" data-board-view="category">🏷️ לפי קטגוריה</button>
     </div>`;
   let feed = "";
   if (creditBoardView === "latest") feed = renderBoardLatestView();
@@ -2353,7 +2353,7 @@ function praiseableGuestEvents() {
 
 function guestPastEventsHintHtml() {
   if (praiseableGuestEvents().length) return "";
-  return `<div class="credit-info-hint credit-info-hint-warn" role="status"><i class="fa-solid fa-circle-exclamation shrink-0 mt-0.5"></i><span>××™×Ÿ ××™×¨×•×¢×™× ×©×”×ª×§×™×™×ž×• ×¢×“×™×™×Ÿ</span></div>`;
+  return `<div class="credit-info-hint credit-info-hint-warn" role="status"><i class="fa-solid fa-circle-exclamation shrink-0 mt-0.5"></i><span>אין אירועים שהתקיימו עדיין</span></div>`;
 }
 
 function updateGuestOwnEventHint() {
@@ -2362,7 +2362,7 @@ function updateGuestOwnEventHint() {
   if (!hint || !select) return;
   const event = events.find((e) => String(e.id) === String(select.value));
   if (event && isOwnEvent(event)) {
-    hint.textContent = "×œ× × ×™×ª×Ÿ ×œ×¤×¨×’×Ÿ ×œ××™×¨×•×¢ ×©×œ×›× â€” ×”×©×ª×ž×©×• ×‘×”×ž×œ×¦×ª ×‘×¢×œ/×ª ××™×¨×•×¢.";
+    hint.textContent = "לא ניתן לפרגן לאירוע שלכם — השתמשו בהמלצת בעל/ת אירוע.";
     hint.classList.remove("hidden");
   } else {
     hint.classList.add("hidden");
@@ -2402,12 +2402,12 @@ async function removeBoardPraise(creditId) {
   try {
     await deleteCreditById(creditId);
     boardPraiseKey = "";
-    showToast("×”×¤×¨×’×•×Ÿ ×”×•×¡×¨");
+    showToast("הפרגון הוסר");
     await syncFromServer({ silent: true });
     renderCredits();
   } catch (err) {
     console.error(err);
-    showToast("×œ× ×”×¦×œ×—× ×• ×œ×”×¡×™×¨ ××ª ×”×¤×¨×’×•×Ÿ");
+    showToast("לא הצלחנו להסיר את הפרגון");
   }
 }
 
@@ -2418,48 +2418,48 @@ function boardFeedSummaryHtml() {
   const n = list.length;
   const label =
     n === 0
-      ? "×¢×“×™×™×Ÿ ××™×Ÿ ×¤×¨×’×•× ×™× ×©×¤×•×¨×¡×ž×•"
+      ? "עדיין אין פרגונים שפורסמו"
       : n === 1
-        ? "×¤×¨×’×•×Ÿ ××—×“ ×‘×œ×•×—"
-        : `${n} ×¤×¨×’×•× ×™× ×‘×œ×•×—`;
-  return `<div class="board-feed-summary">${label}${providers ? ` â€¢ ${providers} × ×•×ª× ×™ ×©×™×¨×•×ª ×‘×¡×¤×¨×™×™×”` : ""}</div>`;
+        ? "פרגון אחד בלוח"
+        : `${n} פרגונים בלוח`;
+  return `<div class="board-feed-summary" dir="rtl">${label}${providers ? ` • ${providers} נותני שירות בספרייה` : ""}</div>`;
 }
 
 function boardFeedEmptyHtml() {
   const providers = aggregateAllProviders().length;
   if (providers) {
-    return `<div class="credit-info-hint credit-info-hint-info text-center"><i class="fa-solid fa-circle-info shrink-0"></i><span>×¢×“×™×™×Ÿ ××™×Ÿ ×¤×¨×’×•× ×™× ×©×¤×•×¨×¡×ž×•. ××¤×©×¨ ×œ×¤×¨×’×Ÿ ×ž×›×¤×ª×•×¨ <strong>×ª×Ÿ ×¤×¨×’×•×Ÿ</strong> ×‘×¡×¤×¨×™×™×ª × ×•×ª× ×™ ×”×©×™×¨×•×ª ×œ×ž×˜×”.</span></div>`;
+    return `<div class="credit-info-hint credit-info-hint-info text-center" dir="rtl"><i class="fa-solid fa-circle-info shrink-0"></i><span>עדיין אין פרגונים שפורסמו. אפשר לפרגן מכפתור <strong>תן פרגון</strong> בספריית נותני השירות למטה.</span></div>`;
   }
-  return '<div class="text-center text-white/40 text-sm py-4">×¢×“×™×™×Ÿ ××™×Ÿ × ×ª×•× ×™ ×§×¨×“×™×˜×™×</div>';
+  return '<div class="text-center text-white/40 text-sm py-4" dir="rtl">עדיין אין נתוני קרדיטים</div>';
 }
 
 function creditScoreLabel(credit) {
   const values = Object.values(credit.ratings || {})
     .map(Number)
     .filter((n) => Number.isFinite(n) && n > 0);
-  if (!values.length) return credit.sentiment === "like" ? "×¤×¨×’×•×Ÿ â™¥" : "";
+  if (!values.length) return credit.sentiment === "like" ? "פרגון ♥" : "";
   const avg = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
-  return `${avg} â˜…`;
+  return `${avg} ★`;
 }
 
 function creditFeedCard(c) {
   const event = events.find((e) => String(e.id) === String(c.eventId));
-  const eventLabel = event ? `×”××™×¨×•×¢ ×©×œ ${event.girlName}` : manualEventLabelFromCredit(c);
-  const provider = c.professionalName ? `${serviceIcon(c.category)} ${c.professionalName}` : "×¤×¨×’×•×Ÿ ×›×œ×œ×™";
+  const eventLabel = event ? `האירוע של ${event.girlName}` : manualEventLabelFromCredit(c);
+  const provider = c.professionalName ? `${serviceIcon(c.category)} ${c.professionalName}` : "פרגון כללי";
   const score = creditScoreLabel(c);
   const dateText = c.createdAt ? new Date(c.createdAt).toLocaleDateString("he-IL") : "";
-  const by = c.ownerName || "××•×¨×—/×ª";
+  const by = c.ownerName || "אורח/ת";
   return `
     <div class="board-feed-card">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
           <div class="font-bold text-sm truncate">${provider}</div>
-          <div class="text-[11px] text-white/60 mt-0.5">${c.category || "×›×œ×œ×™"} â€¢ ${eventLabel}</div>
+          <div class="text-[11px] text-white/60 mt-0.5">${c.category || "כללי"} • ${eventLabel}</div>
         </div>
         ${score ? `<div class="text-yellow-300 text-sm font-black shrink-0">${score}</div>` : ""}
       </div>
       ${c.note ? `<div class="text-xs text-white/75 mt-2">${escapeHtmlAttr(c.note)}</div>` : ""}
-      <div class="board-feed-meta">${by}${dateText ? ` â€¢ ${dateText}` : ""}</div>
+      <div class="board-feed-meta">${by}${dateText ? ` • ${dateText}` : ""}</div>
     </div>`;
 }
 
@@ -2481,7 +2481,7 @@ function renderBoardEventView() {
   return Array.from(byEvent.entries())
     .map(([eventId, items]) => {
       const event = events.find((e) => String(e.id) === eventId);
-      const title = event ? `×”××™×¨×•×¢ ×©×œ ${event.girlName}` : manualEventLabelFromCredit({ eventId });
+      const title = event ? `האירוע של ${event.girlName}` : manualEventLabelFromCredit({ eventId });
       return `
         <div class="glass rounded-2xl p-3">
           <div class="board-group-title">${title} (${items.length})</div>
@@ -2496,7 +2496,7 @@ function renderBoardCategoryView() {
   if (!list.length) return boardFeedEmptyHtml();
   const byCat = new Map();
   list.forEach((c) => {
-    const key = c.category || "×›×œ×œ×™";
+    const key = c.category || "כללי";
     if (!byCat.has(key)) byCat.set(key, []);
     byCat.get(key).push(c);
   });
@@ -2519,7 +2519,7 @@ function pastEventsForProviderPraise(name, category) {
 function buildPastEventSelectOptionsForProvider(name, category) {
   const eligible = pastEventsForProviderPraise(name, category);
   if (!eligible.length) return "";
-  return `<option value="">×‘×—×¨ ××™×¨×•×¢ ×©×”×ª×§×™×™×</option>${eligible.map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`).join("")}`;
+  return `<option value="">בחר אירוע שהתקיים</option>${eligible.map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`).join("")}`;
 }
 
 function buildCreditEventSelectOptions() {
@@ -2527,7 +2527,7 @@ function buildCreditEventSelectOptions() {
   const upcoming = events
     .filter((e) => !isEventPastByDate(e.date) && !isOwnEvent(e))
     .sort((a, b) => new Date(`${a.date}T${a.time || "00:00"}`) - new Date(`${b.date}T${b.time || "00:00"}`));
-  let html = `<option value="">×‘×—×¨ ××™×¨×•×¢</option>`;
+  let html = `<option value="">בחר אירוע</option>`;
   html += past.map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`).join("");
   html += upcoming.map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`).join("");
   return html;
@@ -2545,14 +2545,14 @@ function bindBoardPraiseSelects() {
   });
 }
 
-// ×¡×¤×¨×™×™×ª × ×•×ª× ×™ ×©×™×¨×•×ª â€” ×¢× ×¤×¨×’×•×Ÿ ×ž×”×™×¨ ×ž×”×œ×•×—
+// ספריית נותני שירות — עם פרגון מהיר מהלוח
 function renderProvidersDirectory() {
   const providers = aggregateAllProviders();
   if (!providers.length) return "";
   const rows = providers
     .map((p) => {
       const wa = whatsappLink(p.phone);
-      const stars = p.avg === "â€”" ? "" : `â˜… ${p.avg}`;
+      const stars = p.avg === "—" ? "" : `★ ${p.avg}`;
       const key = `${p.name}@@${p.category}`;
       const praiseableEvents = pastEventsForProviderPraise(p.name, p.category);
       const userPraises = findUserBoardPraises(p.name, p.category);
@@ -2567,28 +2567,28 @@ function renderProvidersDirectory() {
       const eventOptions = buildPastEventSelectOptionsForProvider(p.name, p.category);
       const panelNoEventsHint =
         !praiseableEvents.length && hasPastEvents && !isActive
-          ? `<div class="credit-info-hint credit-info-hint-warn mb-2"><i class="fa-solid fa-circle-exclamation shrink-0"></i><span>×¤×¨×’× ×ª× ×œ× ×•×ª×Ÿ ×–×” ×‘×›×œ ×”××™×¨×•×¢×™× ×”×–×ž×™× ×™×</span></div>`
+          ? `<div class="credit-info-hint credit-info-hint-warn mb-2"><i class="fa-solid fa-circle-exclamation shrink-0"></i><span>פרגנתם לנותן זה בכל האירועים הזמינים</span></div>`
           : !hasPastEvents
-            ? `<div class="credit-info-hint credit-info-hint-warn mb-2"><i class="fa-solid fa-circle-exclamation shrink-0"></i><span>××™×Ÿ ××™×¨×•×¢×™× ×©×”×ª×§×™×™×ž×• ×¢×“×™×™×Ÿ</span></div>`
+            ? `<div class="credit-info-hint credit-info-hint-warn mb-2"><i class="fa-solid fa-circle-exclamation shrink-0"></i><span>אין אירועים שהתקיימו עדיין</span></div>`
             : "";
       const praiseStars = [1, 2, 3, 4, 5]
         .map(
           (n) =>
-            `<button type="button" class="provider-star text-lg ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-board-praise-star="${n}" data-board-praise-key="${escapeHtmlAttr(key)}" aria-label="×“×™×¨×•×’ ${n}">â˜…</button>`
+            `<button type="button" class="provider-star text-lg ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-board-praise-star="${n}" data-board-praise-key="${escapeHtmlAttr(key)}" aria-label="דירוג ${n}">★</button>`
         )
         .join("");
       const praiseAction = hasPastEvents
-        ? `<button type="button" class="board-praise-btn ${isActive ? "is-active" : ""}" data-board-praise-toggle="${escapeHtmlAttr(key)}" data-praise-credit-id="${activePraise?.id || ""}" aria-label="×ª×Ÿ ×¤×¨×’×•×Ÿ">${isActive ? "×ª×Ÿ ×¤×¨×’×•×Ÿ âœ“" : "×ª×Ÿ ×¤×¨×’×•×Ÿ"}</button>`
-        : `<button type="button" class="board-praise-btn is-disabled" disabled aria-label="×ª×Ÿ ×¤×¨×’×•×Ÿ">×ª×Ÿ ×¤×¨×’×•×Ÿ</button>`;
+        ? `<button type="button" class="board-praise-btn ${isActive ? "is-active" : ""}" data-board-praise-toggle="${escapeHtmlAttr(key)}" data-praise-credit-id="${activePraise?.id || ""}" aria-label="תן פרגון">${isActive ? "תן פרגון ✓" : "תן פרגון"}</button>`
+        : `<button type="button" class="board-praise-btn is-disabled" disabled aria-label="תן פרגון">תן פרגון</button>`;
       return `
         <div class="provider-dir-row rounded-xl bg-white/5 border border-white/10 p-2 mb-2">
           <div class="min-w-0">
             <div class="font-bold text-sm truncate">${serviceIcon(p.category)} ${p.name}</div>
-            <div class="text-[11px] text-white/55 mt-0.5">${p.category || "× ×•×ª×Ÿ ×©×™×¨×•×ª"}</div>
+            <div class="text-[11px] text-white/55 mt-0.5">${p.category || "נותן שירות"}</div>
             <div class="flex items-center gap-3 mt-2 text-[11px] flex-wrap">
-              <span class="provider-badge">${stars || "××™×Ÿ ×“×™×¨×•×’"}</span>
-              <span class="provider-badge">${p.ratingCount} ×ž×“×¨×’×™×</span>
-              <span class="provider-badge">${p.eventCount} ××™×¨×•×¢×™×</span>
+              <span class="provider-badge">${stars || "אין דירוג"}</span>
+              <span class="provider-badge">${p.ratingCount} מדרגים</span>
+              <span class="provider-badge">${p.eventCount} אירועים</span>
             </div>
             ${
               expanded && !isActive && hasPastEvents
@@ -2596,12 +2596,12 @@ function renderProvidersDirectory() {
                     ${panelNoEventsHint}
                     ${
                       eventOptions
-                        ? `<div class="text-[11px] text-white/60 mb-1">×‘×—×¨/×™ ××™×¨×•×¢ ×•×“×¨×’/×™</div>
+                        ? `<div class="text-[11px] text-white/60 mb-1">בחר/י אירוע ודרג/י</div>
                     <select class="board-praise-event w-full rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs mb-2" data-board-praise-event="${escapeHtmlAttr(key)}">
                       ${eventOptions}
                     </select>
                     <div class="credit-stars-wrap">${praiseStars}</div>
-                    <button type="button" class="w-full mt-2 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 p-2 text-xs font-black" data-board-praise-submit="${escapeHtmlAttr(key)}" data-provider-name="${escapeHtmlAttr(p.name)}" data-provider-category="${escapeHtmlAttr(p.category)}">×¤×¨×¡×•× ×¤×¨×’×•×Ÿ</button>`
+                    <button type="button" class="w-full mt-2 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 p-2 text-xs font-black" data-board-praise-submit="${escapeHtmlAttr(key)}" data-provider-name="${escapeHtmlAttr(p.name)}" data-provider-category="${escapeHtmlAttr(p.category)}">פרסום פרגון</button>`
                         : ""
                     }
                   </div>`
@@ -2613,7 +2613,7 @@ function renderProvidersDirectory() {
             <div class="provider-wa-slot ${wa ? "" : "is-empty"}">
               ${
                 wa
-                  ? `<a href="${wa}" target="_blank" rel="noopener" class="provider-wa-btn" aria-label="×•×•××˜×¡××¤"><i class="fa-brands fa-whatsapp"></i></a>`
+                  ? `<a href="${wa}" target="_blank" rel="noopener" class="provider-wa-btn" aria-label="וואטסאפ"><i class="fa-brands fa-whatsapp"></i></a>`
                   : `<span aria-hidden="true"></span>`
               }
             </div>
@@ -2623,7 +2623,7 @@ function renderProvidersDirectory() {
     .join("");
   return `
     <div class="glass rounded-2xl p-3 mb-3">
-      <div class="font-black text-sm mb-2">ðŸ“’ ×¡×¤×¨×™×™×ª × ×•×ª× ×™ ×©×™×¨×•×ª (${providers.length})</div>
+      <div class="font-black text-sm mb-2">📒 ספריית נותני שירות (${providers.length})</div>
       ${rows}
     </div>
   `;
@@ -2635,20 +2635,20 @@ async function submitBoardPraise(key, providerName, category) {
   const eventId = select?.value || st.eventId;
   const score = st.score || 0;
   if (!eventId) {
-    showToast("×‘×—×¨/×™ ××™×¨×•×¢ ×©×”×ª×§×™×™×");
+    showToast("בחר/י אירוע שהתקיים");
     return;
   }
   if (score <= 0) {
-    showToast("×‘×—×¨/×™ ×“×™×¨×•×’ ×‘×›×•×›×‘×™×");
+    showToast("בחר/י דירוג בכוכבים");
     return;
   }
   const event = events.find((e) => e.id === eventId);
   if (event && isOwnEvent(event)) {
-    showToast("×œ× × ×™×ª×Ÿ ×œ×¤×¨×’×Ÿ ×œ××™×¨×•×¢ ×©×œ×š â€” ×”×©×ª×ž×©/×™ ×‘×”×ž×œ×¦×ª ×‘×¢×œ ××™×¨×•×¢");
+    showToast("לא ניתן לפרגן לאירוע שלך — השתמש/י בהמלצת בעל אירוע");
     return;
   }
   if (userHasPraisedProvider(providerName, category, eventId)) {
-    showToast("×›×‘×¨ ×¤×¨×’× ×ª ×œ× ×•×ª×Ÿ ×©×™×¨×•×ª ×–×” ×‘××™×¨×•×¢ ×”×–×”");
+    showToast("כבר פרגנת לנותן שירות זה באירוע הזה");
     return;
   }
   try {
@@ -2665,30 +2665,30 @@ async function submitBoardPraise(key, providerName, category) {
       createdAt: new Date().toISOString(),
     });
     boardPraiseKey = "";
-    showToast("×”×¤×¨×’×•×Ÿ ×¤×•×¨×¡× âœ“");
+    showToast("הפרגון פורסם ✓");
     await syncFromServer({ silent: true });
     renderCredits();
   } catch (err) {
     console.error(err);
-    showToast("×œ× ×”×¦×œ×—× ×• ×œ×¤×¨×¡×");
+    showToast("לא הצלחנו לפרסם");
   }
 }
 
-// ×¤×× ×œ × ×™×”×•×œ ×§×¨×“×™×˜×™×/×”×ž×œ×¦×•×ª ×‘×ª×•×š ×œ×•×— ×”×§×¨×“×™×˜×™× (×œ×ž× ×”×œ ×‘×œ×‘×“)
+// פאנל ניהול קרדיטים/המלצות בתוך לוח הקרדיטים (למנהל בלבד)
 function renderCreditsAdminManager() {
   if (!currentUser?.isAdmin) return "";
   const all = credits || [];
   if (!all.length) return "";
 
   const row = (c) => {
-    const kind = isOwnerRecommendation(c) ? "×”×ž×œ×¦×”" : isProviderEntry(c) ? "× ×•×ª×Ÿ ×©×™×¨×•×ª" : "×¤×¨×’×•×Ÿ";
+    const kind = isOwnerRecommendation(c) ? "המלצה" : isProviderEntry(c) ? "נותן שירות" : "פרגון";
     return `
       <div class="flex items-center justify-between gap-2 rounded-xl bg-white/5 border border-white/10 p-2 mb-1">
         <label class="flex items-center gap-2 min-w-0 flex-1 cursor-pointer">
           <input type="checkbox" class="credit-board-select exp-select" data-credit-id="${c.id}" />
-          <span class="text-sm truncate">${adminCreditLabel(c)} <span class="text-white/40">â€¢ ${kind}</span></span>
+          <span class="text-sm truncate">${adminCreditLabel(c)} <span class="text-white/40">• ${kind}</span></span>
         </label>
-        <button type="button" class="event-action-btn delete compact" data-board-delete-credit-id="${c.id}" aria-label="×ž×—×™×§×”">
+        <button type="button" class="event-action-btn delete compact" data-board-delete-credit-id="${c.id}" aria-label="מחיקה">
           <i class="fa-solid fa-trash"></i>
         </button>
       </div>`;
@@ -2697,10 +2697,10 @@ function renderCreditsAdminManager() {
   return `
     <div class="glass rounded-2xl p-3 mt-4 border border-red-400/20">
       <div class="flex items-center justify-between mb-2">
-        <div class="font-black text-sm">× ×™×”×•×œ ×§×¨×“×™×˜×™× (${all.length})</div>
+        <div class="font-black text-sm">ניהול קרדיטים (${all.length})</div>
         <div class="flex gap-2">
-          <button type="button" id="boardSelectAllBtn" class="rounded-xl bg-white/10 border border-white/10 px-3 py-1.5 text-xs font-bold">×¡×ž×Ÿ ×”×›×œ</button>
-          <button type="button" id="boardDeleteSelectedBtn" class="rounded-xl bg-red-500/20 px-3 py-1.5 text-xs font-bold">×ž×—×§ × ×‘×—×¨×™×</button>
+          <button type="button" id="boardSelectAllBtn" class="rounded-xl bg-white/10 border border-white/10 px-3 py-1.5 text-xs font-bold">סמן הכל</button>
+          <button type="button" id="boardDeleteSelectedBtn" class="rounded-xl bg-red-500/20 px-3 py-1.5 text-xs font-bold">מחק נבחרים</button>
         </div>
       </div>
       ${all.map(row).join("")}
@@ -2714,7 +2714,7 @@ function toggleSelectAllCreditsBoard() {
   const allChecked = boxes.every((b) => b.checked);
   boxes.forEach((b) => (b.checked = !allChecked));
   const btn = document.getElementById("boardSelectAllBtn");
-  if (btn) btn.textContent = allChecked ? "×¡×ž×Ÿ ×”×›×œ" : "× ×§×” ×‘×—×™×¨×”";
+  if (btn) btn.textContent = allChecked ? "סמן הכל" : "נקה בחירה";
 }
 
 async function deleteSelectedCreditsBoard() {
@@ -2723,15 +2723,15 @@ async function deleteSelectedCreditsBoard() {
     (b) => b.dataset.creditId
   );
   if (!ids.length) {
-    showToast("×œ× × ×‘×—×¨×• ×¤×¨×™×˜×™×");
+    showToast("לא נבחרו פריטים");
     return;
   }
-  if (!confirm(`×œ×ž×—×•×§ ${ids.length} ×¤×¨×™×˜×™×?`)) return;
+  if (!confirm(`למחוק ${ids.length} פריטים?`)) return;
   const list = (credits || []).filter((c) => ids.includes(c.id));
   await deletePerItem(
     list,
     (c) => Api.deleteCredit(c.id),
-    "×¤×¨×™×˜×™×",
+    "פריטים",
     () => list.forEach((c) => purgeCreditLocally(c.id))
   );
 }
@@ -2739,7 +2739,7 @@ async function deleteSelectedCreditsBoard() {
 function creditsScreenWrap(active, bodyHtml) {
   return `
     <div class="credit-screen-wrap relative">
-      <button type="button" data-credit-exit class="screen-exit-btn" aria-label="×™×¦×™××” ×‘×œ×™ ×©×ž×™×¨×”"><i class="fa-solid fa-xmark"></i></button>
+      <button type="button" data-credit-exit class="screen-exit-btn" aria-label="יציאה בלי שמירה"><i class="fa-solid fa-xmark"></i></button>
       ${creditsTopNav(active)}
       ${bodyHtml}
     </div>`;
@@ -2768,9 +2768,9 @@ function findDuplicateProvider(eventId, category, name) {
 function creditsTopNav(active) {
   return `
     <div class="glass rounded-2xl p-2 mb-3 grid grid-cols-3 gap-2">
-      <button type="button" data-credit-screen="guest" class="rounded-xl p-2 text-xs ${active === "guest" ? "bg-pink-500/30 border border-pink-400/50" : "bg-white/10"}">×¤×¨×’×Ÿ ×œ××™×¨×•×¢</button>
-      <button type="button" data-credit-screen="owner" class="rounded-xl p-2 text-xs ${active === "owner" ? "bg-pink-500/30 border border-pink-400/50" : "bg-white/10"}">×”×ž×œ×¦×ª ×‘×¢×œ ××™×¨×•×¢</button>
-      <button type="button" data-credit-screen="board" class="rounded-xl p-2 text-xs ${active === "board" ? "bg-pink-500/30 border border-pink-400/50" : "bg-white/10"}">×œ×•×— ×§×¨×“×™×˜×™×</button>
+      <button type="button" data-credit-screen="guest" class="rounded-xl p-2 text-xs ${active === "guest" ? "bg-pink-500/30 border border-pink-400/50" : "bg-white/10"}">פרגן לאירוע</button>
+      <button type="button" data-credit-screen="owner" class="rounded-xl p-2 text-xs ${active === "owner" ? "bg-pink-500/30 border border-pink-400/50" : "bg-white/10"}">המלצת בעל אירוע</button>
+      <button type="button" data-credit-screen="board" class="rounded-xl p-2 text-xs ${active === "board" ? "bg-pink-500/30 border border-pink-400/50" : "bg-white/10"}">לוח קרדיטים</button>
     </div>
   `;
 }
@@ -2784,7 +2784,7 @@ function onCreditEventSelectionChange() {
 }
 
 function renderCreditTagsInputs() {
-  return ["×ž×§×¦×•×¢×™×•×ª", "×©×™×¨×•×ª", "××“×™×‘×•×ª"]
+  return ["מקצועיות", "שירות", "אדיבות"]
     .map(
       (tag) => `
         <button type="button" class="credit-tag-btn rounded-lg border border-white/10 bg-white/5 p-2 flex items-center gap-1 justify-center" data-credit-tag="${tag}">
@@ -2821,7 +2821,7 @@ function renderGlowStarRating(containerId, selectedScore) {
   const stars = [1, 2, 3, 4, 5]
     .map(
       (n) =>
-        `<button type="button" class="glow-star ${selectedScore >= n ? "is-on" : ""}" data-credit-score="${n}" aria-label="×“×™×¨×•×’ ${n}">â˜…</button>`
+        `<button type="button" class="glow-star ${selectedScore >= n ? "is-on" : ""}" data-credit-score="${n}" aria-label="דירוג ${n}">★</button>`
     )
     .join("");
   const pct = Math.max(0, Math.min(5, selectedScore)) * 20;
@@ -2848,7 +2848,7 @@ function updateGlowStarRating(containerId, selectedScore) {
 
 function renderStarRating(containerId, starClass, dataAttr, selectedScore) {
   const stars = [1, 2, 3, 4, 5]
-    .map((n) => `<button type="button" class="${starClass} text-xl ${selectedScore >= n ? "text-yellow-300" : "text-white/35"}" ${dataAttr}="${n}" aria-label="×“×™×¨×•×’ ${n}">â˜…</button>`)
+    .map((n) => `<button type="button" class="${starClass} text-xl ${selectedScore >= n ? "text-yellow-300" : "text-white/35"}" ${dataAttr}="${n}" aria-label="דירוג ${n}">★</button>`)
     .join("");
   return `<div id="${containerId}" class="credit-stars-wrap credit-main-stars">${stars}</div>`;
 }
@@ -2856,17 +2856,17 @@ function renderStarRating(containerId, starClass, dataAttr, selectedScore) {
 function providerModalTemplate() {
   return `
     <div class="glass rounded-[24px] p-3 hidden" id="providerModal">
-      <div class="font-black mb-2">× ×•×ª×Ÿ ×©×™×¨×•×ª ×—×“×©</div>
-      <input id="providerNameInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="×©× × ×•×ª×Ÿ ×”×©×™×¨×•×ª" />
-      <input id="providerPhoneInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="×˜×œ×¤×•×Ÿ" />
-      <input id="providerEmailInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="××™×ž×™×™×œ" />
+      <div class="font-black mb-2">נותן שירות חדש</div>
+      <input id="providerNameInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="שם נותן השירות" />
+      <input id="providerPhoneInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="טלפון" />
+      <input id="providerEmailInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="אימייל" />
       <select id="providerCategoryInput" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2">
-        <option value="×¦×œ×ž×ª">×¦×œ×ž×ª</option><option value="××•×œ×">××•×œ×</option><option value="×‘×•× ×” ×ž×¦×’×•×ª/×•×™×“××•">×‘×•× ×” ×ž×¦×’×•×ª/×•×™×“××•</option><option value="×ž×¤×¢×™×œ×”">×ž×¤×¢×™×œ×”</option><option value="×§×™×™×˜×¨×™× ×’">×§×™×™×˜×¨×™× ×’</option><option value="×§×™× ×•×—×™×">×§×™× ×•×—×™×</option><option value="××—×¨">××—×¨</option>
+        <option value="צלמת">צלמת</option><option value="אולם">אולם</option><option value="בונה מצגות/וידאו">בונה מצגות/וידאו</option><option value="מפעילה">מפעילה</option><option value="קייטרינג">קייטרינג</option><option value="קינוחים">קינוחים</option><option value="אחר">אחר</option>
       </select>
-      <input id="providerCategoryOtherInput" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="×§×˜×’×•×¨×™×” ××—×¨×ª" />
+      <input id="providerCategoryOtherInput" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm mb-2" placeholder="קטגוריה אחרת" />
       <div class="flex gap-2">
-        <button type="button" data-save-provider class="flex-1 rounded-xl bg-white/10 border border-white/10 p-2 text-sm font-bold">×©×ž×™×¨×”</button>
-        <button type="button" data-close-provider-modal class="flex-1 rounded-xl bg-white/5 border border-white/10 p-2 text-sm">×¡×’×™×¨×”</button>
+        <button type="button" data-save-provider class="flex-1 rounded-xl bg-white/10 border border-white/10 p-2 text-sm font-bold">שמירה</button>
+        <button type="button" data-close-provider-modal class="flex-1 rounded-xl bg-white/5 border border-white/10 p-2 text-sm">סגירה</button>
       </div>
     </div>
   `;
@@ -2905,7 +2905,7 @@ function refreshGuestProviders() {
   const selectedEvent = events.find((e) => e.id === guestCreditSelectedEventId);
 
   if (!eventId) {
-    wrap.innerHTML = creditBlockMessage("ðŸ‘†", "×‘×—×¨/×™ ××™×¨×•×¢ (××• ×”×–×Ÿ/×™ ×©× ×™×“× ×™) ×›×“×™ ×œ×“×¨×’ × ×•×ª× ×™ ×©×™×¨×•×ª.");
+    wrap.innerHTML = creditBlockMessage("👆", "בחר/י אירוע (או הזן/י שם ידני) כדי לדרג נותני שירות.");
     if (praiseSection) praiseSection.classList.add("hidden");
     setGuestPublishEnabled(false);
     return;
@@ -2913,15 +2913,15 @@ function refreshGuestProviders() {
 
   if (selectedEvent && isOwnEvent(selectedEvent)) {
     wrap.innerHTML = creditBlockMessage(
-      "ðŸ™ƒ",
-      '××™× ×š ×™×›×•×œ ×œ×¤×¨×’×Ÿ ×œ××™×¨×•×¢ ×©×œ×š â€” ×¢×‘×¨×• ×œ×ž×¡×š "×”×ž×œ×¦×ª ×‘×¢×œ ××™×¨×•×¢".'
+      "🙃",
+      'אינך יכול לפרגן לאירוע שלך — עברו למסך "המלצת בעל אירוע".'
     );
     if (praiseSection) praiseSection.classList.add("hidden");
     setGuestPublishEnabled(false);
     return;
   }
   if (selectedEvent && !isEventPastByDate(selectedEvent.date)) {
-    wrap.innerHTML = creditBlockMessage("ðŸ˜œ", "×œ× × ×™×ª×Ÿ ×œ×¤×¨×’×Ÿ ×œ××™×¨×•×¢ ×©×¢×“×™×™×Ÿ ×œ× ×”×ª×§×™×™× â€” ×ª×—×–×¨×• ××—×¨×™ ×”×—×’×™×’×”!");
+    wrap.innerHTML = creditBlockMessage("😜", "לא ניתן לפרגן לאירוע שעדיין לא התקיים — תחזרו אחרי החגיגה!");
     if (praiseSection) praiseSection.classList.add("hidden");
     setGuestPublishEnabled(false);
     return;
@@ -2960,18 +2960,18 @@ function renderGuestCategoryCard(service, eventId, idx) {
   return `
     <div class="credit-provider-card credit-category-card rounded-xl border border-dashed border-white/15 bg-black/15 p-2 mb-2 ${st.selected ? "is-selected" : ""}" data-provider-card data-category-only="1" data-selected="${st.selected ? "1" : "0"}" data-provider-key="${escapeHtmlAttr(key)}">
       <div class="text-sm font-bold">${service}</div>
-      <div class="text-[11px] text-white/45 mt-0.5">×“×¨×’/×™ ××ª ××™×›×•×ª ${service} ×‘××™×¨×•×¢</div>
-      <div class="text-xs text-white/70 mt-2">×“×¨×’/×™ ×‘×›×•×›×‘×™×</div>
+      <div class="text-[11px] text-white/45 mt-0.5">דרג/י את איכות ${service} באירוע</div>
+      <div class="text-xs text-white/70 mt-2">דרג/י בכוכבים</div>
       <div id="guestProviderStars_${idx}" class="credit-stars-wrap mt-1">
         ${[1, 2, 3, 4, 5]
           .map(
             (n) =>
-              `<button type="button" class="provider-star text-xl ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-provider-star="${n}" data-provider-score-id="guestProviderScore_${idx}" aria-label="×“×™×¨×•×’ ${n}">â˜…</button>`
+              `<button type="button" class="provider-star text-xl ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-provider-star="${n}" data-provider-score-id="guestProviderScore_${idx}" aria-label="דירוג ${n}">★</button>`
           )
           .join("")}
       </div>
       <input id="guestProviderScore_${idx}" data-provider-name="${escapeHtmlAttr(service)}" data-provider-category="${escapeHtmlAttr(service)}" data-category-only="1" type="hidden" value="${st.score}" />
-      <input id="guestProviderNote_${idx}" data-guest-provider-note="${escapeHtmlAttr(key)}" class="w-full mt-1 rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs" placeholder="×ž×™×œ×” ×˜×•×‘×” (××•×¤×¦×™×•× ×œ×™)" value="${escapeHtmlAttr(st.note)}" />
+      <input id="guestProviderNote_${idx}" data-guest-provider-note="${escapeHtmlAttr(key)}" class="w-full mt-1 rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs" placeholder="מילה טובה (אופציונלי)" value="${escapeHtmlAttr(st.note)}" />
     </div>`;
 }
 
@@ -2985,22 +2985,22 @@ function renderGuestProviderCard(credit, indexBase = 0) {
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
           <div class="text-sm font-bold truncate">${credit.professionalName}</div>
-          <div class="text-[11px] text-white/55 mt-0.5">${[credit.phone, credit.link, city].filter(Boolean).join(" â€¢ ")}</div>
+          <div class="text-[11px] text-white/55 mt-0.5">${[credit.phone, credit.link, city].filter(Boolean).join(" • ")}</div>
           ${details ? `<div class="text-[11px] text-white/45 mt-1">${escapeHtmlAttr(details)}</div>` : ""}
         </div>
         ${renderProviderContactActions(credit)}
       </div>
-      <div class="text-xs text-white/70 mt-2">×“×¨×’/×™ ×‘×›×•×›×‘×™×</div>
+      <div class="text-xs text-white/70 mt-2">דרג/י בכוכבים</div>
       <div id="guestProviderStars_${idx}" class="credit-stars-wrap mt-1">
         ${[1, 2, 3, 4, 5]
           .map(
             (n) =>
-              `<button type="button" class="provider-star text-xl ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-provider-star="${n}" data-provider-score-id="guestProviderScore_${idx}" aria-label="×“×™×¨×•×’ ${n}">â˜…</button>`
+              `<button type="button" class="provider-star text-xl ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-provider-star="${n}" data-provider-score-id="guestProviderScore_${idx}" aria-label="דירוג ${n}">★</button>`
           )
           .join("")}
       </div>
       <input id="guestProviderScore_${idx}" data-provider-name="${escapeHtmlAttr(credit.professionalName)}" data-provider-category="${escapeHtmlAttr(credit.category || "")}" data-provider-credit-id="${escapeHtmlAttr(credit.id)}" type="hidden" value="${st.score}" />
-      <input id="guestProviderNote_${idx}" data-guest-provider-note="${escapeHtmlAttr(credit.id)}" class="w-full mt-1 rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs" placeholder="×ž×™×œ×” ×˜×•×‘×” (××•×¤×¦×™×•× ×œ×™)" value="${escapeHtmlAttr(st.note)}" />
+      <input id="guestProviderNote_${idx}" data-guest-provider-note="${escapeHtmlAttr(credit.id)}" class="w-full mt-1 rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs" placeholder="מילה טובה (אופציונלי)" value="${escapeHtmlAttr(st.note)}" />
     </div>`;
 }
 
@@ -3019,12 +3019,12 @@ function refreshOwnerProviders() {
         <div class="owner-category-block rounded-xl border border-white/10 bg-white/5 p-2">
           <div class="flex items-center justify-between gap-2 mb-2">
             <div class="font-bold text-sm">${serviceIcon(category)} ${category}</div>
-            <button type="button" data-owner-add-category="${escapeHtmlAttr(category)}" class="rounded-lg bg-white/10 border border-white/10 px-2 py-1 text-xs font-bold">+ ×”×•×¡×£</button>
+            <button type="button" data-owner-add-category="${escapeHtmlAttr(category)}" class="rounded-lg bg-white/10 border border-white/10 px-2 py-1 text-xs font-bold">+ הוסף</button>
           </div>
           ${
             list.length
               ? list.map((p, i) => renderOwnerProviderCard(p, i)).join("")
-              : `<div class="text-[11px] text-white/45">×œ×—×¦/×™ "+ ×”×•×¡×£" ×›×“×™ ×œ×”×•×¡×™×£ × ×•×ª×Ÿ ×©×™×¨×•×ª</div>`
+              : `<div class="text-[11px] text-white/45">לחצ/י "+ הוסף" כדי להוסיף נותן שירות</div>`
           }
         </div>`;
     })
@@ -3041,20 +3041,20 @@ function renderOwnerProviderCard(credit, index) {
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0 flex-1">
           <div class="text-sm font-bold truncate">${credit.professionalName}</div>
-          <div class="text-[11px] text-white/55 mt-0.5">${[credit.phone, credit.link, city].filter(Boolean).join(" â€¢ ")}</div>
+          <div class="text-[11px] text-white/55 mt-0.5">${[credit.phone, credit.link, city].filter(Boolean).join(" • ")}</div>
           ${details ? `<div class="text-[11px] text-white/45 mt-1">${escapeHtmlAttr(details)}</div>` : ""}
         </div>
         <div class="flex items-center gap-1 shrink-0">
           ${renderProviderContactActions(credit)}
-          <button type="button" class="provider-action-mini" data-owner-edit-credit="${escapeHtmlAttr(credit.id)}" aria-label="×¢×¨×™×›×”"><i class="fa-solid fa-pen"></i></button>
-          <button type="button" class="provider-action-mini danger" data-owner-delete-credit="${escapeHtmlAttr(credit.id)}" aria-label="×”×¡×¨×”"><i class="fa-solid fa-trash"></i></button>
+          <button type="button" class="provider-action-mini" data-owner-edit-credit="${escapeHtmlAttr(credit.id)}" aria-label="עריכה"><i class="fa-solid fa-pen"></i></button>
+          <button type="button" class="provider-action-mini danger" data-owner-delete-credit="${escapeHtmlAttr(credit.id)}" aria-label="הסרה"><i class="fa-solid fa-trash"></i></button>
         </div>
       </div>
       <div class="credit-stars-wrap mt-2">
         ${[1, 2, 3, 4, 5]
           .map(
             (n) =>
-              `<button type="button" class="provider-star text-xl ${score >= n && score > 0 ? "text-yellow-300" : "text-white/35"}" data-owner-rate-credit="${escapeHtmlAttr(credit.id)}" data-owner-rate-score="${n}" aria-label="×“×™×¨×•×’ ${n}">â˜…</button>`
+              `<button type="button" class="provider-star text-xl ${score >= n && score > 0 ? "text-yellow-300" : "text-white/35"}" data-owner-rate-credit="${escapeHtmlAttr(credit.id)}" data-owner-rate-score="${n}" aria-label="דירוג ${n}">★</button>`
           )
           .join("")}
       </div>
@@ -3067,8 +3067,8 @@ function renderProviderContactActions(credit) {
   if (!wa && !tel) return "";
   return `
     <div class="flex items-center gap-1 shrink-0">
-      ${tel ? `<a href="${tel}" class="provider-contact-btn" aria-label="×”×ª×§×©×¨×•×ª"><i class="fa-solid fa-phone"></i></a>` : ""}
-      ${wa ? `<a href="${wa}" target="_blank" rel="noopener" class="provider-wa-btn compact" aria-label="×•×•××˜×¡××¤"><i class="fa-brands fa-whatsapp"></i></a>` : ""}
+      ${tel ? `<a href="${tel}" class="provider-contact-btn" aria-label="התקשרות"><i class="fa-solid fa-phone"></i></a>` : ""}
+      ${wa ? `<a href="${wa}" target="_blank" rel="noopener" class="provider-wa-btn compact" aria-label="וואטסאפ"><i class="fa-brands fa-whatsapp"></i></a>` : ""}
     </div>`;
 }
 
@@ -3084,19 +3084,19 @@ function listEventProvidersByCategory(eventId, category) {
 
 function formatProviderNote(city, details) {
   const parts = [];
-  if (city) parts.push(`×¢×™×¨: ${city}`);
+  if (city) parts.push(`עיר: ${city}`);
   if (details) parts.push(details);
   return parts.join(" | ");
 }
 
 function parseProviderCity(note) {
-  const m = String(note || "").match(/×¢×™×¨:\s*([^|]+)/);
+  const m = String(note || "").match(/עיר:\s*([^|]+)/);
   return m ? m[1].trim() : "";
 }
 
 function parseProviderDetails(note) {
   const raw = String(note || "");
-  const withoutCity = raw.replace(/×¢×™×¨:\s*[^|]+\s*\|\s*/i, "").replace(/×¢×™×¨:\s*[^|]+$/i, "").trim();
+  const withoutCity = raw.replace(/עיר:\s*[^|]+\s*\|\s*/i, "").replace(/עיר:\s*[^|]+$/i, "").trim();
   return withoutCity;
 }
 
@@ -3113,7 +3113,7 @@ function openOwnerQuickAddModal(category) {
   const saveBtn = document.querySelector("[data-owner-quick-save]");
   if (saveBtn) {
     saveBtn.disabled = false;
-    saveBtn.textContent = "×©×ž×™×¨×”";
+    saveBtn.textContent = "שמירה";
   }
   modal.classList.remove("hidden");
   modal.classList.add("flex");
@@ -3154,12 +3154,12 @@ async function saveOwnerQuickAddProvider() {
   const city = document.getElementById("ownerQuickAddCity")?.value.trim();
   const details = document.getElementById("ownerQuickAddDetails")?.value.trim();
   if (!eventId || !category || !name) {
-    showToast("×™×© ×œ×ž×œ× ×§×˜×’×•×¨×™×” ×•×©× × ×•×ª×Ÿ ×©×™×¨×•×ª");
+    showToast("יש למלא קטגוריה ושם נותן שירות");
     return;
   }
   const dup = findDuplicateProvider(eventId, category, name);
   if (dup && dup.id !== editingProviderCreditId) {
-    showToast("× ×•×ª×Ÿ ×©×™×¨×•×ª ×–×” ×›×‘×¨ ×§×™×™× ×‘×§×˜×’×•×¨×™×”");
+    showToast("נותן שירות זה כבר קיים בקטגוריה");
     return;
   }
 
@@ -3167,7 +3167,7 @@ async function saveOwnerQuickAddProvider() {
   const saveBtn = document.querySelector("[data-owner-quick-save]");
   if (saveBtn) {
     saveBtn.disabled = true;
-    saveBtn.textContent = "×©×•×ž×¨â€¦";
+    saveBtn.textContent = "שומר…";
   }
 
   if (editingProviderCreditId) {
@@ -3198,19 +3198,19 @@ async function saveOwnerQuickAddProvider() {
   const wasEdit = !!editingProviderCreditId;
   closeOwnerQuickAddModal();
   refreshOwnerProviders();
-  showToast(wasEdit ? "×¢×•×“×›×Ÿ âœ“" : "× ×•×¡×£ âœ“");
+  showToast(wasEdit ? "עודכן ✓" : "נוסף ✓");
 
   try {
     await Api.createCredit({ ...record, ratings: JSON.stringify({}) });
     syncFromServer({ silent: true });
   } catch (err) {
     console.error(err);
-    showToast("× ×©×ž×¨ â€” ×™×¡×ª× ×›×¨×Ÿ ×‘×¨×§×¢");
+    showToast("נשמר — יסתנכרן ברקע");
   } finally {
     isSavingOwnerProvider = false;
     if (saveBtn) {
       saveBtn.disabled = false;
-      saveBtn.textContent = "×©×ž×™×¨×”";
+      saveBtn.textContent = "שמירה";
     }
   }
 }
@@ -3245,7 +3245,7 @@ async function rateProviderCredit(creditId, score, btnEl) {
     else delete credit.ratings[currentUser.id];
     saveJson("bm_credits", credits);
     if (wrap) refreshOwnerProviders();
-    showToast("×œ× × ×©×ž×¨ ×”×“×™×¨×•×’");
+    showToast("לא נשמר הדירוג");
   }
 }
 
@@ -3255,23 +3255,23 @@ async function publishGuestCredits() {
   const manualEvent = document.getElementById("creditManualEvent").value.trim();
   const eventId = getCreditEventIdFromForm();
   if (!eventId || (selectedEventId === "__external__" && !manualEvent)) {
-    showToast("×‘×—×¨/×™ ××™×¨×•×¢");
+    showToast("בחר/י אירוע");
     return;
   }
   const selectedEvent = events.find((e) => e.id === selectedEventId);
   if (selectedEvent && isOwnEvent(selectedEvent)) {
-    showToast("××™× ×š ×™×›×•×œ ×œ×¤×¨×’×Ÿ ×œ××™×¨×•×¢ ×©×œ×š â€” ××¤×©×¨ ×œ×”×ž×œ×™×¥ ×¢×œ × ×•×ª× ×™ ×©×™×¨×•×ª ×‘×ž×¡×š ×”×ž×œ×¦×ª ×‘×¢×œ ××™×¨×•×¢");
+    showToast("אינך יכול לפרגן לאירוע שלך — אפשר להמליץ על נותני שירות במסך המלצת בעל אירוע");
     return;
   }
   if (selectedEvent && !isEventPastByDate(selectedEvent.date)) {
-    showToast("×œ× × ×™×ª×Ÿ ×œ×¤×¨×’×Ÿ ×œ××™×¨×•×¢ ×©×¢×“×™×™×Ÿ ×œ× ×”×ª×§×™×™×");
+    showToast("לא ניתן לפרגן לאירוע שעדיין לא התקיים");
     return;
   }
   const selectedCards = Array.from(
     document.querySelectorAll("#guestProvidersWrap [data-provider-card][data-selected='1']")
   );
   if (!selectedCards.length) {
-    showToast("×‘×—×¨/×™ ×œ×¤×—×•×ª ×§×˜×’×•×¨×™×” ××—×ª ×œ×“×™×¨×•×’");
+    showToast("בחר/י לפחות קטגוריה אחת לדירוג");
     return;
   }
   const note = document.getElementById("guestCreditNote").value.trim();
@@ -3281,7 +3281,7 @@ async function publishGuestCredits() {
   const pubBtn = document.getElementById("publishGuestCreditBtn");
   if (pubBtn) {
     pubBtn.disabled = true;
-    pubBtn.textContent = "×ž×¤×¨×¡×â€¦";
+    pubBtn.textContent = "מפרסם…";
   }
   try {
     for (const card of selectedCards) {
@@ -3291,7 +3291,7 @@ async function publishGuestCredits() {
       const score = Number(scoreInput?.value || 0);
       const isCategoryOnly = card.dataset.categoryOnly === "1";
       if (score <= 0) {
-        showToast(`×—×¡×¨ ×“×™×¨×•×’ ×œ${isCategoryOnly ? category : providerName || category || "×¡×¤×§"}`);
+        showToast(`חסר דירוג ל${isCategoryOnly ? category : providerName || category || "ספק"}`);
         return;
       }
       const providerNote = card.querySelector("input[type='text']")?.value.trim() || "";
@@ -3312,7 +3312,7 @@ async function publishGuestCredits() {
       );
     }
     await syncFromServer({ silent: true });
-    showToast("×”×¤×¨×’×•×Ÿ ×¤×•×¨×¡×");
+    showToast("הפרגון פורסם");
     guestProviderStateReset();
     guestCreditNoteDraft = "";
     guestCreditTagsSelected = [];
@@ -3353,16 +3353,16 @@ async function publishGuestCredits() {
       creditScreen = "board";
       renderCredits();
       renderAll();
-      showToast("×”×¤×¨×’×•×Ÿ ×¤×•×¨×¡×");
+      showToast("הפרגון פורסם");
     } else {
-      showToast(`×œ× ×”×¦×œ×—× ×• ×œ×¤×¨×¡× ×¤×¨×’×•×Ÿ: ${msg.slice(0, 90)}`);
+      showToast(`לא הצלחנו לפרסם פרגון: ${msg.slice(0, 90)}`);
     }
   } finally {
     isPublishingGuest = false;
     const pubBtn = document.getElementById("publishGuestCreditBtn");
     if (pubBtn) {
       pubBtn.disabled = false;
-      pubBtn.textContent = "×¤×¨×¡×•×";
+      pubBtn.textContent = "פרסום";
     }
   }
 }
@@ -3370,17 +3370,17 @@ async function publishGuestCredits() {
 async function publishOwnerCredits() {
   const eventId = document.getElementById("creditEventId").value;
   if (!eventId) {
-    showToast("×‘×—×¨/×™ ××™×¨×•×¢");
+    showToast("בחר/י אירוע");
     return;
   }
   const event = events.find((e) => e.id === eventId);
   if (!event || !canManageEvent(event)) {
-    showToast("× ×™×ª×Ÿ ×œ×”×ž×œ×™×¥ ×¨×§ ×¢×œ ×”××™×¨×•×¢ ×©×œ×š");
+    showToast("ניתן להמליץ רק על האירוע שלך");
     return;
   }
   const selectedCards = Array.from(document.querySelectorAll("#ownerProvidersWrap [data-provider-card][data-selected='1']"));
   if (!selectedCards.length) {
-    showToast("×‘×—×¨/×™ ×œ×¤×—×•×ª × ×•×ª×Ÿ ×©×™×¨×•×ª ××—×“");
+    showToast("בחר/י לפחות נותן שירות אחד");
     return;
   }
   const note = document.getElementById("ownerCreditNote").value.trim();
@@ -3391,7 +3391,7 @@ async function publishOwnerCredits() {
       const category = scoreInput?.dataset.providerCategory || "";
       const score = Number(scoreInput?.value || 0);
       if (score <= 0) {
-        showToast(`×—×¡×¨ ×“×™×¨×•×’ ×œ×¡×¤×§: ${providerName || category || "×¡×¤×§"}`);
+        showToast(`חסר דירוג לספק: ${providerName || category || "ספק"}`);
         return;
       }
       await retryApiCall(() =>
@@ -3411,7 +3411,7 @@ async function publishOwnerCredits() {
       );
     }
     await syncFromServer({ silent: true });
-    showToast("×”×”×ž×œ×¦×” ×¤×•×¨×¡×ž×”");
+    showToast("ההמלצה פורסמה");
     creditScreen = "board";
     renderCredits();
   } catch (err) {
@@ -3443,9 +3443,9 @@ async function publishOwnerCredits() {
       creditScreen = "board";
       renderCredits();
       renderAll();
-      showToast("×”×”×ž×œ×¦×” ×¤×•×¨×¡×ž×”");
+      showToast("ההמלצה פורסמה");
     } else {
-      showToast(`×œ× ×”×¦×œ×—× ×• ×œ×¤×¨×¡× ×”×ž×œ×¦×”: ${msg.slice(0, 90)}`);
+      showToast(`לא הצלחנו לפרסם המלצה: ${msg.slice(0, 90)}`);
     }
   }
 }
@@ -3461,10 +3461,10 @@ function aggregateProviderScores(list) {
     item.count += values.length;
     if (c.sentiment === "like") item.likes += 1;
   });
-  return Array.from(map.values()).map((x) => ({ ...x, avg: x.count ? (x.total / x.count).toFixed(1) : "â€”" }));
+  return Array.from(map.values()).map((x) => ({ ...x, avg: x.count ? (x.total / x.count).toFixed(1) : "—" }));
 }
 
-// ×¡×¤×¨×™×™×ª × ×•×ª× ×™ ×©×™×¨×•×ª ×’×œ×•×‘×œ×™×ª: ×ž×ž×•×¦×¢ ×“×™×¨×•×’, ×›×ž×” ×“×™×¨×’×•, ×‘×›×ž×” ××™×¨×•×¢×™×, ×˜×œ×¤×•×Ÿ
+// ספריית נותני שירות גלובלית: ממוצע דירוג, כמה דירגו, בכמה אירועים, טלפון
 function aggregateAllProviders() {
   const map = new Map();
   (credits || []).forEach((c) => {
@@ -3495,12 +3495,12 @@ function aggregateAllProviders() {
     .map((x) => ({
       name: x.name,
       category: x.category,
-      avg: x.ratingCount ? (x.total / x.ratingCount).toFixed(1) : "â€”",
+      avg: x.ratingCount ? (x.total / x.ratingCount).toFixed(1) : "—",
       ratingCount: x.ratingCount,
       eventCount: x.events.size,
       phone: x.phone,
     }))
-    .sort((a, b) => b.eventCount - a.eventCount || (b.avg === "â€”" ? -1 : Number(b.avg)) - (a.avg === "â€”" ? -1 : Number(a.avg)));
+    .sort((a, b) => b.eventCount - a.eventCount || (b.avg === "—" ? -1 : Number(b.avg)) - (a.avg === "—" ? -1 : Number(a.avg)));
 }
 
 function whatsappDigits(phone) {
@@ -3544,15 +3544,15 @@ async function addProviderFromModal() {
   const providerNote = document.getElementById("providerNoteInput")?.value.trim();
   const categoryBase = document.getElementById("providerCategoryInput")?.value || "";
   const categoryOther = document.getElementById("providerCategoryOtherInput")?.value.trim();
-  const category = categoryBase === "××—×¨" ? categoryOther : categoryBase;
+  const category = categoryBase === "אחר" ? categoryOther : categoryBase;
   if (!eventId || !name || !category) {
-    showToast("×™×© ×œ×‘×—×•×¨ ××™×¨×•×¢ ×•×œ×ž×œ× ×©× ×•×§×˜×’×•×¨×™×”");
+    showToast("יש לבחור אירוע ולמלא שם וקטגוריה");
     return;
   }
   try {
     await Api.createCredit({
       id: crypto.randomUUID(),
-      eventId: eventId === "__external__" ? `manual:${document.getElementById("creditManualEvent")?.value.trim() || "××™×¨×•×¢ ×—×™×¦×•× ×™"}` : eventId,
+      eventId: eventId === "__external__" ? `manual:${document.getElementById("creditManualEvent")?.value.trim() || "אירוע חיצוני"}` : eventId,
       category,
       professionalName: name,
       phone,
@@ -3569,11 +3569,11 @@ async function addProviderFromModal() {
     await syncFromServer({ silent: true });
     document.getElementById("providerModal")?.classList.add("hidden");
     document.getElementById("ownerInlineProviderForm")?.classList.add("hidden");
-    showToast("× ×•×ª×Ÿ ×”×©×™×¨×•×ª × ×•×¡×£");
+    showToast("נותן השירות נוסף");
     renderCredits();
   } catch (err) {
     console.error(err);
-    showToast("×œ× ×”×¦×œ×—× ×• ×œ×”×•×¡×™×£ × ×•×ª×Ÿ ×©×™×¨×•×ª");
+    showToast("לא הצלחנו להוסיף נותן שירות");
   }
 }
 
@@ -3594,7 +3594,7 @@ function extractUserTags(tagsRaw) {
 
 function manualEventLabelFromCredit(credit) {
   const val = String(credit.eventId || "");
-  return val.startsWith("manual:") ? val.slice("manual:".length) : "××™×¨×•×¢ ×—×™×¦×•× ×™";
+  return val.startsWith("manual:") ? val.slice("manual:".length) : "אירוע חיצוני";
 }
 
 function escapeHtmlAttr(text) {
@@ -3607,13 +3607,13 @@ function escapeHtmlAttr(text) {
 
 function serviceIcon(name) {
   const v = String(name || "");
-  if (v.includes("×¦×™×œ×•×")) return "ðŸ–¼ï¸";
-  if (v.includes("×ž×§×•×") || v.includes("××•×œ×")) return "ðŸ›ï¸";
-  if (v.includes("×ž×¦×’×ª") || v.includes("×•×™×“××•")) return "ðŸŽ¬";
-  if (v.includes("××•×›×œ") || v.includes("×§×™×™×˜×¨×™× ×’")) return "ðŸ½ï¸";
-  if (v.includes("×¢×™×¦×•×‘")) return "ðŸŽ€";
-  if (v.includes("×”×¤×¢×œ×”")) return "ðŸŽ‰";
-  return "âœ¨";
+  if (v.includes("צילום")) return "🖼️";
+  if (v.includes("מקום") || v.includes("אולם")) return "🏛️";
+  if (v.includes("מצגת") || v.includes("וידאו")) return "🎬";
+  if (v.includes("אוכל") || v.includes("קייטרינג")) return "🍽️";
+  if (v.includes("עיצוב")) return "🎀";
+  if (v.includes("הפעלה")) return "🎉";
+  return "✨";
 }
 
 function guestProviderStateReset() {
@@ -3713,10 +3713,10 @@ async function rateCredit(creditId, score) {
       ratings: JSON.stringify(ratings),
     });
     await syncFromServer({ silent: true });
-    showToast("×”×“×™×¨×•×’ × ×©×ž×¨");
+    showToast("הדירוג נשמר");
   } catch (err) {
     console.error(err);
-    showToast("×œ× ×”×¦×œ×—× ×• ×œ×©×ž×•×¨ ×“×™×¨×•×’");
+    showToast("לא הצלחנו לשמור דירוג");
   }
 }
 
@@ -3726,7 +3726,7 @@ async function rateCreditSentiment(creditId, sentiment) {
   const event = events.find((e) => e.id === credit.eventId);
   const isMyEvent = !!event && canManageEvent(event);
   if ((isOwnerRecommendation(credit) || !isMyEvent) && sentiment === "dislike") {
-    showToast("×‘×§×¨×“×™×˜ ××•×¨×—×™× × ×™×ª×Ÿ ×œ×ª×ª ×¨×§ ×ž×©×•×‘ ×—×™×•×‘×™");
+    showToast("בקרדיט אורחים ניתן לתת רק משוב חיובי");
     return;
   }
   try {
@@ -3736,14 +3736,14 @@ async function rateCreditSentiment(creditId, sentiment) {
       sentiment,
     });
     await syncFromServer({ silent: true });
-    showToast("×”×¢×“×¤×” × ×©×ž×¨×”");
+    showToast("העדפה נשמרה");
   } catch (err) {
     console.error(err);
-    showToast("×œ× ×”×¦×œ×—× ×• ×œ×©×ž×•×¨ ×”×¢×“×¤×”");
+    showToast("לא הצלחנו לשמור העדפה");
   }
 }
 
-// â”€â”€â”€ ×—×•×•×™×•×ª â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── חוויות ────────────────────────────────────────────────
 function bindExperiences() {
   document.getElementById("experiencesTab").addEventListener("click", async (e) => {
     const lbBtn = e.target.closest("[data-open-lightbox]");
@@ -3772,7 +3772,7 @@ function bindExperiences() {
   });
 }
 
-// ×”×¨×©××ª ×ž×—×™×§×ª ×ª×ž×•× ×”: ×ž× ×”×œ / ×ž×™ ×©×”×¢×œ×” / ×‘×¢×œ ×”××™×¨×•×¢
+// הרשאת מחיקת תמונה: מנהל / מי שהעלה / בעל האירוע
 function canDeleteExperience(exp) {
   if (!currentUser) return false;
   if (currentUser.isAdmin) return true;
@@ -3905,7 +3905,7 @@ function renderExperiencesListOnly() {
     ? keys
         .map((eventId) => {
           const event = events.find((e) => e.id === eventId);
-          const title = event ? `×”××™×¨×•×¢ ×©×œ ${event.girlName}` : "××œ×‘×•× ×›×œ×œ×™";
+          const title = event ? `האירוע של ${event.girlName}` : "אלבום כללי";
           const flatStart = buildLightboxItems().findIndex((x) => String(x.eventId) === String(eventId));
           const cards = grouped[eventId]
             .map((exp, localIdx) => {
@@ -3915,8 +3915,8 @@ function renderExperiencesListOnly() {
               const thumb = experienceDisplayUrl(exp.imageUrl);
               const mediaEl =
                 type === "video"
-                  ? `<button type="button" class="exp-gallery-tile exp-gallery-video" data-open-lightbox="${globalIdx}" aria-label="×¦×¤×™×™×” ×‘×¡×¨×˜×•×Ÿ"><video src="${exp.imageUrl}" class="exp-gallery-thumb" muted playsinline preload="metadata"></video><span class="exp-gallery-play">â–¶</span></button>`
-                  : `<button type="button" class="exp-gallery-tile" data-open-lightbox="${globalIdx}" aria-label="×¦×¤×™×™×” ×‘×ª×ž×•× ×”"><img src="${thumb}" class="exp-gallery-thumb" alt="" loading="lazy" /></button>`;
+                  ? `<button type="button" class="exp-gallery-tile exp-gallery-video" data-open-lightbox="${globalIdx}" aria-label="צפייה בסרטון"><video src="${exp.imageUrl}" class="exp-gallery-thumb" muted playsinline preload="metadata"></video><span class="exp-gallery-play">▶</span></button>`
+                  : `<button type="button" class="exp-gallery-tile" data-open-lightbox="${globalIdx}" aria-label="צפייה בתמונה"><img src="${thumb}" class="exp-gallery-thumb" alt="" loading="lazy" /></button>`;
               const canDelete = canDeleteExperience(exp);
               return `
                 <div class="exp-gallery-item relative">
@@ -3924,10 +3924,10 @@ function renderExperiencesListOnly() {
                     <input type="checkbox" class="exp-select" data-url="${escapeHtmlAttr(exp.imageUrl)}" data-name="${escapeHtmlAttr(fileName)}" />
                   </label>
                   <div class="exp-actions">
-                    <button type="button" class="exp-action-btn download" data-download-exp-url="${escapeHtmlAttr(exp.imageUrl)}" data-download-exp-name="${escapeHtmlAttr(fileName)}" aria-label="×”×•×¨×“×”" title="×”×•×¨×“×”">
+                    <button type="button" class="exp-action-btn download" data-download-exp-url="${escapeHtmlAttr(exp.imageUrl)}" data-download-exp-name="${escapeHtmlAttr(fileName)}" aria-label="הורדה" title="הורדה">
                       <i class="fa-solid fa-download"></i>
                     </button>
-                    <button type="button" class="exp-action-btn delete ${canDelete ? "" : "is-disabled"}" data-delete-experience-id="${exp.id}" ${canDelete ? "" : "disabled"} aria-label="×ž×—×™×§×”">
+                    <button type="button" class="exp-action-btn delete ${canDelete ? "" : "is-disabled"}" data-delete-experience-id="${exp.id}" ${canDelete ? "" : "disabled"} aria-label="מחיקה">
                       <i class="fa-solid fa-trash"></i>
                     </button>
                   </div>
@@ -3945,7 +3945,7 @@ function renderExperiencesListOnly() {
           `;
         })
         .join("")
-    : '<div class="text-center text-white/40 text-sm">×¢×“×™×™×Ÿ ××™×Ÿ ×ª×ž×•× ×•×ª ××• ×¡×¨×˜×•× ×™× ×‘××œ×‘×•×ž×™×</div>';
+    : '<div class="text-center text-white/40 text-sm">עדיין אין תמונות או סרטונים באלבומים</div>';
 }
 
 function renderExperiences() {
@@ -3966,19 +3966,19 @@ function renderExperiences() {
 
   tab.innerHTML = `
     <div class="glass rounded-[28px] p-4">
-      <div class="font-black mb-3">××œ×‘×•× ×ž×©×•×ª×£ â€” ×ª×ž×•× ×•×ª ×•×¡×¨×˜×•× ×™×</div>
+      <div class="font-black mb-3">אלבום משותף — תמונות וסרטונים</div>
       <select id="expEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
-        <option value="">×‘×—×¨/×™ ××™×¨×•×¢</option>
+        <option value="">בחר/י אירוע</option>
         ${eventOptions}
-        <option value="__external__">××™×¨×•×¢ ××—×¨ / ×—×™×¦×•× ×™</option>
+        <option value="__external__">אירוע אחר / חיצוני</option>
       </select>
-      <input id="expEventManual" class="hidden w-full mt-2 rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="×©× ××™×¨×•×¢ ×—×™×¦×•× ×™" />
+      <input id="expEventManual" class="hidden w-full mt-2 rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם אירוע חיצוני" />
       <input id="expImageFile" type="file" accept="image/*,video/*" multiple class="w-full mt-2 text-sm" />
-      <div class="text-[11px] text-white/45 mt-1">××¤×©×¨ ×œ×”×¢×œ×•×ª ×ª×ž×•× ×•×ª, ×ž×¦×’×ª ××• ×¡×¨×˜×•×Ÿ ×©×œ ×”×™×œ×“×”</div>
-      <button id="addExperienceBtn" type="button" class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">×”×¢×œ×”/×™ ×œ××œ×‘×•× ×”×ž×©×•×ª×£</button>
+      <div class="text-[11px] text-white/45 mt-1">אפשר להעלות תמונות, מצגת או סרטון של הילדה</div>
+      <button id="addExperienceBtn" type="button" class="w-full mt-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 font-black">העלה/י לאלבום המשותף</button>
       <div id="expProgressWrap" class="upload-progress hidden mt-3">
         <div class="upload-progress-head">
-          <span id="expProgressLabel">×ž×¢×œ×”â€¦</span>
+          <span id="expProgressLabel">מעלה…</span>
           <span id="expProgressPct">0%</span>
         </div>
         <div class="upload-progress-track"><div id="expProgressBar" class="upload-progress-bar" style="width:0%"></div></div>
@@ -3988,13 +3988,13 @@ function renderExperiences() {
     <div class="glass rounded-2xl p-3">
       <div class="flex items-center gap-2 flex-wrap">
         <select id="expFilterEventId" class="flex-1 min-w-[140px] rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
-          <option value="">×›×œ ×”××™×¨×•×¢×™×</option>
+          <option value="">כל האירועים</option>
           ${filterOptions}
         </select>
-        <button id="expSelectAllBtn" type="button" class="rounded-xl bg-white/10 border border-white/10 px-3 py-2 text-xs font-bold">×¡×ž×Ÿ ×”×›×œ</button>
-        <button id="expDownloadBtn" type="button" class="rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-3 py-2 text-xs font-black">×”×•×¨×“×”</button>
+        <button id="expSelectAllBtn" type="button" class="rounded-xl bg-white/10 border border-white/10 px-3 py-2 text-xs font-bold">סמן הכל</button>
+        <button id="expDownloadBtn" type="button" class="rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-3 py-2 text-xs font-black">הורדה</button>
       </div>
-      <div class="text-[11px] text-white/45 mt-1">×¡×ž×Ÿ/×™ ×¤×¨×™×˜×™× ×•×”×•×¨×“/×™ ××•×ª× ×œ×ž×›×©×™×¨</div>
+      <div class="text-[11px] text-white/45 mt-1">סמן/י פריטים והורד/י אותם למכשיר</div>
     </div>
 
     <div id="experiencesList" class="space-y-4"></div>
@@ -4028,7 +4028,7 @@ function toggleSelectAllExperiences() {
     b.checked = !allChecked;
   });
   const btn = document.getElementById("expSelectAllBtn");
-  if (btn) btn.textContent = allChecked ? "×¡×ž×Ÿ ×”×›×œ" : "× ×§×” ×‘×—×™×¨×”";
+  if (btn) btn.textContent = allChecked ? "סמן הכל" : "נקה בחירה";
 }
 
 function toDownloadUrl(url) {
@@ -4043,7 +4043,7 @@ function toDownloadUrl(url) {
 function downloadSelectedExperiences() {
   const checked = Array.from(document.querySelectorAll(".exp-select:checked"));
   if (!checked.length) {
-    showToast("×¡×ž×Ÿ/×™ ×¤×¨×™×˜×™× ×œ×”×•×¨×“×”");
+    showToast("סמן/י פריטים להורדה");
     return;
   }
   checked.forEach((cb, idx) => {
@@ -4060,7 +4060,7 @@ function downloadSelectedExperiences() {
       a.remove();
     }, idx * 350);
   });
-  showToast(`×ž×•×¨×™×“ ${checked.length} ×¤×¨×™×˜×™×`);
+  showToast(`מוריד ${checked.length} פריטים`);
 }
 
 async function addExperienceFromForm() {
@@ -4070,18 +4070,18 @@ async function addExperienceFromForm() {
   const eventId = selected === "__external__" ? `manual:${manualEvent}` : selected;
   const files = Array.from(document.getElementById("expImageFile").files || []);
   if (!eventId || (selected === "__external__" && !manualEvent) || !files.length) {
-    showToast("×‘×—×¨/×™ ××™×¨×•×¢ ×•×”×¢×œ×”/×™ ×ª×ž×•× ×”");
+    showToast("בחר/י אירוע והעלה/י תמונה");
     return;
   }
   const oversize = files.find((f) => f.size > 45 * 1024 * 1024);
   if (oversize) {
-    showToast("×§×•×‘×¥ ×’×“×•×œ ×ž-45MB â€” × ×¡×• ×§×•×‘×¥ ×§×˜×Ÿ ×™×•×ª×¨");
+    showToast("קובץ גדול מ-45MB — נסו קובץ קטן יותר");
     return;
   }
   const btn = document.getElementById("addExperienceBtn");
   if (btn) btn.disabled = true;
   isExperienceUploading = true;
-  showUploadProgress("expProgress", 0, `×ž×¢×œ×” 0 ×ž×ª×•×š ${files.length}`);
+  showUploadProgress("expProgress", 0, `מעלה 0 מתוך ${files.length}`);
   const uploaded = [];
   try {
     for (let idx = 0; idx < files.length; idx++) {
@@ -4089,12 +4089,12 @@ async function addExperienceFromForm() {
       const isVideo = String(file.type || "").startsWith("video") || /\.(mp4|mov|webm|m4v|ogg|avi)$/i.test(file.name || "");
       const dataUrl = await toBase64(file);
       const parts = splitDataUrl(dataUrl);
-      // ×˜×•×•×— ×”××—×•×–×™× ×©×œ ×”×§×•×‘×¥ ×”× ×•×›×—×™ ×ž×ª×•×š ×›×œ×œ ×”×§×‘×¦×™×
+      // טווח האחוזים של הקובץ הנוכחי מתוך כלל הקבצים
       const base = Math.round((idx / files.length) * 100);
       const span = Math.round((1 / files.length) * 100);
-      const label = files.length > 1 ? `×ž×¢×œ×” ${idx + 1} ×ž×ª×•×š ${files.length} ×§×‘×¦×™×` : "×ž×¢×œ×” ×§×•×‘×¥â€¦";
+      const label = files.length > 1 ? `מעלה ${idx + 1} מתוך ${files.length} קבצים` : "מעלה קובץ…";
       let lastPct = 0;
-      // ×–×—×™×œ×” ×¢×“×™× ×” ×›×“×™ ×©×”×¡×¨×’×œ ×ª×ž×™×“ ×™×ª×§×“×, ×’× ×›×©×”×©×¨×ª ×ž×¢×‘×“ (Drive) ×•××™×Ÿ ××™×¨×•×¢×™ ×”×ª×§×“×ž×•×ª
+      // זחילה עדינה כדי שהסרגל תמיד יתקדם, גם כשהשרת מעבד (Drive) ואין אירועי התקדמות
       const creep = setInterval(() => {
         lastPct = Math.min(90, lastPct + 3);
         showUploadProgress("expProgress", Math.min(99, base + Math.round((lastPct / 100) * span)), label);
@@ -4120,7 +4120,7 @@ async function addExperienceFromForm() {
       }
       showUploadProgress("expProgress", Math.min(99, base + span), label);
       const imageUrl = upload.imageUrl || "";
-      if (!imageUrl) throw new Error("×œ× ×”×ª×§×‘×œ ×§×™×©×•×¨ ×ž×”×©×¨×ª");
+      if (!imageUrl) throw new Error("לא התקבל קישור מהשרת");
 
       const record = {
         id: crypto.randomUUID(),
@@ -4134,25 +4134,25 @@ async function addExperienceFromForm() {
       await retryApiCall(() => Api.createExperience(record));
       uploaded.push(record);
     }
-    showUploadProgress("expProgress", 100, "×”×•×©×œ×");
-    // ×”×¦×’×” ×ž×™×™×“×™×ª (××•×¤×˜×™×ž×™) ×›×“×™ ×©×–×” ×™×¨×’×™×© ×ž×”×™×¨, ×•×¡× ×›×¨×•×Ÿ ×‘×¨×§×¢
+    showUploadProgress("expProgress", 100, "הושלם");
+    // הצגה מיידית (אופטימי) כדי שזה ירגיש מהיר, וסנכרון ברקע
     experiences = [...uploaded, ...experiences];
     saveJson("bm_experiences", experiences);
     document.getElementById("expImageFile").value = "";
     renderExperiencesListOnly();
-    showToast(uploaded.length > 1 ? `${uploaded.length} ×¤×¨×™×˜×™× ×¢×œ×• ×œ×¢× ×Ÿ` : "×”×§×•×‘×¥ ×¢×œ×” ×œ×¢× ×Ÿ");
+    showToast(uploaded.length > 1 ? `${uploaded.length} פריטים עלו לענן` : "הקובץ עלה לענן");
     syncFromServer({ silent: true });
   } catch (err) {
     const msg = String(err?.message || "");
-    if (isUnknownActionError(err) || /DriveApp|×”×¨×©××”|permission/i.test(msg)) {
+    if (isUnknownActionError(err) || /DriveApp|הרשאה|permission/i.test(msg)) {
       alert(
-        "×”×”×¢×œ××” ×œ×¢× ×Ÿ × ×›×©×œ×” â€” ×—×¡×¨×” ×”×¨×©××ª Drive.\n\n" +
-          "×¤×ª×—/×™ Apps Script â†’ ×‘×—×¨/×™ authorizeDrive â†’ Run â†’ ××©×¨/×™ ×”×¨×©××•×ª.\n\n" +
+        "ההעלאה לענן נכשלה — חסרה הרשאת Drive.\n\n" +
+          "פתח/י Apps Script → בחר/י authorizeDrive → Run → אשר/י הרשאות.\n\n" +
           REDEPLOY_MSG
       );
     } else {
       console.error(err);
-      showToast(`×”×”×¢×œ××” × ×›×©×œ×” â€” ×”×§×•×‘×¥ × ×©××¨ × ×‘×—×¨, ××¤×©×¨ ×œ× ×¡×•×ª ×©×•×‘`);
+      showToast(`ההעלאה נכשלה — הקובץ נשאר נבחר, אפשר לנסות שוב`);
     }
   } finally {
     isExperienceUploading = false;
@@ -4161,7 +4161,7 @@ async function addExperienceFromForm() {
   }
 }
 
-// â”€â”€â”€ ×¡×¨×’×œ ×”×ª×§×“×ž×•×ª ×”×¢×œ××” â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── סרגל התקדמות העלאה ─────────────────────────────────────
 function showUploadProgress(prefix, pct, label) {
   const wrap = document.getElementById(`${prefix}Wrap`);
   if (!wrap) return;
@@ -4178,14 +4178,14 @@ function showUploadProgress(prefix, pct, label) {
 function hideUploadProgress(prefix) {
   const wrap = document.getElementById(`${prefix}Wrap`);
   if (!wrap) return;
-  // ×”×©××¨×ª "×”×•×©×œ×" ×œ×¨×’×¢ ×§×¦×¨ ×œ×¤× ×™ ×”×¡×ª×¨×”
+  // השארת "הושלם" לרגע קצר לפני הסתרה
   setTimeout(() => {
     wrap.classList.add("hidden");
-    showUploadProgress(prefix, 0, "×ž×¢×œ×”â€¦");
+    showUploadProgress(prefix, 0, "מעלה…");
   }, 700);
 }
 
-// â”€â”€â”€ × ×™×•×•×˜ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── ניווט ─────────────────────────────────────────────────
 function bindNavigation() {
   document.getElementById("bottomNav").addEventListener("click", (e) => {
     const tabBtn = e.target.closest("[data-tab]");
@@ -4399,7 +4399,7 @@ function switchTab(tab, shouldSync = true) {
   }
 }
 
-// â”€â”€â”€ ×¢×–×¨ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── עזר ───────────────────────────────────────────────────
 function toBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -4451,21 +4451,21 @@ function relativeDaysLabel(dateObj, now = new Date()) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const target = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
   const diffDays = Math.round((target - today) / 86400000);
-  if (diffDays < 0) return "×”×ª×§×™×™×";
-  if (diffDays === 0) return "×”×™×•×";
-  if (diffDays === 1) return "×‘×¢×•×“ ×™×•×";
-  if (diffDays === 2) return "×‘×¢×•×“ ×™×•×ž×™×™×";
-  if (diffDays === 7) return "×‘×¢×•×“ ×©×‘×•×¢";
-  if (diffDays === 14) return "×‘×¢×•×“ ×©×‘×•×¢×™×™×";
-  return `×‘×¢×•×“ ${diffDays} ×™×ž×™×`;
+  if (diffDays < 0) return "התקיים";
+  if (diffDays === 0) return "היום";
+  if (diffDays === 1) return "בעוד יום";
+  if (diffDays === 2) return "בעוד יומיים";
+  if (diffDays === 7) return "בעוד שבוע";
+  if (diffDays === 14) return "בעוד שבועיים";
+  return `בעוד ${diffDays} ימים`;
 }
 
 function eventOptionLabel(event) {
   const d = parseEventDateTime(event.date, event.time || "00:00");
-  const dateText = d ? d.toLocaleDateString("he-IL") : (String(event.date || "").slice(0, 10) || "×ª××¨×™×š ×œ× ×–×ž×™×Ÿ");
+  const dateText = d ? d.toLocaleDateString("he-IL") : (String(event.date || "").slice(0, 10) || "תאריך לא זמין");
   let status = "";
   if (d) {
-    status = isEventPastByDate(event.date) ? "×”×ª×§×™×™×" : relativeDaysLabel(d);
+    status = isEventPastByDate(event.date) ? "התקיים" : relativeDaysLabel(d);
   }
-  return `×”××™×¨×•×¢ ×©×œ ${event.girlName || "â€”"} â€¢ ${dateText}${status ? ` â€¢ (${status})` : ""}`;
+  return `האירוע של ${event.girlName || "—"} • ${dateText}${status ? ` • (${status})` : ""}`;
 }

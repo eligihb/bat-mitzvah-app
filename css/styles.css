@@ -392,6 +392,14 @@ body {
   font-size: 0.7rem;
   font-weight: 800;
   color: rgba(107, 33, 168, 0.78);
+  direction: rtl;
+  unicode-bidi: isolate;
+}
+
+.login-version-num {
+  display: inline-block;
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .twin-field-wrap.is-hidden {
