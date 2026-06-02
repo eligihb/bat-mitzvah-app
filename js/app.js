@@ -410,16 +410,26 @@ function maybeNotifyOtherParentEvent() {
   }
 }
 
-// ─── זיהוי משתמש: תפקיד + שם ילדה + משפחה ─────────────────
-function userIdentityKey(role, girlName, familyName) {
-  return `${normalizeFamilyPart(role)}@@${normalizeFamilyPart(girlName)}@@${normalizeFamilyPart(familyName)}`;
+// ─── זיהוי: משפחה (ילדה+משפחה) + הורה (אבא/אמא) ───────────
+/** מזהה משפחה משותף לאבא ולאמא */
+function buildFamilyId(girlName, familyName) {
+  const g = normalizeFamilyPart(girlName);
+  const f = normalizeFamilyPart(familyName);
+  if (!g || !f) return "";
+  return `${g}@@${f}`;
 }
 
-function buildStableUserId(role, girlName, familyName) {
-  const key = userIdentityKey(role, girlName, familyName);
-  const parts = key.split("@@");
-  if (parts.length !== 3 || parts.some((p) => !p)) return crypto.randomUUID();
-  return key;
+function getFamilyId(user = currentUser) {
+  if (!user) return "";
+  return user.familyId || buildFamilyId(user.girlName, user.familyName);
+}
+
+/** מזהה הורה בודד בגיליון Users */
+function buildUserId(role, girlName, familyName) {
+  const familyId = buildFamilyId(girlName, familyName);
+  const r = normalizeFamilyPart(role);
+  if (!familyId) return crypto.randomUUID();
+  return r ? `${r}@@${familyId}` : familyId;
 }
 
 function userIdentityLabel(user = currentUser) {
@@ -432,15 +442,27 @@ function userIdentityLabel(user = currentUser) {
   return child ? `${role} של ${child}` : role;
 }
 
-function identityMatchesUser(a, b) {
+function sameParentIdentity(a, b) {
   if (!a || !b) return false;
-  return userIdentityKey(a.role, a.girlName, a.familyName) === userIdentityKey(b.role, b.girlName, b.familyName);
+  return (
+    normalizeFamilyPart(a.role) === normalizeFamilyPart(b.role) &&
+    getFamilyId(a) === getFamilyId(b)
+  );
+}
+
+function sameFamilyIdentity(a, b) {
+  if (!a || !b) return false;
+  return getFamilyId(a) === getFamilyId(b) && !!getFamilyId(a);
 }
 
 function applyStableUserId(user) {
   if (!user || user.isAdmin) return user;
-  const stable = buildStableUserId(user.role, user.girlName, user.familyName);
-  if (stable && String(user.id) !== String(stable)) user.id = stable;
+  user.familyId = buildFamilyId(user.girlName, user.familyName);
+  const stableUserId = buildUserId(user.role, user.girlName, user.familyName);
+  if (stableUserId && String(user.id) !== String(stableUserId)) {
+    if (user.id && !String(user.id).includes("@@")) user.legacyId = user.legacyId || user.id;
+    user.id = stableUserId;
+  }
   return user;
 }
 
@@ -448,6 +470,7 @@ function saveUserProfile(user) {
   if (!user?.id) return;
   saveJson(USER_PROFILE_KEY, {
     id: user.id,
+    familyId: getFamilyId(user),
     parentName: user.parentName || "",
     girlName: user.girlName || "",
     familyName: user.familyName || "",
@@ -460,10 +483,9 @@ function reconcileCurrentUserWithServer() {
   if (!currentUser) return;
   applyStableUserId(currentUser);
   if (users?.length) {
-    const match = users.find((u) => identityMatchesUser(u, currentUser));
+    const match = users.find((u) => sameParentIdentity(u, currentUser));
     if (match?.id && String(match.id) !== String(currentUser.id)) {
-      // שורות ישנות בגיליון עם UUID — נשארים מקושרים דרך findMyRsvpEntry
-      if (!String(currentUser.id).includes("@@")) currentUser.legacyId = currentUser.id;
+      if (!String(currentUser.id).includes("@@")) currentUser.legacyId = currentUser.legacyId || currentUser.id;
     }
   }
   saveJson(APP_CONFIG.storage.user, currentUser);
@@ -533,8 +555,10 @@ function bindLogin() {
     const wasEdit = loginEditMode;
     const prevLegacyId = currentUser?.legacyId || (wasEdit ? currentUser?.id : "");
 
+    const familyId = buildFamilyId(girlName, familyName);
     currentUser = applyStableUserId({
-      id: buildStableUserId(selectedRole, girlName, familyName),
+      id: buildUserId(selectedRole, girlName, familyName),
+      familyId,
       role: selectedRole,
       parentName,
       girlName,
@@ -926,6 +950,8 @@ function eventMatchesUserFamily(event, user = currentUser) {
 // האירוע של המשפחה (בעל/ת) — לא כולל מנהל על אירוע זר
 function isOwnEvent(event) {
   if (!event || !currentUser) return false;
+  const fid = getFamilyId();
+  if (fid && event.ownerId && String(event.ownerId) === String(fid)) return true;
   if (event.ownerId && String(event.ownerId) === String(currentUser.id)) return true;
   return eventMatchesUserFamily(event);
 }
@@ -957,18 +983,35 @@ function findUserById(userId) {
 }
 
 function userFamilyKeyFromUser(user) {
-  if (!user) return "";
-  return `${normalizeFamilyPart(user.girlName)}@@${normalizeFamilyPart(user.familyName)}`;
+  return getFamilyId(user);
+}
+
+function rsvpBelongsToFamily(userId, familyId) {
+  if (!familyId || !userId) return false;
+  if (String(userId) === String(familyId)) return true;
+  const u = findUserById(userId);
+  if (u && getFamilyId(u) === familyId) return true;
+  if (String(userId).endsWith(`@@${familyId}`)) return true;
+  if (currentUser?.legacyId && String(userId) === String(currentUser.legacyId)) return true;
+  return false;
 }
 
 function buildAttendeeDisplayLabel(userId) {
   const u = findUserById(userId);
-  const role = String(u?.role || "").trim() || "הורה";
-  const child = [String(u?.girlName || "").trim(), String(u?.familyName || "").trim()]
-    .filter(Boolean)
-    .join(" ");
-  if (child) return `${role} של ${child}`;
-  return role;
+  if (u) {
+    const role = String(u.role || "").trim() || "הורה";
+    const child = [String(u.girlName || "").trim(), String(u.familyName || "").trim()]
+      .filter(Boolean)
+      .join(" ");
+    return child ? `${role} של ${child}` : role;
+  }
+  const fam = users.find((x) => getFamilyId(x) === String(userId));
+  if (fam) return buildAttendeeDisplayLabel(fam.id);
+  const roleFromId = String(userId).split("@@")[0];
+  if (currentUser && getFamilyId() === userId) {
+    return userIdentityLabel(currentUser);
+  }
+  return roleFromId || "הורה";
 }
 
 function getRsvpEntries(event) {
@@ -996,61 +1039,69 @@ function canViewRsvpDetails(event) {
   return !event.hideGuests;
 }
 
-function userMatchesCurrentIdentity(user) {
-  if (!user || !currentUser) return false;
-  if (identityMatchesUser(user, currentUser)) return true;
-  if (currentUser.legacyId && String(user.id) === String(currentUser.legacyId)) return true;
-  return false;
-}
-
-function findMyRsvpEntry(event) {
+/** אישור הגעה ברמת משפחה — משותף לאבא ולאמא */
+function findFamilyRsvpEntry(event) {
   if (!currentUser || !event?.rsvp) return null;
+  const familyId = getFamilyId();
+  if (!familyId) return null;
+
+  if (event.rsvp[familyId]) {
+    const entry = event.rsvp[familyId];
+    return { userId: familyId, entry, status: rsvpEntryStatus(entry) };
+  }
+
   if (currentUser.legacyId && event.rsvp[currentUser.legacyId]) {
-    const leg = event.rsvp[currentUser.legacyId];
-    return {
-      userId: currentUser.legacyId,
-      entry: leg,
-      status: rsvpEntryStatus(leg),
-    };
+    const entry = event.rsvp[currentUser.legacyId];
+    return { userId: currentUser.legacyId, entry, status: rsvpEntryStatus(entry) };
   }
-  const direct = event.rsvp[currentUser.id];
-  if (direct) {
-    return { userId: currentUser.id, entry: direct, status: rsvpEntryStatus(direct) };
-  }
+
   for (const [userId, entry] of Object.entries(event.rsvp)) {
-    if (String(userId) === String(currentUser.id)) continue;
-    const u = findUserById(userId);
-    if (userMatchesCurrentIdentity(u)) {
+    if (rsvpBelongsToFamily(userId, familyId)) {
       return { userId, entry, status: rsvpEntryStatus(entry) };
     }
   }
   return null;
 }
 
-function getVoteUserId(event) {
-  return findMyRsvpEntry(event)?.userId || currentUser?.id || "";
+function getFamilyVoteUserId() {
+  return getFamilyId() || currentUser?.id || "";
 }
 
 function getOtherFamilyRsvp(event) {
   if (!currentUser || isOwnEvent(event)) return null;
-  if (findMyRsvpEntry(event)) return null;
-  const myKey = userFamilyKeyFromUser(currentUser);
-  if (!myKey || myKey === "@@") return null;
-  for (const entry of getRsvpEntries(event)) {
-    const u = findUserById(entry.userId);
-    if (userMatchesCurrentIdentity(u)) continue;
-    if (userFamilyKeyFromUser(u) === myKey) {
+  const familyVote = findFamilyRsvpEntry(event);
+  if (!familyVote?.status) return null;
+
+  const who =
+    typeof familyVote.entry === "object" ? String(familyVote.entry.userName || "").trim() : "";
+  const myRole = String(currentUser.role || "").trim();
+  const otherRole = myRole === "אבא" ? "אמא" : myRole === "אמא" ? "אבא" : "";
+
+  if (otherRole && who.includes(otherRole)) {
+    return {
+      status: familyVote.status,
+      label: who || buildAttendeeDisplayLabel(familyVote.userId),
+      userId: familyVote.userId,
+    };
+  }
+
+  if (String(familyVote.userId) !== String(currentUser.id)) {
+    const voter = findUserById(familyVote.userId);
+    if (voter && sameFamilyIdentity(voter, currentUser) && !sameParentIdentity(voter, currentUser)) {
       return {
-        ...entry,
-        label: buildAttendeeDisplayLabel(entry.userId),
+        status: familyVote.status,
+        label: buildAttendeeDisplayLabel(familyVote.userId),
+        userId: familyVote.userId,
       };
     }
   }
+
   return null;
 }
 
 function getMyRsvpStatus(event) {
-  return findMyRsvpEntry(event)?.status || "";
+  if (getOtherFamilyRsvp(event)) return "";
+  return findFamilyRsvpEntry(event)?.status || "";
 }
 
 function buildRsvpListRows(event, statusFilter) {
@@ -2263,9 +2314,10 @@ async function vote(eventId, status) {
     return;
   }
 
-  const voteUserId = getVoteUserId(event);
+  const voteUserId = getFamilyVoteUserId();
   if (!event.rsvp) event.rsvp = {};
-  event.rsvp[voteUserId] = { status, userName: currentUser.parentName || "" };
+  const voterLabel = `${currentUser.role || ""} ${currentUser.parentName || ""}`.trim();
+  event.rsvp[voteUserId] = { status, userName: voterLabel };
   renderEvents();
   if (rsvpScreenEventId === eventId) renderRsvpScreen();
 
@@ -2273,14 +2325,9 @@ async function vote(eventId, status) {
     await Api.vote({
       eventId,
       userId: voteUserId,
-      userName: currentUser.parentName,
+      userName: `${currentUser.role || ""} ${currentUser.parentName || ""}`.trim(),
       status,
     });
-    if (String(voteUserId) !== String(currentUser.id)) {
-      currentUser.id = voteUserId;
-      saveJson(APP_CONFIG.storage.user, currentUser);
-      saveUserProfile(currentUser);
-    }
     await syncFromServer({ silent: true });
     paintAppAfterSync();
   } catch (err) {
