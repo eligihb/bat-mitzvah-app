@@ -2641,19 +2641,26 @@ function renderOwnerCreditsForm() {
   refreshOwnerProviders();
 }
 
-function detectMyPastEventForOwnerCredit() {
-  const sortedPast = pastEventsSortedDesc();
-  const strict = sortedPast.find((e) => String(e.ownerId || "") === String(currentUser?.id || ""));
-  if (strict) return strict;
-  return sortedPast.find((e) => canManageEvent(e));
+function ownEventsForCurrentUser() {
+  return events.filter((e) => isOwnEvent(e));
 }
 
 function detectMyEventForOwnerCredit() {
-  const past = detectMyPastEventForOwnerCredit();
-  if (past) return past;
-  const ownStrict = events.find((e) => String(e.ownerId || "") === String(currentUser?.id || ""));
-  if (ownStrict) return ownStrict;
-  return events.find((e) => canManageEvent(e)) || null;
+  const own = ownEventsForCurrentUser();
+  if (!own.length) return null;
+
+  const upcoming = own
+    .filter((e) => !isEventPastByDate(e.date))
+    .sort((a, b) => {
+      const ad = parseEventDateTime(a.date, a.time);
+      const bd = parseEventDateTime(b.date, b.time);
+      if (!ad || !bd) return 0;
+      return ad - bd;
+    });
+  if (upcoming.length) return upcoming[0];
+
+  const past = pastEventsSortedDesc().filter((e) => isOwnEvent(e));
+  return past[0] || own[0];
 }
 
 function renderCreditsBoard() {
@@ -3735,7 +3742,7 @@ async function publishOwnerCredits() {
     return;
   }
   const event = events.find((e) => e.id === eventId);
-  if (!event || !canManageEvent(event)) {
+  if (!event || !isOwnEvent(event)) {
     showToast("ניתן להמליץ רק על האירוע שלך");
     return;
   }
