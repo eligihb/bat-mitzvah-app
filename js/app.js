@@ -346,10 +346,7 @@ function showToast(text) {
 
 function maybeNotifyOtherParentEvent() {
   const hasOtherParentEvent = events.some(
-    (e) =>
-      e.girlName === currentUser.girlName &&
-      (e.familyName || "") === (currentUser.familyName || "") &&
-      e.ownerId !== currentUser.id
+    (e) => eventMatchesUserFamily(e) && e.ownerId && String(e.ownerId) !== String(currentUser.id)
   );
   if (hasOtherParentEvent) {
     setTimeout(() => {
@@ -623,10 +620,12 @@ function bindProfileEdit() {
     saveJson(APP_CONFIG.storage.user, currentUser);
 
     events.forEach((e) => {
-      if (e.girlName === oldGirl && (e.familyName || "") === oldFamily && e.ownerId === currentUser.id) {
+      if (
+        eventMatchesUserFamily(e, { girlName: oldGirl, familyName: oldFamily })
+      ) {
         e.girlName = currentUser.girlName;
         e.familyName = currentUser.familyName;
-        e.ownerName = currentUser.parentName;
+        if (String(e.ownerId || "") === String(currentUser.id)) e.ownerName = currentUser.parentName;
       }
     });
 
@@ -699,11 +698,7 @@ function openFamilyEventModal() {
     openModalForCreate();
     return;
   }
-  const familyEvent = events.find(
-    (e) =>
-      e.girlName === currentUser.girlName &&
-      (e.familyName || "") === (currentUser.familyName || "")
-  );
+  const familyEvent = events.find((e) => isOwnEvent(e));
   if (familyEvent) openModalForEdit(familyEvent.id);
   else openModalForCreate();
 }
@@ -777,23 +772,30 @@ function setEventMenuValue(value) {
   renderMenuChoiceState();
 }
 
-function canManageEvent(event) {
-  if (currentUser?.isAdmin) return true;
-  if (event.ownerId && currentUser?.id && String(event.ownerId) === String(currentUser.id)) return true;
+function normalizeFamilyPart(v) {
+  return String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/** אותה ילדה + אותה משפחה (שני הורים, גם אם רק אחד יצר את האירוע) */
+function eventMatchesUserFamily(event, user = currentUser) {
+  if (!event || !user) return false;
   return (
-    event.girlName === currentUser.girlName &&
-    (event.familyName || "") === (currentUser.familyName || "")
+    normalizeFamilyPart(event.girlName) === normalizeFamilyPart(user.girlName) &&
+    normalizeFamilyPart(event.familyName) === normalizeFamilyPart(user.familyName)
   );
 }
 
-// האם זה האירוע של המשתמש עצמו (בלי חריגת מנהל)
+function canManageEvent(event) {
+  if (currentUser?.isAdmin) return true;
+  if (event.ownerId && currentUser?.id && String(event.ownerId) === String(currentUser.id)) return true;
+  return eventMatchesUserFamily(event);
+}
+
+// בעלות משפחתית — לא כולל מנהל (גם אם יש לו הרשאת עריכה)
 function isOwnEvent(event) {
-  if (!event || !currentUser) return false;
+  if (!event || !currentUser || currentUser.isAdmin) return false;
   if (event.ownerId && String(event.ownerId) === String(currentUser.id)) return true;
-  return (
-    event.girlName === currentUser.girlName &&
-    (event.familyName || "") === (currentUser.familyName || "")
-  );
+  return eventMatchesUserFamily(event);
 }
 
 function creditBlockMessage(icon, text) {
@@ -995,11 +997,7 @@ function setEventSubmitLoading(loading) {
 
 function userHasFamilyEvent() {
   if (!currentUser) return false;
-  const girl = String(currentUser.girlName || "").trim();
-  const family = String(currentUser.familyName || "").trim();
-  return events.some(
-    (e) => String(e.girlName || "").trim() === girl && String(e.familyName || "").trim() === family
-  );
+  return events.some((e) => eventMatchesUserFamily(e));
 }
 
 function updateAddButton(tabName = activeTab) {
@@ -1738,9 +1736,10 @@ function renderEvents() {
   }
 
   events.forEach((event) => {
-    const isFamily = canManageEvent(event);
-    const isOwnerEvent = String(event.ownerId || "") === String(currentUser?.id || "");
-    const myVote = event.rsvp[currentUser.id];
+    const canManage = canManageEvent(event);
+    const isOwnerFamily = isOwnEvent(event);
+    const isOwnerEvent = isOwnEvent(event);
+    const myVote = event.rsvp[currentUser?.id];
     const yes = Object.values(event.rsvp).filter((v) => v === "yes").length;
     const maybe = Object.values(event.rsvp).filter((v) => v === "maybe").length;
     const no = Object.values(event.rsvp).filter((v) => v === "no").length;
@@ -1777,7 +1776,7 @@ function renderEvents() {
         ${isTomorrowEvent ? '<div class="my-event-title" style="background:rgba(244,63,94,.22);border-color:rgba(251,113,133,.7);color:#ffe4e6;">האירוע מתקיים בעוד יום</div>' : ""}
         ${isOwnerEvent ? '<div class="my-event-title">האירוע שלי</div>' : ""}
         ${
-          isFamily
+          canManage
             ? `
         <div class="event-actions event-actions-top-left">
           <button type="button" class="event-action-btn compact edit" data-edit-id="${event.id}" aria-label="עריכה">
@@ -1829,7 +1828,7 @@ function renderEvents() {
           !isPastEvent
             ? `<div class="mt-4 pt-4 border-t border-white/10">
           ${
-            event.hideGuests && !isFamily
+            event.hideGuests && !isOwnerFamily
               ? `<div class="text-white/40 text-sm">אישורי ההגעה מוסתרים 🔒</div>`
               : `
           <div class="rsvp-summary-row text-sm">
@@ -1839,7 +1838,7 @@ function renderEvents() {
             <div class="text-red-300">לא מגיעים: ${no}</div>
             </div>
             ${
-              isFamily
+              isOwnerFamily
                 ? `<button type="button" class="hide-rsvp-btn" data-toggle-hide-id="${event.id}" title="הסתר ממשתמשים אחרים" aria-label="הסתר תוכן ממשתמשים אחרים">
                     <i class="fa-solid fa-eye-slash"></i>
                   </button>`
@@ -1848,7 +1847,7 @@ function renderEvents() {
           </div>`
           }
           ${
-            isFamily && event.hideGuests
+            isOwnerFamily && event.hideGuests
               ? `<div class="text-[12px] text-purple-200/85 mt-2">תוכן זה יוסתר ממשתמשים אחרים</div>`
               : ""
           }
@@ -2346,12 +2345,21 @@ function renderGuestCreditsForm() {
 
 function renderOwnerCreditsForm() {
   const tab = document.getElementById("creditsTab");
+  if (currentUser?.isAdmin) {
+    tab.innerHTML = `
+      ${creditsTopNav("owner")}
+      <div class="glass rounded-[28px] p-4 text-center text-sm text-white/70">
+        מנהל מערכת אינו בעל/ת אירוע משפחתי — השתמשו ב«פרגן לאירוע» לפרגונים והמלצות.
+      </div>
+    `;
+    return;
+  }
   const myEvent = detectMyEventForOwnerCredit();
   if (!myEvent) {
     tab.innerHTML = `
       ${creditsTopNav("owner")}
       <div class="glass rounded-[28px] p-4 text-center text-sm text-white/70">
-        לא נמצא אירוע בבעלותכם. צרו קודם אירוע כדי להמליץ על נותני השירות.
+        לא נמצא אירוע בבעלותכם. צרו קודם אירוע (אותה ילדה ושם משפחה) כדי להמליץ על נותני השירות.
       </div>
     `;
     return;
@@ -2394,18 +2402,15 @@ function renderOwnerCreditsForm() {
 }
 
 function detectMyPastEventForOwnerCredit() {
-  const sortedPast = pastEventsSortedDesc();
-  const strict = sortedPast.find((e) => String(e.ownerId || "") === String(currentUser?.id || ""));
-  if (strict) return strict;
-  return sortedPast.find((e) => canManageEvent(e));
+  if (currentUser?.isAdmin) return null;
+  return pastEventsSortedDesc().find((e) => isOwnEvent(e)) || null;
 }
 
 function detectMyEventForOwnerCredit() {
+  if (currentUser?.isAdmin) return null;
   const past = detectMyPastEventForOwnerCredit();
   if (past) return past;
-  const ownStrict = events.find((e) => String(e.ownerId || "") === String(currentUser?.id || ""));
-  if (ownStrict) return ownStrict;
-  return events.find((e) => canManageEvent(e)) || null;
+  return events.find((e) => isOwnEvent(e)) || null;
 }
 
 function renderCreditsBoard() {
