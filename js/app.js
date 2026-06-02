@@ -2009,6 +2009,22 @@ function adminCreditLabel(c) {
   return `${who} • ${eventName}`;
 }
 
+/** מיון ללוח אירועים: קרובים קודם (מהקרוב לרחוק), אחר כך עבר (מהחדש לישן) */
+function sortEventsForDisplay(list) {
+  const now = new Date();
+  return [...(list || [])].sort((a, b) => {
+    const ad = parseEventDateTime(a.date, a.time);
+    const bd = parseEventDateTime(b.date, b.time);
+    if (!ad && !bd) return 0;
+    if (!ad) return 1;
+    if (!bd) return -1;
+    const aUpcoming = ad >= now;
+    const bUpcoming = bd >= now;
+    if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+    return aUpcoming ? ad - bd : bd - ad;
+  });
+}
+
 // ─── רשימת אירועים ─────────────────────────────────────────
 function renderEvents() {
   const container = document.getElementById("eventsTab");
@@ -2020,7 +2036,7 @@ function renderEvents() {
     return;
   }
 
-  events.forEach((event) => {
+  sortEventsForDisplay(events).forEach((event) => {
     const canManage = canManageEvent(event);
     const isOwnerEvent = isOwnEvent(event);
 
