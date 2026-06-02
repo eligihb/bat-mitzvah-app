@@ -695,6 +695,10 @@ function renderUpcoming() {
 
 // ─── הוספת / עריכת אירוע ───────────────────────────────────
 function openFamilyEventModal() {
+  if (currentUser?.isAdmin) {
+    openModalForCreate();
+    return;
+  }
   const familyEvent = events.find(
     (e) =>
       e.girlName === currentUser.girlName &&
@@ -1008,9 +1012,9 @@ function updateAddButton(tabName = activeTab) {
   }
   const isAdmin = !!currentUser.isAdmin;
   const onAdminTab = tabName === "admin";
-  const showFab = !isAdmin && !onAdminTab;
+  const showFab = !onAdminTab;
   addBtn?.classList.toggle("hidden", !showFab);
-  const showNavAdd = showFab && !userHasFamilyEvent();
+  const showNavAdd = !isAdmin && showFab && !userHasFamilyEvent();
   navAdd?.classList.toggle("hidden", !showNavAdd);
 }
 
