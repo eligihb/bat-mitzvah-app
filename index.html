@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl" data-app-version="118.4">
+<html lang="he" dir="rtl" data-app-version="118.5">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -177,7 +177,19 @@
       <div id="appBootLoading" class="app-boot-loading hidden" aria-live="polite">
         <div class="app-boot-card">
           <div class="app-boot-spinner" aria-hidden="true"></div>
-          <p class="app-boot-text">טוען נתונים מהענן…</p>
+          <p class="app-boot-text">כמה רגעים התוכן יעלה</p>
+        </div>
+      </div>
+
+      <div id="globalUploadOverlay" class="global-upload-overlay hidden" aria-live="assertive" aria-modal="true" role="alertdialog">
+        <div class="global-upload-card">
+          <div class="global-upload-spinner" aria-hidden="true"></div>
+          <p class="global-upload-title">מעלה תוכן…</p>
+          <p class="global-upload-detail"></p>
+          <div class="global-upload-track">
+            <div class="global-upload-bar"></div>
+          </div>
+          <p class="global-upload-pct"></p>
         </div>
       </div>
 
@@ -348,8 +360,8 @@
 
   <div id="toastMsg" class="toast hidden"></div>
 
-  <script src="js/config.js?v=58"></script>
-  <script src="js/api.js?v=58"></script>
-  <script src="js/app.js?v=58"></script>
+  <script src="js/config.js?v=59"></script>
+  <script src="js/api.js?v=59"></script>
+  <script src="js/app.js?v=59"></script>
 </body>
 </html>

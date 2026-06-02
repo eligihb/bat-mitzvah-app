@@ -649,6 +649,90 @@ body {
   }
 }
 
+.global-upload-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(8, 7, 13, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.global-upload-card {
+  width: min(22rem, 100%);
+  padding: 1.35rem 1.25rem 1.15rem;
+  border-radius: 1.35rem;
+  text-align: center;
+  background: rgba(22, 17, 31, 0.96);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+}
+
+.global-upload-spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: 0 auto 0.85rem;
+  border-radius: 999px;
+  border: 3px solid rgba(168, 85, 247, 0.25);
+  border-top-color: #f472b6;
+  animation: appBootSpin 0.75s linear infinite;
+}
+
+.global-upload-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.global-upload-detail {
+  margin: 0.45rem 0 0.85rem;
+  min-height: 1.1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(233, 213, 255, 0.82);
+}
+
+.global-upload-track {
+  height: 0.45rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.global-upload-track.is-indeterminate .global-upload-bar {
+  width: 35% !important;
+  animation: globalUploadIndeterminate 1.1s ease-in-out infinite;
+}
+
+.global-upload-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ec4899, #a855f7);
+  transition: width 0.25s ease;
+}
+
+.global-upload-pct {
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: rgba(250, 204, 21, 0.95);
+  min-height: 1rem;
+}
+
+@keyframes globalUploadIndeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
 .waze-live-btn {
   display: inline-flex;
   align-items: center;
@@ -878,6 +962,11 @@ body {
   bottom: 5.5rem;
   right: max(1.25rem, calc(50vw - 215px + 1.25rem));
   left: auto;
+  z-index: 56;
+}
+
+#addBtn:not(.hidden) {
+  display: flex !important;
 }
 
 #eventModal {

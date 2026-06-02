@@ -52,6 +52,74 @@ let lightboxItems = [];
 let lightboxIndex = -1;
 let selectedEventMenuChoice = "";
 let toastTimer = null;
+let globalUploadDepth = 0;
+let globalUploadCreepTimer = null;
+
+function appBootMessage() {
+  return APP_CONFIG.bootMessage || "כמה רגעים התוכן יעלה";
+}
+
+function setGlobalUpload(title, detail = "", pct = null) {
+  const el = document.getElementById("globalUploadOverlay");
+  if (!el) return;
+  el.classList.remove("hidden");
+  const titleEl = el.querySelector(".global-upload-title");
+  const detailEl = el.querySelector(".global-upload-detail");
+  const track = el.querySelector(".global-upload-track");
+  const bar = el.querySelector(".global-upload-bar");
+  const pctEl = el.querySelector(".global-upload-pct");
+  if (titleEl) titleEl.textContent = title || "מעלה תוכן…";
+  if (detailEl) detailEl.textContent = detail || "";
+  if (pct == null || pct === undefined) {
+    track?.classList.add("is-indeterminate");
+    if (bar) bar.style.width = "";
+    if (pctEl) pctEl.textContent = "";
+  } else {
+    track?.classList.remove("is-indeterminate");
+    const safe = Math.max(0, Math.min(100, Math.round(pct)));
+    if (bar) bar.style.width = `${safe}%`;
+    if (pctEl) pctEl.textContent = `${safe}%`;
+  }
+}
+
+function stopGlobalUploadCreep() {
+  if (globalUploadCreepTimer) {
+    clearInterval(globalUploadCreepTimer);
+    globalUploadCreepTimer = null;
+  }
+}
+
+function startGlobalUploadCreep(title, detail, from = 8, to = 88) {
+  stopGlobalUploadCreep();
+  let v = from;
+  setGlobalUpload(title, detail, v);
+  globalUploadCreepTimer = setInterval(() => {
+    v = Math.min(to, v + 2);
+    setGlobalUpload(title, detail, v);
+    if (v >= to) stopGlobalUploadCreep();
+  }, 280);
+}
+
+function beginGlobalUpload(title, detail = "") {
+  globalUploadDepth += 1;
+  stopGlobalUploadCreep();
+  setGlobalUpload(title, detail, null);
+}
+
+function cancelGlobalUpload() {
+  globalUploadDepth = 0;
+  stopGlobalUploadCreep();
+  document.getElementById("globalUploadOverlay")?.classList.add("hidden");
+}
+
+async function finishGlobalUpload(successTitle = "נשמר בהצלחה ✓", successDetail = "") {
+  stopGlobalUploadCreep();
+  globalUploadDepth = Math.max(0, globalUploadDepth - 1);
+  if (globalUploadDepth > 0) return;
+  setGlobalUpload(successTitle, successDetail, 100);
+  await new Promise((r) => setTimeout(r, 750));
+  document.getElementById("globalUploadOverlay")?.classList.add("hidden");
+}
 
 function normalizePhone(phone) {
   return (phone || "").replace(/[^0-9]/g, "");
@@ -184,6 +252,7 @@ function setAppBootLoading(on, text) {
   el.classList.toggle("hidden", !on);
   const label = el.querySelector(".app-boot-text");
   if (label && text) label.textContent = text;
+  else if (label && on) label.textContent = appBootMessage();
 }
 
 // ─── סנכרון עם Google Sheets ───────────────────────────────
@@ -209,7 +278,7 @@ function setSyncStatus(text, isError = false) {
 async function syncFromServer({ silent = false, boot = false } = {}) {
   if (isSyncing) return;
   isSyncing = true;
-  if (boot) setAppBootLoading(true, "טוען נתונים מהענן…");
+  if (boot) setAppBootLoading(true, appBootMessage());
   else if (!silent) setSyncStatus("מסנכרן נתונים...");
 
   try {
@@ -444,9 +513,11 @@ async function showApp() {
   guestCreditFreshLoad = true;
 
   clearCloudDataCache();
-  setAppBootLoading(true, "טוען נתונים מהענן…");
+  cancelGlobalUpload();
+  setAppBootLoading(true, appBootMessage());
   switchTab(activeTab, false);
   await syncFromServer({ silent: true, boot: true });
+  updateAddButton();
   maybeNotifyOtherParentEvent();
   startAutoSync();
 }
@@ -918,15 +989,31 @@ function setEventSubmitLoading(loading) {
   }
 }
 
-function updateAddButton() {
-  const hideFab = !currentUser || currentUser.isAdmin;
-  document.getElementById("addBtn")?.classList.toggle("hidden", hideFab);
-  const exists = events.some(
-    (e) =>
-      e.girlName === currentUser.girlName &&
-      (e.familyName || "") === (currentUser.familyName || "")
+function userHasFamilyEvent() {
+  if (!currentUser) return false;
+  const girl = String(currentUser.girlName || "").trim();
+  const family = String(currentUser.familyName || "").trim();
+  return events.some(
+    (e) => String(e.girlName || "").trim() === girl && String(e.familyName || "").trim() === family
   );
-  document.getElementById("navAdd")?.classList.toggle("hidden", exists || hideFab);
+}
+
+function updateAddButton(tabName = activeTab) {
+  const addBtn = document.getElementById("addBtn");
+  const navAdd = document.getElementById("navAdd");
+  if (!currentUser) {
+    addBtn?.classList.add("hidden");
+    navAdd?.classList.add("hidden");
+    return;
+  }
+  const isAdmin = !!currentUser.isAdmin;
+  const onAdminTab = tabName === "admin";
+  // כפתור + צף — תמיד למשתמש רגיל (יצירה או עריכת האירוע), בכל לשונית
+  const showFab = !isAdmin && !onAdminTab;
+  addBtn?.classList.toggle("hidden", !showFab);
+  // כפתור "הוסף" בתפריט התחתון — רק כשאין עדיין אירוע משפחתי
+  const showNavAdd = showFab && !userHasFamilyEvent();
+  navAdd?.classList.toggle("hidden", !showNavAdd);
 }
 
 function bindEventForm() {
@@ -965,14 +1052,19 @@ function bindEventForm() {
 
     isSavingEvent = true;
     setEventSubmitLoading(true);
+    beginGlobalUpload(editingEventId ? "מעדכן אירוע" : "שומר אירוע", "אנא המתינו…");
 
     // העלאת תמונה — רק אם נבחר קובץ חדש; כישלון לא חוסם עריכת שאר השדות
     let newImageUrl = "";
     const file = document.getElementById("girlImage").files[0];
     if (file) {
+      startGlobalUploadCreep("מעלה תמונה", "זה עלול לקחת כמה רגעים…", 12, 75);
       try {
         newImageUrl = await uploadEventImageFile(file);
+        stopGlobalUploadCreep();
+        setGlobalUpload("מעלה תמונה", "התמונה עלתה", 78);
       } catch (imgErr) {
+        stopGlobalUploadCreep();
         console.error(imgErr);
         if (editingEventId) {
           const cont = confirm(
@@ -981,17 +1073,17 @@ function bindEventForm() {
           if (!cont) {
             isSavingEvent = false;
             setEventSubmitLoading(false);
-            setSyncStatus("");
+            cancelGlobalUpload();
             return;
           }
         } else {
-          showToast("התמונה לא עלתה — האירוע יישמר עם תמונת ברירת מחדל");
+          setGlobalUpload("שומר אירוע", "התמונה לא עלתה — שומרים עם תמונת ברירת מחדל", 40);
         }
       }
     }
 
     try {
-      setSyncStatus(editingEventId ? "מעדכן אירוע..." : "שומר אירוע...");
+      setGlobalUpload(editingEventId ? "מעדכן אירוע" : "שומר אירוע", "שולח לענן…", file ? 85 : 55);
 
       if (editingEventId) {
         const payload = {
@@ -1038,11 +1130,12 @@ function bindEventForm() {
 
       closeModal();
       renderAll();
+      await finishGlobalUpload(editingEventId ? "האירוע עודכן ✓" : "האירוע נשמר ✓");
       syncFromServer({ silent: true });
     } catch (err) {
       console.error(err);
+      cancelGlobalUpload();
       alert(editingEventId ? "לא הצלחנו לעדכן את האירוע." : "לא הצלחנו לשמור את האירוע.");
-      setSyncStatus("");
     } finally {
       isSavingEvent = false;
       setEventSubmitLoading(false);
@@ -1886,20 +1979,22 @@ async function publishMessage() {
   if (!text) return;
 
   const msgId = crypto.randomUUID();
+  beginGlobalUpload("מפרסם הודעה", "שולח לענן…");
 
   try {
-    setSyncStatus("שולח הודעה...");
     await Api.createMessage({
       id: msgId,
       userName: currentUser.parentName,
       messageText: text,
     });
     input.value = "";
-    await syncFromServer();
+    setGlobalUpload("מפרסם הודעה", "מסנכרן…", 90);
+    await syncFromServer({ silent: true });
+    await finishGlobalUpload("ההודעה פורסמה ✓");
   } catch (err) {
     console.error(err);
+    cancelGlobalUpload();
     alert("לא הצלחנו לפרסם את ההודעה. נסו שוב.");
-    setSyncStatus("");
   }
 }
 
@@ -2652,6 +2747,7 @@ async function submitBoardPraise(key, providerName, category) {
     return;
   }
   try {
+    beginGlobalUpload("מפרסם פרגון", "שולח לענן…");
     await Api.createCredit({
       id: crypto.randomUUID(),
       eventId,
@@ -2665,11 +2761,13 @@ async function submitBoardPraise(key, providerName, category) {
       createdAt: new Date().toISOString(),
     });
     boardPraiseKey = "";
-    showToast("הפרגון פורסם ✓");
+    setGlobalUpload("מפרסם פרגון", "מסנכרן…", 92);
     await syncFromServer({ silent: true });
+    await finishGlobalUpload("הפרגון פורסם ✓");
     renderCredits();
   } catch (err) {
     console.error(err);
+    cancelGlobalUpload();
     showToast("לא הצלחנו לפרסם");
   }
 }
@@ -3163,12 +3261,14 @@ async function saveOwnerQuickAddProvider() {
     return;
   }
 
+  const wasEdit = !!editingProviderCreditId;
   isSavingOwnerProvider = true;
   const saveBtn = document.querySelector("[data-owner-quick-save]");
   if (saveBtn) {
     saveBtn.disabled = true;
     saveBtn.textContent = "שומר…";
   }
+  beginGlobalUpload(wasEdit ? "מעדכן נותן שירות" : "שומר נותן שירות", "שולח לענן…");
 
   if (editingProviderCreditId) {
     try {
@@ -3195,17 +3295,19 @@ async function saveOwnerQuickAddProvider() {
   };
   credits = [record, ...credits];
   saveJson("bm_credits", credits);
-  const wasEdit = !!editingProviderCreditId;
   closeOwnerQuickAddModal();
   refreshOwnerProviders();
-  showToast(wasEdit ? "עודכן ✓" : "נוסף ✓");
 
   try {
+    setGlobalUpload(wasEdit ? "מעדכן נותן שירות" : "שומר נותן שירות", "שולח לענן…", 70);
     await Api.createCredit({ ...record, ratings: JSON.stringify({}) });
-    syncFromServer({ silent: true });
+    setGlobalUpload(wasEdit ? "מעדכן נותן שירות" : "שומר נותן שירות", "מסנכרן…", 90);
+    await syncFromServer({ silent: true });
+    await finishGlobalUpload(wasEdit ? "עודכן ✓" : "נוסף ✓");
   } catch (err) {
     console.error(err);
-    showToast("נשמר — יסתנכרן ברקע");
+    cancelGlobalUpload();
+    showToast("נשמר מקומית — יסתנכרן ברקע");
   } finally {
     isSavingOwnerProvider = false;
     if (saveBtn) {
@@ -3283,7 +3385,10 @@ async function publishGuestCredits() {
     pubBtn.disabled = true;
     pubBtn.textContent = "מפרסם…";
   }
+  beginGlobalUpload("מפרסם פרגון", "שולח לענן…");
   try {
+    const total = selectedCards.length;
+    let done = 0;
     for (const card of selectedCards) {
       const scoreInput = card.querySelector("[data-provider-name]");
       const providerName = scoreInput?.dataset.providerName || "";
@@ -3291,10 +3396,12 @@ async function publishGuestCredits() {
       const score = Number(scoreInput?.value || 0);
       const isCategoryOnly = card.dataset.categoryOnly === "1";
       if (score <= 0) {
+        cancelGlobalUpload();
         showToast(`חסר דירוג ל${isCategoryOnly ? category : providerName || category || "ספק"}`);
         return;
       }
       const providerNote = card.querySelector("input[type='text']")?.value.trim() || "";
+      setGlobalUpload("מפרסם פרגון", `${done + 1} מתוך ${total}`, Math.round((done / total) * 85));
       await retryApiCall(() =>
         Api.createCredit({
         id: crypto.randomUUID(),
@@ -3310,15 +3417,17 @@ async function publishGuestCredits() {
         createdAt: new Date().toISOString(),
       })
       );
+      done += 1;
     }
+    setGlobalUpload("מפרסם פרגון", "מסנכרן…", 92);
     await syncFromServer({ silent: true });
-    showToast("הפרגון פורסם");
     guestProviderStateReset();
     guestCreditNoteDraft = "";
     guestCreditTagsSelected = [];
     guestEventScoreSelected = 0;
     creditScreen = "board";
     renderCredits();
+    await finishGlobalUpload("הפרגון פורסם ✓");
   } catch (err) {
     console.error(err);
     const msg = String(err?.message || "");
@@ -3353,8 +3462,9 @@ async function publishGuestCredits() {
       creditScreen = "board";
       renderCredits();
       renderAll();
-      showToast("הפרגון פורסם");
+      await finishGlobalUpload("הפרגון פורסם ✓");
     } else {
+      cancelGlobalUpload();
       showToast(`לא הצלחנו לפרסם פרגון: ${msg.slice(0, 90)}`);
     }
   } finally {
@@ -3384,16 +3494,21 @@ async function publishOwnerCredits() {
     return;
   }
   const note = document.getElementById("ownerCreditNote").value.trim();
+  beginGlobalUpload("מפרסם המלצה", "שולח לענן…");
   try {
+    const total = selectedCards.length;
+    let done = 0;
     for (const card of selectedCards) {
       const scoreInput = card.querySelector("[data-provider-name]");
       const providerName = scoreInput?.dataset.providerName || "";
       const category = scoreInput?.dataset.providerCategory || "";
       const score = Number(scoreInput?.value || 0);
       if (score <= 0) {
+        cancelGlobalUpload();
         showToast(`חסר דירוג לספק: ${providerName || category || "ספק"}`);
         return;
       }
+      setGlobalUpload("מפרסם המלצה", `${done + 1} מתוך ${total}`, Math.round((done / total) * 85));
       await retryApiCall(() =>
         Api.createCredit({
         id: crypto.randomUUID(),
@@ -3409,11 +3524,13 @@ async function publishOwnerCredits() {
         createdAt: new Date().toISOString(),
       })
       );
+      done += 1;
     }
+    setGlobalUpload("מפרסם המלצה", "מסנכרן…", 92);
     await syncFromServer({ silent: true });
-    showToast("ההמלצה פורסמה");
     creditScreen = "board";
     renderCredits();
+    await finishGlobalUpload("ההמלצה פורסמה ✓");
   } catch (err) {
     console.error(err);
     const msg = String(err?.message || "");
@@ -3443,8 +3560,9 @@ async function publishOwnerCredits() {
       creditScreen = "board";
       renderCredits();
       renderAll();
-      showToast("ההמלצה פורסמה");
+      await finishGlobalUpload("ההמלצה פורסמה ✓");
     } else {
+      cancelGlobalUpload();
       showToast(`לא הצלחנו לפרסם המלצה: ${msg.slice(0, 90)}`);
     }
   }
@@ -3550,6 +3668,7 @@ async function addProviderFromModal() {
     return;
   }
   try {
+    beginGlobalUpload("שומר נותן שירות", "שולח לענן…");
     await Api.createCredit({
       id: crypto.randomUUID(),
       eventId: eventId === "__external__" ? `manual:${document.getElementById("creditManualEvent")?.value.trim() || "אירוע חיצוני"}` : eventId,
@@ -3566,13 +3685,15 @@ async function addProviderFromModal() {
       ratings: JSON.stringify({}),
       createdAt: new Date().toISOString(),
     });
+    setGlobalUpload("שומר נותן שירות", "מסנכרן…", 90);
     await syncFromServer({ silent: true });
     document.getElementById("providerModal")?.classList.add("hidden");
     document.getElementById("ownerInlineProviderForm")?.classList.add("hidden");
-    showToast("נותן השירות נוסף");
+    await finishGlobalUpload("נותן השירות נוסף ✓");
     renderCredits();
   } catch (err) {
     console.error(err);
+    cancelGlobalUpload();
     showToast("לא הצלחנו להוסיף נותן שירות");
   }
 }
@@ -4081,6 +4202,7 @@ async function addExperienceFromForm() {
   const btn = document.getElementById("addExperienceBtn");
   if (btn) btn.disabled = true;
   isExperienceUploading = true;
+  beginGlobalUpload("מעלה לגלריה", `0 מתוך ${files.length} קבצים`);
   showUploadProgress("expProgress", 0, `מעלה 0 מתוך ${files.length}`);
   const uploaded = [];
   try {
@@ -4093,6 +4215,7 @@ async function addExperienceFromForm() {
       const base = Math.round((idx / files.length) * 100);
       const span = Math.round((1 / files.length) * 100);
       const label = files.length > 1 ? `מעלה ${idx + 1} מתוך ${files.length} קבצים` : "מעלה קובץ…";
+      setGlobalUpload("מעלה לגלריה", label, base);
       let lastPct = 0;
       // זחילה עדינה כדי שהסרגל תמיד יתקדם, גם כשהשרת מעבד (Drive) ואין אירועי התקדמות
       const creep = setInterval(() => {
@@ -4112,6 +4235,7 @@ async function addExperienceFromForm() {
               if (filePct > lastPct) lastPct = filePct;
               const overall = Math.min(99, base + Math.round((lastPct / 100) * span));
               showUploadProgress("expProgress", overall, label);
+              setGlobalUpload("מעלה לגלריה", label, overall);
             }
           )
         );
@@ -4119,6 +4243,7 @@ async function addExperienceFromForm() {
         clearInterval(creep);
       }
       showUploadProgress("expProgress", Math.min(99, base + span), label);
+      setGlobalUpload("מעלה לגלריה", label, Math.min(99, base + span));
       const imageUrl = upload.imageUrl || "";
       if (!imageUrl) throw new Error("לא התקבל קישור מהשרת");
 
@@ -4135,16 +4260,18 @@ async function addExperienceFromForm() {
       uploaded.push(record);
     }
     showUploadProgress("expProgress", 100, "הושלם");
+    setGlobalUpload("מעלה לגלריה", "שומר ברשומות…", 96);
     // הצגה מיידית (אופטימי) כדי שזה ירגיש מהיר, וסנכרון ברקע
     experiences = [...uploaded, ...experiences];
     saveJson("bm_experiences", experiences);
     document.getElementById("expImageFile").value = "";
     renderExperiencesListOnly();
-    showToast(uploaded.length > 1 ? `${uploaded.length} פריטים עלו לענן` : "הקובץ עלה לענן");
-    syncFromServer({ silent: true });
+    await syncFromServer({ silent: true });
+    await finishGlobalUpload(uploaded.length > 1 ? `${uploaded.length} פריטים עלו ✓` : "הקובץ עלה ✓");
   } catch (err) {
     const msg = String(err?.message || "");
     if (isUnknownActionError(err) || /DriveApp|הרשאה|permission/i.test(msg)) {
+      cancelGlobalUpload();
       alert(
         "ההעלאה לענן נכשלה — חסרה הרשאת Drive.\n\n" +
           "פתח/י Apps Script → בחר/י authorizeDrive → Run → אשר/י הרשאות.\n\n" +
@@ -4152,6 +4279,7 @@ async function addExperienceFromForm() {
       );
     } else {
       console.error(err);
+      cancelGlobalUpload();
       showToast(`ההעלאה נכשלה — הקובץ נשאר נבחר, אפשר לנסות שוב`);
     }
   } finally {
@@ -4164,25 +4292,26 @@ async function addExperienceFromForm() {
 // ─── סרגל התקדמות העלאה ─────────────────────────────────────
 function showUploadProgress(prefix, pct, label) {
   const wrap = document.getElementById(`${prefix}Wrap`);
-  if (!wrap) return;
-  wrap.classList.remove("hidden");
-  const bar = document.getElementById(`${prefix}Bar`);
-  const pctEl = document.getElementById(`${prefix}Pct`);
-  const labelEl = document.getElementById(`${prefix}Label`);
-  const safe = Math.max(0, Math.min(100, Math.round(pct)));
-  if (bar) bar.style.width = `${safe}%`;
-  if (pctEl) pctEl.textContent = `${safe}%`;
-  if (labelEl && label) labelEl.textContent = label;
+  if (wrap) {
+    wrap.classList.remove("hidden");
+    const bar = document.getElementById(`${prefix}Bar`);
+    const pctEl = document.getElementById(`${prefix}Pct`);
+    const labelEl = document.getElementById(`${prefix}Label`);
+    const safe = Math.max(0, Math.min(100, Math.round(pct)));
+    if (bar) bar.style.width = `${safe}%`;
+    if (pctEl) pctEl.textContent = `${safe}%`;
+    if (labelEl && label) labelEl.textContent = label;
+  }
 }
 
 function hideUploadProgress(prefix) {
   const wrap = document.getElementById(`${prefix}Wrap`);
   if (!wrap) return;
-  // השארת "הושלם" לרגע קצר לפני הסתרה
   setTimeout(() => {
     wrap.classList.add("hidden");
-    showUploadProgress(prefix, 0, "מעלה…");
-  }, 700);
+    const bar = document.getElementById(`${prefix}Bar`);
+    if (bar) bar.style.width = "0%";
+  }, 400);
 }
 
 // ─── ניווט ─────────────────────────────────────────────────
@@ -4385,12 +4514,7 @@ function switchTab(tab, shouldSync = true) {
     btn.classList.toggle("nav-tab-idle", btn.dataset.tab !== tab);
   });
 
-  document.getElementById("navAdd")?.classList.toggle("hidden", tab === "admin" || !!currentUser?.isAdmin);
-  const hideFab = !currentUser || currentUser.isAdmin || tab === "admin";
-  document.getElementById("addBtn")?.classList.toggle("hidden", hideFab);
-  if (tab === "admin") {
-    document.getElementById("addBtn")?.classList.add("hidden");
-  }
+  updateAddButton(tab);
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 
