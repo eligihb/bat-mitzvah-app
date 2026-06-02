@@ -160,26 +160,11 @@ function ensureHtmlJsVersionMatch() {
     sessionStorage.removeItem("bm_reload_attempt");
     return;
   }
-  reloadForAppUpdate(htmlVer, "html-js-mismatch");
+  console.warn("אי-התאמת גרסה HTML/JS:", htmlVer, jsVer, "— ממשיכים בלי רענון אוטומטי");
 }
 
 async function checkServerAppVersion() {
-  const jsVer = APP_CONFIG.appVersion || "";
-  if (!jsVer) return;
-  try {
-    const url = new URL("index.html", window.location.href);
-    url.searchParams.set("bm_check", String(Date.now()));
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return;
-    const html = await res.text();
-    const attr = html.match(/data-app-version="([^"]+)"/);
-    const serverVer = attr ? attr[1] : "";
-    if (serverVer && serverVer !== jsVer) {
-      reloadForAppUpdate(serverVer, "server-newer");
-    }
-  } catch (_) {
-    /* offline / fetch blocked — ignore */
-  }
+  /* רענון אוטומטי גרסה הוסר — גרם למסכים ריקים בגלל cache מעורבב */
 }
 
 // ─── הפעלה ─────────────────────────────────────────────────
@@ -234,6 +219,32 @@ function saveJson(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+const EVENTS_SNAPSHOT_KEY = "bm_events_snapshot";
+
+function saveEventsSnapshot() {
+  if (!events.length) return;
+  try {
+    sessionStorage.setItem(
+      EVENTS_SNAPSHOT_KEY,
+      JSON.stringify({ at: Date.now(), events })
+    );
+  } catch (_) {}
+}
+
+function restoreEventsSnapshot() {
+  try {
+    const raw = sessionStorage.getItem(EVENTS_SNAPSHOT_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.events?.length) return false;
+    if (Date.now() - (parsed.at || 0) > 86400000) return false;
+    events = parsed.events.map((e) => ({ ...e, rsvp: e.rsvp || {} }));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 /** מוחק מטמון מקומי של נתוני ענן — מקור האמת הוא השרת בלבד */
 function clearCloudDataCache() {
   credits = [];
@@ -258,11 +269,6 @@ function setAppBootLoading(on, text) {
 // ─── סנכרון עם Google Sheets ───────────────────────────────
 function setSyncStatus(text, isError = false) {
   const el = document.getElementById("syncStatus");
-  if (!isError) {
-    el.classList.add("hidden");
-    el.textContent = "";
-    return;
-  }
   if (!text) {
     el.classList.add("hidden");
     el.textContent = "";
@@ -271,7 +277,7 @@ function setSyncStatus(text, isError = false) {
   el.textContent = text;
   el.className = isError
     ? "mx-4 mt-3 text-center text-xs text-red-300"
-    : "mx-4 mt-3 text-center text-xs text-purple-200/80";
+    : "mx-4 mt-3 text-center text-xs text-emerald-300/95";
   el.classList.remove("hidden");
 }
 
@@ -300,10 +306,22 @@ async function syncFromServer({ silent = false, boot = false } = {}) {
     // מטמון mirror בלבד — מקור האמת הוא השרת
     saveJson("bm_credits", credits);
     saveJson("bm_experiences", experiences);
-    if (!silent) setSyncStatus("");
+    if (boot && events.length) {
+      setSyncStatus(`נטענו ${events.length} אירועים מהשרת ✓`, false);
+      setTimeout(() => setSyncStatus(""), 2800);
+    } else if (!silent) {
+      setSyncStatus("");
+    }
   } catch (err) {
     console.error(err);
-    if (!silent) setSyncStatus("לא הצלחנו לטעון מהשרת — נסו שוב", true);
+    const detail = String(err?.message || "").trim();
+    if (!events.length && restoreEventsSnapshot()) {
+      setSyncStatus("מציגים אירועים שמורים במכשיר — לא הצלחנו לרענן מהשרת", true);
+    } else if (!silent) {
+      setSyncStatus(detail ? `לא הצלחנו לטעון: ${detail}` : "לא הצלחנו לטעון מהשרת — נסו שוב", true);
+    } else if (boot) {
+      setSyncStatus(detail ? `טעינה נכשלה: ${detail}` : "לא הצלחנו לטעון אירועים מהשרת", true);
+    }
   } finally {
     isSyncing = false;
     if (boot) setAppBootLoading(false);
@@ -355,16 +373,21 @@ function showToast(text) {
 }
 
 function maybeNotifyOtherParentEvent() {
-  const hasOtherParentEvent = events.some(
-    (e) =>
-      e.girlName === currentUser.girlName &&
-      (e.familyName || "") === (currentUser.familyName || "") &&
-      e.ownerId !== currentUser.id
-  );
+  if (!currentUser || currentUser.isAdmin) return;
+  const girl = String(currentUser.girlName || "").trim();
+  const family = String(currentUser.familyName || "").trim();
+  if (!girl || !family) return;
+  const hasOtherParentEvent = events.some((e) => {
+    if (String(e.ownerId || "") === String(currentUser.id)) return false;
+    return (
+      String(e.girlName || "").trim() === girl &&
+      String(e.familyName || "").trim() === family
+    );
+  });
   if (hasOtherParentEvent) {
     setTimeout(() => {
-      showToast("האירוע כבר הוזן על ידי ההורה האחר");
-    }, 500);
+      showToast("יש כבר אירוע למשפחה שלכם — הוא מופיע ברשימת האירועים");
+    }, 800);
   }
 }
 
@@ -524,10 +547,11 @@ async function showApp() {
 
   clearCloudDataCache();
   cancelGlobalUpload();
+  restoreEventsSnapshot();
   setAppBootLoading(true, appBootMessage());
   switchTab(activeTab, false);
   renderAll();
-  await syncFromServer({ silent: true, boot: true });
+  await syncFromServer({ silent: false, boot: true });
   updateAddButton();
   maybeNotifyOtherParentEvent();
   startAutoSync();

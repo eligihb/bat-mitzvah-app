@@ -4,11 +4,26 @@
 
 const Api = {
   async fetchAll() {
-    const res = await fetch(APP_CONFIG.scriptUrl);
-    if (!res.ok) throw new Error("שגיאה בטעינת נתונים מהשרת");
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || "שגיאה בשרת");
-    return data;
+    let lastErr = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(APP_CONFIG.scriptUrl, { cache: "no-store" });
+        if (!res.ok) throw new Error(`שגיאת רשת (${res.status})`);
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (_) {
+          throw new Error("תשובה לא תקינה מהשרת");
+        }
+        if (!data.success) throw new Error(data.error || "שגיאה בשרת");
+        return data;
+      } catch (err) {
+        lastErr = err;
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+      }
+    }
+    throw lastErr || new Error("שגיאה בטעינת נתונים מהשרת");
   },
 
   async post(payload) {
