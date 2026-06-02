@@ -298,6 +298,7 @@ async function syncFromServer({ silent = false, boot = false } = {}) {
       data.users || []
     );
     events = normalized.events;
+    saveEventsSnapshot();
     applyEventSavePatches();
     messages = normalized.messages;
     users = normalized.users || [];
@@ -312,11 +313,13 @@ async function syncFromServer({ silent = false, boot = false } = {}) {
     } else if (!silent) {
       setSyncStatus("");
     }
+    paintAppAfterSync();
   } catch (err) {
     console.error(err);
     const detail = String(err?.message || "").trim();
     if (!events.length && restoreEventsSnapshot()) {
       setSyncStatus("מציגים אירועים שמורים במכשיר — לא הצלחנו לרענן מהשרת", true);
+      paintAppAfterSync();
     } else if (!silent) {
       setSyncStatus(detail ? `לא הצלחנו לטעון: ${detail}` : "לא הצלחנו לטעון מהשרת — נסו שוב", true);
     } else if (boot) {
@@ -325,11 +328,18 @@ async function syncFromServer({ silent = false, boot = false } = {}) {
   } finally {
     isSyncing = false;
     if (boot) setAppBootLoading(false);
-    if (currentUser && !document.getElementById("loginScreen")?.classList.contains("hidden")) {
-      renderAll();
-      updateAddButton(activeTab);
-    }
   }
+}
+
+function isAppScreenVisible() {
+  const app = document.getElementById("appScreen");
+  return !!(currentUser && app && !app.classList.contains("hidden"));
+}
+
+function paintAppAfterSync() {
+  if (!isAppScreenVisible()) return;
+  renderAll();
+  updateAddButton(activeTab);
 }
 
 function startAutoSync() {
