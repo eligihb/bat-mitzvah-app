@@ -155,12 +155,12 @@ function reloadForAppUpdate(targetVersion, reason) {
 function ensureHtmlJsVersionMatch() {
   const htmlVer = document.documentElement.dataset.appVersion || "";
   const jsVer = APP_CONFIG.appVersion || "";
-  if (!htmlVer || !jsVer) return false;
+  if (!htmlVer || !jsVer) return;
   if (htmlVer === jsVer) {
     sessionStorage.removeItem("bm_reload_attempt");
-    return false;
+    return;
   }
-  return reloadForAppUpdate(htmlVer, "html-js-mismatch");
+  reloadForAppUpdate(htmlVer, "html-js-mismatch");
 }
 
 async function checkServerAppVersion() {
@@ -185,7 +185,7 @@ async function checkServerAppVersion() {
 // ─── הפעלה ─────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   applyVersionLabels();
-  if (ensureHtmlJsVersionMatch()) return;
+  ensureHtmlJsVersionMatch();
 
   bindPhoneCells();
   bindRoleButtons();
@@ -300,7 +300,6 @@ async function syncFromServer({ silent = false, boot = false } = {}) {
     // מטמון mirror בלבד — מקור האמת הוא השרת
     saveJson("bm_credits", credits);
     saveJson("bm_experiences", experiences);
-    renderAll();
     if (!silent) setSyncStatus("");
   } catch (err) {
     console.error(err);
@@ -308,6 +307,10 @@ async function syncFromServer({ silent = false, boot = false } = {}) {
   } finally {
     isSyncing = false;
     if (boot) setAppBootLoading(false);
+    if (currentUser && !document.getElementById("loginScreen")?.classList.contains("hidden")) {
+      renderAll();
+      updateAddButton(activeTab);
+    }
   }
 }
 
@@ -324,15 +327,22 @@ function stopAutoSync() {
 }
 
 function renderAll() {
-  renderHeader();
-  renderUpcoming();
-  renderEvents();
-  renderCalendar();
-  renderMessages();
-  renderCredits();
-  if (isExperienceUploading) renderExperiencesListOnly();
-  else renderExperiences();
-  renderAdminPanel();
+  const safe = (fn, label) => {
+    try {
+      fn();
+    } catch (err) {
+      console.error("[renderAll]", label, err);
+    }
+  };
+  safe(renderHeader, "header");
+  safe(renderUpcoming, "upcoming");
+  safe(renderEvents, "events");
+  safe(renderCalendar, "calendar");
+  safe(renderMessages, "messages");
+  safe(renderCredits, "credits");
+  if (isExperienceUploading) safe(renderExperiencesListOnly, "experiences-list");
+  else safe(renderExperiences, "experiences");
+  safe(renderAdminPanel, "admin");
   updateAddButton();
 }
 
@@ -346,7 +356,10 @@ function showToast(text) {
 
 function maybeNotifyOtherParentEvent() {
   const hasOtherParentEvent = events.some(
-    (e) => eventMatchesUserFamily(e) && e.ownerId && String(e.ownerId) !== String(currentUser.id)
+    (e) =>
+      e.girlName === currentUser.girlName &&
+      (e.familyName || "") === (currentUser.familyName || "") &&
+      e.ownerId !== currentUser.id
   );
   if (hasOtherParentEvent) {
     setTimeout(() => {
@@ -513,6 +526,7 @@ async function showApp() {
   cancelGlobalUpload();
   setAppBootLoading(true, appBootMessage());
   switchTab(activeTab, false);
+  renderAll();
   await syncFromServer({ silent: true, boot: true });
   updateAddButton();
   maybeNotifyOtherParentEvent();
@@ -620,12 +634,10 @@ function bindProfileEdit() {
     saveJson(APP_CONFIG.storage.user, currentUser);
 
     events.forEach((e) => {
-      if (
-        eventMatchesUserFamily(e, { girlName: oldGirl, familyName: oldFamily })
-      ) {
+      if (e.girlName === oldGirl && (e.familyName || "") === oldFamily && e.ownerId === currentUser.id) {
         e.girlName = currentUser.girlName;
         e.familyName = currentUser.familyName;
-        if (String(e.ownerId || "") === String(currentUser.id)) e.ownerName = currentUser.parentName;
+        e.ownerName = currentUser.parentName;
       }
     });
 
@@ -698,7 +710,11 @@ function openFamilyEventModal() {
     openModalForCreate();
     return;
   }
-  const familyEvent = events.find((e) => isOwnEvent(e));
+  const familyEvent = events.find(
+    (e) =>
+      e.girlName === currentUser.girlName &&
+      (e.familyName || "") === (currentUser.familyName || "")
+  );
   if (familyEvent) openModalForEdit(familyEvent.id);
   else openModalForCreate();
 }
@@ -772,30 +788,23 @@ function setEventMenuValue(value) {
   renderMenuChoiceState();
 }
 
-function normalizeFamilyPart(v) {
-  return String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
-}
-
-/** אותה ילדה + אותה משפחה (שני הורים, גם אם רק אחד יצר את האירוע) */
-function eventMatchesUserFamily(event, user = currentUser) {
-  if (!event || !user) return false;
-  return (
-    normalizeFamilyPart(event.girlName) === normalizeFamilyPart(user.girlName) &&
-    normalizeFamilyPart(event.familyName) === normalizeFamilyPart(user.familyName)
-  );
-}
-
 function canManageEvent(event) {
   if (currentUser?.isAdmin) return true;
   if (event.ownerId && currentUser?.id && String(event.ownerId) === String(currentUser.id)) return true;
-  return eventMatchesUserFamily(event);
+  return (
+    event.girlName === currentUser.girlName &&
+    (event.familyName || "") === (currentUser.familyName || "")
+  );
 }
 
-// בעלות משפחתית — לא כולל מנהל (גם אם יש לו הרשאת עריכה)
+// האם זה האירוע של המשתמש עצמו (בלי חריגת מנהל)
 function isOwnEvent(event) {
-  if (!event || !currentUser || currentUser.isAdmin) return false;
+  if (!event || !currentUser) return false;
   if (event.ownerId && String(event.ownerId) === String(currentUser.id)) return true;
-  return eventMatchesUserFamily(event);
+  return (
+    event.girlName === currentUser.girlName &&
+    (event.familyName || "") === (currentUser.familyName || "")
+  );
 }
 
 function creditBlockMessage(icon, text) {
@@ -997,7 +1006,11 @@ function setEventSubmitLoading(loading) {
 
 function userHasFamilyEvent() {
   if (!currentUser) return false;
-  return events.some((e) => eventMatchesUserFamily(e));
+  const girl = String(currentUser.girlName || "").trim();
+  const family = String(currentUser.familyName || "").trim();
+  return events.some(
+    (e) => String(e.girlName || "").trim() === girl && String(e.familyName || "").trim() === family
+  );
 }
 
 function updateAddButton(tabName = activeTab) {
@@ -1600,7 +1613,6 @@ function renderAdminPanel() {
         ${kpi("תמונות", photoList.length, "🖼️")}
       </div>
       <div class="admin-toolbar">
-        <button type="button" id="adminAddEventBtn" class="admin-btn admin-btn-primary"><i class="fa-solid fa-plus"></i> הוסף אירוע</button>
         <button type="button" id="adminRefreshBtn" class="admin-btn admin-btn-neutral"><i class="fa-solid fa-rotate"></i> רענון</button>
         <button type="button" id="adminClearLocalBtn" class="admin-btn admin-btn-neutral"><i class="fa-solid fa-broom"></i> ניקוי מטמון</button>
         <button type="button" id="adminExportProvidersBtn" class="admin-btn admin-btn-primary"><i class="fa-solid fa-file-export"></i> ייצוא נותני שירות</button>
@@ -1736,9 +1748,8 @@ function renderEvents() {
   }
 
   events.forEach((event) => {
-    const canManage = canManageEvent(event);
-    const isOwnerFamily = isOwnEvent(event);
-    const isOwnerEvent = isOwnEvent(event);
+    const isFamily = canManageEvent(event);
+    const isOwnerEvent = String(event.ownerId || "") === String(currentUser?.id || "");
     const rsvp = event.rsvp || {};
     const myVote = rsvp[currentUser?.id];
     const yes = Object.values(rsvp).filter((v) => v === "yes").length;
@@ -1777,7 +1788,7 @@ function renderEvents() {
         ${isTomorrowEvent ? '<div class="my-event-title" style="background:rgba(244,63,94,.22);border-color:rgba(251,113,133,.7);color:#ffe4e6;">האירוע מתקיים בעוד יום</div>' : ""}
         ${isOwnerEvent ? '<div class="my-event-title">האירוע שלי</div>' : ""}
         ${
-          canManage
+          isFamily
             ? `
         <div class="event-actions event-actions-top-left">
           <button type="button" class="event-action-btn compact edit" data-edit-id="${event.id}" aria-label="עריכה">
@@ -1829,7 +1840,7 @@ function renderEvents() {
           !isPastEvent
             ? `<div class="mt-4 pt-4 border-t border-white/10">
           ${
-            event.hideGuests && !isOwnerFamily
+            event.hideGuests && !isFamily
               ? `<div class="text-white/40 text-sm">אישורי ההגעה מוסתרים 🔒</div>`
               : `
           <div class="rsvp-summary-row text-sm">
@@ -1839,7 +1850,7 @@ function renderEvents() {
             <div class="text-red-300">לא מגיעים: ${no}</div>
             </div>
             ${
-              isOwnerFamily
+              isFamily
                 ? `<button type="button" class="hide-rsvp-btn" data-toggle-hide-id="${event.id}" title="הסתר ממשתמשים אחרים" aria-label="הסתר תוכן ממשתמשים אחרים">
                     <i class="fa-solid fa-eye-slash"></i>
                   </button>`
@@ -1848,7 +1859,7 @@ function renderEvents() {
           </div>`
           }
           ${
-            isOwnerFamily && event.hideGuests
+            isFamily && event.hideGuests
               ? `<div class="text-[12px] text-purple-200/85 mt-2">תוכן זה יוסתר ממשתמשים אחרים</div>`
               : ""
           }
@@ -2347,21 +2358,12 @@ function renderGuestCreditsForm() {
 
 function renderOwnerCreditsForm() {
   const tab = document.getElementById("creditsTab");
-  if (currentUser?.isAdmin) {
-    tab.innerHTML = `
-      ${creditsTopNav("owner")}
-      <div class="glass rounded-[28px] p-4 text-center text-sm text-white/70">
-        מנהל מערכת אינו בעל/ת אירוע משפחתי — השתמשו ב«פרגן לאירוע» לפרגונים והמלצות.
-      </div>
-    `;
-    return;
-  }
   const myEvent = detectMyEventForOwnerCredit();
   if (!myEvent) {
     tab.innerHTML = `
       ${creditsTopNav("owner")}
       <div class="glass rounded-[28px] p-4 text-center text-sm text-white/70">
-        לא נמצא אירוע בבעלותכם. צרו קודם אירוע (אותה ילדה ושם משפחה) כדי להמליץ על נותני השירות.
+        לא נמצא אירוע בבעלותכם. צרו קודם אירוע כדי להמליץ על נותני השירות.
       </div>
     `;
     return;
@@ -2404,15 +2406,18 @@ function renderOwnerCreditsForm() {
 }
 
 function detectMyPastEventForOwnerCredit() {
-  if (currentUser?.isAdmin) return null;
-  return pastEventsSortedDesc().find((e) => isOwnEvent(e)) || null;
+  const sortedPast = pastEventsSortedDesc();
+  const strict = sortedPast.find((e) => String(e.ownerId || "") === String(currentUser?.id || ""));
+  if (strict) return strict;
+  return sortedPast.find((e) => canManageEvent(e));
 }
 
 function detectMyEventForOwnerCredit() {
-  if (currentUser?.isAdmin) return null;
   const past = detectMyPastEventForOwnerCredit();
   if (past) return past;
-  return events.find((e) => isOwnEvent(e)) || null;
+  const ownStrict = events.find((e) => String(e.ownerId || "") === String(currentUser?.id || ""));
+  if (ownStrict) return ownStrict;
+  return events.find((e) => canManageEvent(e)) || null;
 }
 
 function renderCreditsBoard() {
@@ -4452,11 +4457,6 @@ function bindNavigation() {
         if (chevron) chevron.classList.toggle("is-open", isOpen);
         btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
       }
-      return;
-    }
-    if (e.target.closest("#adminAddEventBtn")) {
-      switchTab("events", false);
-      openModalForCreate();
       return;
     }
     if (e.target.closest("#adminRefreshBtn")) {
