@@ -28,6 +28,8 @@ let guestCreditTagsSelected = [];
 let guestCreditFreshLoad = true;
 let boardPraiseKey = "";
 const boardPraiseState = {};
+let creditBoardView = "latest";
+let isAppBootLoading = false;
 const CREDIT_SERVICE_TYPES = ["צילום", "מקום אירוע", "מצגת/סרטון", "אוכל", "עיצוב", "הפעלה"];
 // נותני שירות שרלוונטי להמליץ עליהם גם לפני האירוע (צלמת, מצגת/עורך וידאו)
 const PRE_EVENT_SERVICE_TYPES = ["צילום", "מצגת/סרטון"];
@@ -60,8 +62,63 @@ function isAdminByPhoneAndPass(phone, pass) {
   return normalized === normalizePhone(APP_CONFIG.adminPhone) && pass === APP_CONFIG.adminPassword;
 }
 
+// ─── גרסה ומניעת cache ישן ─────────────────────────────────
+function applyVersionLabels() {
+  const label = `גרסה ${APP_CONFIG.appVersion || "?"}`;
+  document.querySelectorAll("[data-version-label]").forEach((el) => {
+    el.textContent = label;
+  });
+}
+
+function reloadForAppUpdate(targetVersion, reason) {
+  const key = "bm_reload_attempt";
+  if (sessionStorage.getItem(key) === targetVersion) {
+    console.warn("עדכון גרסה נכשל לאחר רענון:", reason, targetVersion);
+    return false;
+  }
+  sessionStorage.setItem(key, targetVersion);
+  const u = new URL(window.location.href);
+  u.searchParams.set("bm_v", targetVersion);
+  u.searchParams.set("bm_t", String(Date.now()));
+  window.location.replace(u.toString());
+  return true;
+}
+
+function ensureHtmlJsVersionMatch() {
+  const htmlVer = document.documentElement.dataset.appVersion || "";
+  const jsVer = APP_CONFIG.appVersion || "";
+  if (!htmlVer || !jsVer) return false;
+  if (htmlVer === jsVer) {
+    sessionStorage.removeItem("bm_reload_attempt");
+    return false;
+  }
+  return reloadForAppUpdate(htmlVer, "html-js-mismatch");
+}
+
+async function checkServerAppVersion() {
+  const jsVer = APP_CONFIG.appVersion || "";
+  if (!jsVer) return;
+  try {
+    const url = new URL("index.html", window.location.href);
+    url.searchParams.set("bm_check", String(Date.now()));
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return;
+    const html = await res.text();
+    const attr = html.match(/data-app-version="([^"]+)"/);
+    const serverVer = attr ? attr[1] : "";
+    if (serverVer && serverVer !== jsVer) {
+      reloadForAppUpdate(serverVer, "server-newer");
+    }
+  } catch (_) {
+    /* offline / fetch blocked — ignore */
+  }
+}
+
 // ─── הפעלה ─────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
+  applyVersionLabels();
+  if (ensureHtmlJsVersionMatch()) return;
+
   bindPhoneCells();
   bindRoleButtons();
   bindTwinToggle();
@@ -87,6 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   hideSplashAfterDelay();
+  checkServerAppVersion();
 });
 
 function hideSplashAfterDelay() {
@@ -119,6 +177,15 @@ function clearCloudDataCache() {
   );
 }
 
+function setAppBootLoading(on, text) {
+  isAppBootLoading = on;
+  const el = document.getElementById("appBootLoading");
+  if (!el) return;
+  el.classList.toggle("hidden", !on);
+  const label = el.querySelector(".app-boot-text");
+  if (label && text) label.textContent = text;
+}
+
 // ─── סנכרון עם Google Sheets ───────────────────────────────
 function setSyncStatus(text, isError = false) {
   const el = document.getElementById("syncStatus");
@@ -139,10 +206,11 @@ function setSyncStatus(text, isError = false) {
   el.classList.remove("hidden");
 }
 
-async function syncFromServer({ silent = false } = {}) {
+async function syncFromServer({ silent = false, boot = false } = {}) {
   if (isSyncing) return;
   isSyncing = true;
-  if (!silent) setSyncStatus("מסנכרן נתונים...");
+  if (boot) setAppBootLoading(true, "טוען נתונים מהענן…");
+  else if (!silent) setSyncStatus("מסנכרן נתונים...");
 
   try {
     const data = await Api.fetchAll();
@@ -170,6 +238,7 @@ async function syncFromServer({ silent = false } = {}) {
     if (!silent) setSyncStatus("לא הצלחנו לטעון מהשרת — נסו שוב", true);
   } finally {
     isSyncing = false;
+    if (boot) setAppBootLoading(false);
   }
 }
 
@@ -375,8 +444,9 @@ async function showApp() {
   guestCreditFreshLoad = true;
 
   clearCloudDataCache();
+  setAppBootLoading(true, "טוען נתונים מהענן…");
   switchTab(activeTab, false);
-  await syncFromServer({ silent: true });
+  await syncFromServer({ silent: true, boot: true });
   maybeNotifyOtherParentEvent();
   startAutoSync();
 }
@@ -1636,11 +1706,16 @@ function renderEvents() {
         </div>
         <div class="bg-white/5 rounded-2xl p-4 mt-4 text-sm space-y-2">
           <div>📍 ${event.location}</div>
-          <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
             <span>🗺️ ${event.address}</span>
-            <button type="button" class="event-action-btn" data-waze-address="${encodeURIComponent(event.address)}" aria-label="ניווט">
+            ${
+              event.address
+                ? `<button type="button" class="waze-live-btn" data-waze-address="${encodeURIComponent(event.address)}" aria-label="ניווט ב-Waze">
               <i class="fa-brands fa-waze"></i>
-            </button>
+              <span>ניווט</span>
+            </button>`
+                : ""
+            }
           </div>
           ${event.eventNote ? `<div class="text-purple-200/90 text-xs mt-1">💡 ${escapeHtmlAttr(event.eventNote)}</div>` : ""}
         </div>
@@ -2002,6 +2077,12 @@ function bindCredits() {
       );
       return;
     }
+    const boardViewBtn = e.target.closest("[data-board-view]");
+    if (boardViewBtn) {
+      creditBoardView = boardViewBtn.dataset.boardView || "latest";
+      renderCredits();
+      return;
+    }
     const boardProviderBtn = e.target.closest("[data-credit-board-provider]");
     if (boardProviderBtn) {
       const name = boardProviderBtn.dataset.creditBoardProvider || "";
@@ -2014,7 +2095,8 @@ function bindCredits() {
       const key = boardPraiseToggle.dataset.boardPraiseToggle || "";
       boardPraiseKey = boardPraiseKey === key ? "" : key;
       if (boardPraiseKey && !boardPraiseState[key]) {
-        const firstPast = pastEventsSortedDesc()[0];
+        const [provName, provCategory] = key.split("@@");
+        const firstPast = pastEventsForProviderPraise(provName, provCategory)[0];
         boardPraiseState[key] = { eventId: firstPast?.id || "", score: 0 };
       }
       renderCredits();
@@ -2051,12 +2133,22 @@ function renderCredits() {
   const tab = document.getElementById("creditsTab");
   if (creditScreen === "home") {
     tab.innerHTML = `
-      <div class="glass rounded-[28px] p-4">
-        <div class="grid grid-cols-2 gap-2 mb-2">
-          <button type="button" data-credit-screen="guest" class="credit-main-btn rounded-2xl p-3 font-black text-white text-sm">פרגן לאירוע של...</button>
-          <button type="button" data-credit-screen="owner" class="credit-main-btn rounded-2xl p-3 font-black text-white text-sm">תן המלצה (לבעלי האירוע)</button>
+      <div class="glass rounded-[28px] credit-home-shell">
+        <div class="credit-home-grid">
+          <button type="button" data-credit-screen="guest" class="credit-home-card credit-home-card-guest">
+            <span class="credit-home-icon">💝</span>
+            <span class="credit-home-title">פרגן לאירוע</span>
+            <span class="credit-home-sub">דרג/י נותני שירות</span>
+          </button>
+          <button type="button" data-credit-screen="owner" class="credit-home-card credit-home-card-owner">
+            <span class="credit-home-icon">🌟</span>
+            <span class="credit-home-title">המלצת בעל/ת אירוע</span>
+            <span class="credit-home-sub">נותני שירות שלי</span>
+          </button>
         </div>
-        <button type="button" data-credit-screen="board" class="credit-main-btn w-full rounded-2xl p-3 font-black text-white text-sm">לוח קרדיטים</button>
+        <button type="button" data-credit-screen="board" class="credit-home-board">
+          לוח קרדיטים <span class="credit-home-board-icon">📊</span>
+        </button>
       </div>
     `;
     return;
@@ -2074,15 +2166,12 @@ function renderCredits() {
 
 function renderGuestCreditsForm() {
   const tab = document.getElementById("creditsTab");
-  const options = allEventsSortedForCredit()
-    .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
-    .join("");
+  const options = buildCreditEventSelectOptions();
   tab.innerHTML = creditsScreenWrap(
     "guest",
     `
     <div class="glass rounded-[28px] p-4 space-y-2">
       <select id="creditEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">
-        <option value="">בחר אירוע</option>
         ${options}
         <option value="__external__">אירוע אחר / הוספה ידנית</option>
       </select>
@@ -2209,93 +2298,237 @@ function detectMyEventForOwnerCredit() {
 
 function renderCreditsBoard() {
   const tab = document.getElementById("creditsTab");
-  const byEvent = new Map();
-  credits.filter((c) => !isProviderEntry(c)).forEach((c) => {
-    if (!byEvent.has(c.eventId)) byEvent.set(c.eventId, []);
-    byEvent.get(c.eventId).push(c);
-  });
-  const blocks = Array.from(byEvent.entries())
-    .map(([eventId, list]) => {
-      const event = events.find((e) => e.id === eventId);
-      const title = event ? `האירוע של ${event.girlName}` : manualEventLabelFromCredit({ eventId });
-      const providers = aggregateProviderScores(list);
-      return `
-        <div class="glass rounded-2xl p-3">
-          <div class="font-black text-sm mb-2">${title}</div>
-          ${providers
-            .map((p) => {
-              const open = creditBoardExpandedProvider === p.name;
-              return `
-                <button type="button" data-credit-board-provider="${escapeHtmlAttr(p.name)}" class="w-full text-right rounded-xl bg-white/5 border border-white/10 p-2 text-sm mb-1">${p.name} • ${p.count} דירוגים</button>
-                ${open ? `<div class="text-xs text-white/70 mb-2">ממוצע: ${p.avg} • אהבו: ${p.likes}</div>` : ""}
-              `;
-            })
-            .join("")}
-        </div>
-      `;
-    })
-    .join("");
+  const viewTabs = `
+    <div class="board-view-tabs">
+      <button type="button" class="board-view-tab ${creditBoardView === "latest" ? "is-active" : ""}" data-board-view="latest">🕐 אחרונים</button>
+      <button type="button" class="board-view-tab ${creditBoardView === "event" ? "is-active" : ""}" data-board-view="event">📅 לפי אירוע</button>
+      <button type="button" class="board-view-tab ${creditBoardView === "category" ? "is-active" : ""}" data-board-view="category">🏷️ לפי קטגוריה</button>
+    </div>`;
+  let feed = "";
+  if (creditBoardView === "latest") feed = renderBoardLatestView();
+  else if (creditBoardView === "event") feed = renderBoardEventView();
+  else feed = renderBoardCategoryView();
   tab.innerHTML = creditsScreenWrap(
     "board",
-    `${renderProvidersDirectory()}<div class="space-y-3">${blocks || '<div class="text-center text-white/40 text-sm">עדיין אין נתוני קרדיטים</div>'}</div>${renderCreditsAdminManager()}`
+    `${renderProvidersDirectory()}${viewTabs}<div class="board-feed space-y-2">${feed}</div>${renderCreditsAdminManager()}`
   );
+  bindBoardPraiseSelects();
+}
+
+function getBoardDisplayCredits() {
+  return dedupeBoardCredits((credits || []).filter((c) => !isProviderEntry(c)));
+}
+
+function dedupeBoardCredits(list) {
+  const seen = new Set();
+  const sorted = [...list].sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  );
+  return sorted.filter((c) => {
+    const key = `${c.ownerUserId || ""}@@${String(c.professionalName || "").trim()}@@${c.category || ""}@@${c.eventId || ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function userHasPraisedProvider(name, category, eventId) {
+  return (credits || []).some(
+    (c) =>
+      !isProviderEntry(c) &&
+      String(c.professionalName || "").trim() === String(name || "").trim() &&
+      String(c.category || "") === String(category || "") &&
+      String(c.ownerUserId || "") === String(currentUser?.id || "") &&
+      (!eventId || String(c.eventId || "") === String(eventId))
+  );
+}
+
+function creditScoreLabel(credit) {
+  const values = Object.values(credit.ratings || {})
+    .map(Number)
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (!values.length) return credit.sentiment === "like" ? "פרגון ♥" : "";
+  const avg = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
+  return `${avg} ★`;
+}
+
+function creditFeedCard(c) {
+  const event = events.find((e) => String(e.id) === String(c.eventId));
+  const eventLabel = event ? `האירוע של ${event.girlName}` : manualEventLabelFromCredit(c);
+  const provider = c.professionalName ? `${serviceIcon(c.category)} ${c.professionalName}` : "פרגון כללי";
+  const score = creditScoreLabel(c);
+  const dateText = c.createdAt ? new Date(c.createdAt).toLocaleDateString("he-IL") : "";
+  const by = c.ownerName || "אורח/ת";
+  return `
+    <div class="board-feed-card">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="font-bold text-sm truncate">${provider}</div>
+          <div class="text-[11px] text-white/60 mt-0.5">${c.category || "כללי"} • ${eventLabel}</div>
+        </div>
+        ${score ? `<div class="text-yellow-300 text-sm font-black shrink-0">${score}</div>` : ""}
+      </div>
+      ${c.note ? `<div class="text-xs text-white/75 mt-2">${escapeHtmlAttr(c.note)}</div>` : ""}
+      <div class="board-feed-meta">${by}${dateText ? ` • ${dateText}` : ""}</div>
+    </div>`;
+}
+
+function renderBoardLatestView() {
+  const list = getBoardDisplayCredits();
+  if (!list.length) return '<div class="text-center text-white/40 text-sm py-4">עדיין אין נתוני קרדיטים</div>';
+  return list.map(creditFeedCard).join("");
+}
+
+function renderBoardEventView() {
+  const list = getBoardDisplayCredits();
+  if (!list.length) return '<div class="text-center text-white/40 text-sm py-4">עדיין אין נתוני קרדיטים</div>';
+  const byEvent = new Map();
+  list.forEach((c) => {
+    const key = String(c.eventId || "");
+    if (!byEvent.has(key)) byEvent.set(key, []);
+    byEvent.get(key).push(c);
+  });
+  return Array.from(byEvent.entries())
+    .map(([eventId, items]) => {
+      const event = events.find((e) => String(e.id) === eventId);
+      const title = event ? `האירוע של ${event.girlName}` : manualEventLabelFromCredit({ eventId });
+      return `
+        <div class="glass rounded-2xl p-3">
+          <div class="board-group-title">${title} (${items.length})</div>
+          ${items.map(creditFeedCard).join("")}
+        </div>`;
+    })
+    .join("");
+}
+
+function renderBoardCategoryView() {
+  const list = getBoardDisplayCredits();
+  if (!list.length) return '<div class="text-center text-white/40 text-sm py-4">עדיין אין נתוני קרדיטים</div>';
+  const byCat = new Map();
+  list.forEach((c) => {
+    const key = c.category || "כללי";
+    if (!byCat.has(key)) byCat.set(key, []);
+    byCat.get(key).push(c);
+  });
+  return Array.from(byCat.entries())
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([category, items]) => {
+      return `
+        <div class="glass rounded-2xl p-3">
+          <div class="board-group-title">${serviceIcon(category)} ${category} (${items.length})</div>
+          ${items.map(creditFeedCard).join("")}
+        </div>`;
+    })
+    .join("");
+}
+
+function pastEventsForProviderPraise(name, category) {
+  return pastEventsSortedDesc().filter(
+    (e) => !isOwnEvent(e) && !userHasPraisedProvider(name, category, e.id)
+  );
+}
+
+function buildPastEventSelectOptionsForProvider(name, category) {
+  const eligible = pastEventsForProviderPraise(name, category);
+  if (!eligible.length) {
+    return `<option value="" disabled selected>אין אירועים זמינים לפרגון</option>`;
+  }
+  return `<option value="">בחר אירוע שהתקיים</option>${eligible.map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`).join("")}`;
+}
+
+function buildPastEventSelectOptions({ placeholder = "בחר אירוע שהתקיים" } = {}) {
+  const past = pastEventsSortedDesc();
+  if (!past.length) {
+    return `<option value="" disabled selected>אין אירועים שהתקיימו עדיין</option>`;
+  }
+  return `<option value="">${placeholder}</option>${past.map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`).join("")}`;
+}
+
+function buildCreditEventSelectOptions() {
+  const past = pastEventsSortedDesc();
+  const upcoming = events
+    .filter((e) => !isEventPastByDate(e.date))
+    .sort((a, b) => new Date(`${a.date}T${a.time || "00:00"}`) - new Date(`${b.date}T${b.time || "00:00"}`));
+  let html = `<option value="">בחר אירוע</option>`;
+  if (!past.length) {
+    html += `<option value="" disabled>אין אירועים שהתקיימו עדיין</option>`;
+  } else {
+    html += past.map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`).join("");
+  }
+  if (upcoming.length) {
+    html += upcoming.map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`).join("");
+  }
+  return html;
+}
+
+function bindBoardPraiseSelects() {
+  document.querySelectorAll("[data-board-praise-event]").forEach((sel) => {
+    sel.onchange = () => {
+      const key = sel.dataset.boardPraiseEvent || "";
+      boardPraiseState[key] = { ...(boardPraiseState[key] || {}), eventId: sel.value };
+    };
+    const key = sel.dataset.boardPraiseEvent || "";
+    const st = boardPraiseState[key];
+    if (st?.eventId) sel.value = st.eventId;
+  });
 }
 
 // ספריית נותני שירות — עם פרגון מהיר מהלוח
 function renderProvidersDirectory() {
   const providers = aggregateAllProviders();
   if (!providers.length) return "";
-  const pastEvents = pastEventsSortedDesc();
-  const eventOptions = pastEvents
-    .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
-    .join("");
   const rows = providers
     .map((p) => {
       const wa = whatsappLink(p.phone);
       const stars = p.avg === "—" ? "" : `★ ${p.avg}`;
       const key = `${p.name}@@${p.category}`;
-      const st = boardPraiseState[key] || { eventId: pastEvents[0]?.id || "", score: 0 };
+      const praiseableEvents = pastEventsForProviderPraise(p.name, p.category);
+      const st = boardPraiseState[key] || { eventId: praiseableEvents[0]?.id || "", score: 0 };
       const expanded = boardPraiseKey === key;
+      const canPraise = praiseableEvents.length > 0;
+      const eventOptions = buildPastEventSelectOptionsForProvider(p.name, p.category);
       const praiseStars = [1, 2, 3, 4, 5]
         .map(
           (n) =>
             `<button type="button" class="provider-star text-lg ${st.score >= n && st.score > 0 ? "text-yellow-300" : "text-white/35"}" data-board-praise-star="${n}" data-board-praise-key="${escapeHtmlAttr(key)}" aria-label="דירוג ${n}">★</button>`
         )
         .join("");
+      const praiseAction = canPraise
+        ? `<button type="button" class="board-praise-btn" data-board-praise-toggle="${escapeHtmlAttr(key)}" aria-label="תן פרגון משלך">תן פרגון משלך</button>`
+        : `<div class="board-praised-badge">כבר פרגנת ✓</div>`;
       return `
         <div class="provider-dir-row rounded-xl bg-white/5 border border-white/10 p-2 mb-2">
-          <div class="flex items-center justify-between gap-2">
-            <div class="min-w-0 flex-1">
-              <div class="font-bold text-sm truncate">${serviceIcon(p.category)} ${p.name}</div>
-              <div class="text-[11px] text-white/55 mt-0.5">${p.category || "נותן שירות"}</div>
+          <div class="min-w-0">
+            <div class="font-bold text-sm truncate">${serviceIcon(p.category)} ${p.name}</div>
+            <div class="text-[11px] text-white/55 mt-0.5">${p.category || "נותן שירות"}</div>
+            <div class="flex items-center gap-3 mt-2 text-[11px] flex-wrap">
+              <span class="provider-badge">${stars || "אין דירוג"}</span>
+              <span class="provider-badge">${p.ratingCount} מדרגים</span>
+              <span class="provider-badge">${p.eventCount} אירועים</span>
             </div>
-            <div class="flex items-center gap-1 shrink-0">
-              <button type="button" class="board-praise-btn" data-board-praise-toggle="${escapeHtmlAttr(key)}" aria-label="פרגן">פרגן ★</button>
+            ${
+              expanded && canPraise
+                ? `<div class="board-praise-panel mt-2 pt-2 border-t border-white/10">
+                    <div class="text-[11px] text-white/60 mb-1">בחר/י אירוע ודרג/י</div>
+                    <select class="board-praise-event w-full rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs mb-2" data-board-praise-event="${escapeHtmlAttr(key)}">
+                      ${eventOptions}
+                    </select>
+                    <div class="credit-stars-wrap">${praiseStars}</div>
+                    <button type="button" class="w-full mt-2 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 p-2 text-xs font-black" data-board-praise-submit="${escapeHtmlAttr(key)}" data-provider-name="${escapeHtmlAttr(p.name)}" data-provider-category="${escapeHtmlAttr(p.category)}">פרסום פרגון</button>
+                  </div>`
+                : ""
+            }
+          </div>
+          <div class="provider-dir-actions">
+            ${praiseAction}
+            <div class="provider-wa-slot ${wa ? "" : "is-empty"}">
               ${
                 wa
                   ? `<a href="${wa}" target="_blank" rel="noopener" class="provider-wa-btn" aria-label="וואטסאפ"><i class="fa-brands fa-whatsapp"></i></a>`
-                  : ""
+                  : `<span aria-hidden="true"></span>`
               }
             </div>
           </div>
-          <div class="flex items-center gap-3 mt-2 text-[11px]">
-            <span class="provider-badge">${stars || "אין דירוג"}</span>
-            <span class="provider-badge">${p.ratingCount} מדרגים</span>
-            <span class="provider-badge">${p.eventCount} אירועים</span>
-          </div>
-          ${
-            expanded
-              ? `<div class="board-praise-panel mt-2 pt-2 border-t border-white/10">
-                  <div class="text-[11px] text-white/60 mb-1">פרגון מהיר — בחר/י אירוע ודרג/י</div>
-                  <select class="board-praise-event w-full rounded-lg bg-white/10 border border-white/10 p-1.5 text-xs mb-2" data-board-praise-event="${escapeHtmlAttr(key)}">
-                    <option value="">בחר אירוע שהתקיים</option>
-                    ${eventOptions}
-                  </select>
-                  <div class="credit-stars-wrap">${praiseStars}</div>
-                  <button type="button" class="w-full mt-2 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 p-2 text-xs font-black" data-board-praise-submit="${escapeHtmlAttr(key)}" data-provider-name="${escapeHtmlAttr(p.name)}" data-provider-category="${escapeHtmlAttr(p.category)}">פרסום פרגון</button>
-                </div>`
-              : ""
-          }
         </div>`;
     })
     .join("");
@@ -2323,6 +2556,10 @@ async function submitBoardPraise(key, providerName, category) {
   const event = events.find((e) => e.id === eventId);
   if (event && isOwnEvent(event)) {
     showToast("לא ניתן לפרגן לאירוע שלך — השתמש/י בהמלצת בעל אירוע");
+    return;
+  }
+  if (userHasPraisedProvider(providerName, category, eventId)) {
+    showToast("כבר פרגנת לנותן שירות זה באירוע הזה");
     return;
   }
   try {

@@ -1,7 +1,10 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="he" dir="rtl" data-app-version="118.2">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>ישומון אירועי בת מצווה</title>
 
@@ -16,7 +19,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=54" />
+  <link rel="stylesheet" href="css/styles.css?v=56" />
 </head>
 <body>
 
@@ -35,7 +38,7 @@
     <!-- התחברות -->
     <div id="loginScreen" class="login-screen min-h-screen flex flex-col relative overflow-hidden">
       <div class="login-bg" aria-hidden="true">
-        <span class="login-bg-number">12</span>
+        <div class="login-bg-number-wrap"><span class="login-bg-number">12</span></div>
         <span class="login-bg-sparkle login-bg-sparkle-1">✨</span>
         <span class="login-bg-sparkle login-bg-sparkle-2">🎀</span>
         <span class="login-bg-sparkle login-bg-sparkle-3">💜</span>
@@ -47,7 +50,7 @@
       <div class="flex-1 flex items-start justify-center pt-8 px-4 pb-4 w-full relative z-10">
         <div class="login-card rounded-[34px] p-5 w-full max-w-sm relative overflow-hidden">
           <div class="login-card-deco" aria-hidden="true">
-            <span class="login-card-number">12</span>
+            <div class="login-card-number-wrap"><span class="login-card-number">12</span></div>
           </div>
 
           <div class="relative z-10">
@@ -130,7 +133,7 @@
               <div class="login-footer-inline">
                 <span>יישומון זה נבנה על ידי <span class="login-footer-brand">YE</span> ©</span>
               </div>
-              <div class="login-version">גרסה 118.1</div>
+              <div class="login-version" data-version-label></div>
             </form>
           </div>
         </div>
@@ -170,6 +173,13 @@
           </div>
         </div>
       </header>
+
+      <div id="appBootLoading" class="app-boot-loading hidden" aria-live="polite">
+        <div class="app-boot-card">
+          <div class="app-boot-spinner" aria-hidden="true"></div>
+          <p class="app-boot-text">טוען נתונים מהענן…</p>
+        </div>
+      </div>
 
       <div id="syncStatus" class="hidden mx-4 mt-3 text-center text-xs text-purple-200/80"></div>
       <div id="upcomingBar" class="mx-4 mt-4 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 p-3 text-sm font-bold shadow-xl"></div>
@@ -338,8 +348,8 @@
 
   <div id="toastMsg" class="toast hidden"></div>
 
-  <script src="js/config.js?v=54"></script>
-  <script src="js/api.js?v=54"></script>
-  <script src="js/app.js?v=54"></script>
+  <script src="js/config.js?v=56"></script>
+  <script src="js/api.js?v=56"></script>
+  <script src="js/app.js?v=56"></script>
 </body>
 </html>

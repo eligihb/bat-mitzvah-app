@@ -206,6 +206,7 @@ const Api = {
         ownerUserId: String(readField(rr, ["owneruserid"]) || ""),
         ownerName: readField(rr, ["ownername"]) || "",
         ratings,
+        createdAt: readField(rr, ["createdat"]) || "",
       };
     });
 
