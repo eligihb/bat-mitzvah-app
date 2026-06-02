@@ -34,6 +34,7 @@ const CREDIT_SERVICE_TYPES = ["צילום", "מקום אירוע", "מצגת/ס�
 // נותני שירות שרלוונטי להמליץ עליהם גם לפני האירוע (צלמת, מצגת/עורך וידאו)
 const PRE_EVENT_SERVICE_TYPES = ["צילום", "מצגת/סרטון"];
 let selectedRole = APP_CONFIG.defaultRole;
+let loginEditMode = false;
 let hideGuests = false;
 let syncTimer = null;
 let isSyncing = false;
@@ -196,6 +197,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindRsvpScreen();
 
   if (currentUser) {
+    currentUser = applyStableUserId(currentUser);
+    saveJson(APP_CONFIG.storage.user, currentUser);
     showApp();
   }
 
@@ -407,7 +410,40 @@ function maybeNotifyOtherParentEvent() {
   }
 }
 
-// ─── זיהוי משתמש יציב (גם אחרי התנתקות) ─────────────────────
+// ─── זיהוי משתמש: תפקיד + שם ילדה + משפחה ─────────────────
+function userIdentityKey(role, girlName, familyName) {
+  return `${normalizeFamilyPart(role)}@@${normalizeFamilyPart(girlName)}@@${normalizeFamilyPart(familyName)}`;
+}
+
+function buildStableUserId(role, girlName, familyName) {
+  const key = userIdentityKey(role, girlName, familyName);
+  const parts = key.split("@@");
+  if (parts.length !== 3 || parts.some((p) => !p)) return crypto.randomUUID();
+  return key;
+}
+
+function userIdentityLabel(user = currentUser) {
+  if (!user) return "";
+  if (user.isAdmin) return "מנהל מערכת";
+  const child = [String(user.girlName || "").trim(), String(user.familyName || "").trim()]
+    .filter(Boolean)
+    .join(" ");
+  const role = String(user.role || "").trim() || "הורה";
+  return child ? `${role} של ${child}` : role;
+}
+
+function identityMatchesUser(a, b) {
+  if (!a || !b) return false;
+  return userIdentityKey(a.role, a.girlName, a.familyName) === userIdentityKey(b.role, b.girlName, b.familyName);
+}
+
+function applyStableUserId(user) {
+  if (!user || user.isAdmin) return user;
+  const stable = buildStableUserId(user.role, user.girlName, user.familyName);
+  if (stable && String(user.id) !== String(stable)) user.id = stable;
+  return user;
+}
+
 function saveUserProfile(user) {
   if (!user?.id) return;
   saveJson(USER_PROFILE_KEY, {
@@ -420,36 +456,53 @@ function saveUserProfile(user) {
   });
 }
 
-function resolveLoginUserId(parentName, girlName, familyName) {
-  const norm = (s) => String(s || "").trim();
-  const matches = (p) =>
-    p?.id &&
-    norm(p.parentName) === norm(parentName) &&
-    norm(p.girlName) === norm(girlName) &&
-    norm(p.familyName) === norm(familyName);
-
-  const session = loadJson(APP_CONFIG.storage.user);
-  if (matches(session)) return session.id;
-
-  const profile = loadJson(USER_PROFILE_KEY);
-  if (matches(profile)) return profile.id;
-
-  return crypto.randomUUID();
-}
-
 function reconcileCurrentUserWithServer() {
-  if (!currentUser || !users?.length) return;
-  const norm = (s) => String(s || "").trim().toLowerCase();
-  const match = users.find(
-    (u) =>
-      norm(u.parentName) === norm(currentUser.parentName) &&
-      norm(u.girlName) === norm(currentUser.girlName) &&
-      norm(u.familyName) === norm(currentUser.familyName)
-  );
-  if (!match?.id || String(match.id) === String(currentUser.id)) return;
-  currentUser.id = match.id;
+  if (!currentUser) return;
+  applyStableUserId(currentUser);
+  if (users?.length) {
+    const match = users.find((u) => identityMatchesUser(u, currentUser));
+    if (match?.id && String(match.id) !== String(currentUser.id)) {
+      // שורות ישנות בגיליון עם UUID — נשארים מקושרים דרך findMyRsvpEntry
+      if (!String(currentUser.id).includes("@@")) currentUser.legacyId = currentUser.id;
+    }
+  }
   saveJson(APP_CONFIG.storage.user, currentUser);
   saveUserProfile(currentUser);
+}
+
+function fillLoginFormFromUser(user) {
+  if (!user) return;
+  document.getElementById("parentName").value = user.parentName || "";
+  document.getElementById("girlName").value = user.girlName || "";
+  document.getElementById("familyName").value = user.familyName || "";
+  selectedRole = user.role || APP_CONFIG.defaultRole;
+  updateRoleButtonStyles(selectedRole);
+  setTwinFieldOpen(!!user.twinName);
+  document.getElementById("twinName").value = user.twinName || "";
+  document.querySelectorAll(".phoneCell").forEach((c) => {
+    c.value = "";
+  });
+  const phone = String(user.phone || "");
+  const m = phone.match(/^(\d{3})-(\d{7})$/);
+  if (m) {
+    document.getElementById("phonePrefix").value = m[1];
+    const digits = m[2].split("");
+    document.querySelectorAll(".phoneCell").forEach((c, i) => {
+      c.value = digits[i] || "";
+    });
+  }
+  updateAdminFieldVisibility();
+  const submitBtn = document.querySelector("#loginForm .login-submit");
+  if (submitBtn) submitBtn.textContent = loginEditMode ? "שמירת פרטים" : "כניסה לישומון";
+}
+
+function openLoginForProfileEdit() {
+  if (!currentUser) return;
+  loginEditMode = true;
+  fillLoginFormFromUser(currentUser);
+  document.getElementById("appScreen").classList.add("hidden");
+  document.getElementById("bottomNav").classList.add("hidden");
+  document.getElementById("loginScreen").classList.remove("hidden");
 }
 
 // ─── התחברות ───────────────────────────────────────────────
@@ -477,8 +530,11 @@ function bindLogin() {
       phone = `${document.getElementById("phonePrefix").value}-${digits}`;
     }
 
-    currentUser = {
-      id: resolveLoginUserId(parentName, girlName, familyName),
+    const wasEdit = loginEditMode;
+    const prevLegacyId = currentUser?.legacyId || (wasEdit ? currentUser?.id : "");
+
+    currentUser = applyStableUserId({
+      id: buildStableUserId(selectedRole, girlName, familyName),
       role: selectedRole,
       parentName,
       girlName,
@@ -486,12 +542,17 @@ function bindLogin() {
       twinName: twinName || "",
       phone,
       isAdmin: isAdminByPhoneAndPass(phone, adminPass),
-    };
+      legacyId: prevLegacyId && !String(prevLegacyId).includes("@@") ? prevLegacyId : "",
+    });
 
     saveJson(APP_CONFIG.storage.user, currentUser);
     saveUserProfile(currentUser);
     registerCurrentUser();
+    loginEditMode = false;
+    const submitBtn = document.querySelector("#loginForm .login-submit");
+    if (submitBtn) submitBtn.textContent = "כניסה לישומון";
     showApp();
+    if (wasEdit) showToast("הפרטים עודכנו");
   });
 }
 
@@ -655,17 +716,15 @@ function logout() {
 function renderHeader() {
   const hour = new Date().getHours();
   const greet = hour < 12 ? "בוקר טוב" : hour < 18 ? "צהריים טובים" : "ערב טוב";
-  document.getElementById("headerGreeting").textContent = greet;
+  const identity = userIdentityLabel();
+  document.getElementById("headerGreeting").textContent = identity;
   if (currentUser.isAdmin) {
-    document.getElementById("headerRole").textContent = "מנהל מערכת";
+    document.getElementById("headerRole").textContent = `${greet} • בקרת מערכת`;
     setContactActions();
     return;
   }
-  const girls = currentUser.twinName
-    ? `${currentUser.girlName} ו${currentUser.twinName}`
-    : currentUser.girlName;
-  document.getElementById("headerRole").textContent =
-    `${currentUser.role} של ${girls} ${currentUser.familyName || ""}`.trim();
+  const twinNote = currentUser.twinName ? ` (אחות תאומה: ${currentUser.twinName})` : "";
+  document.getElementById("headerRole").textContent = `${greet}${twinNote}`;
   setContactActions();
 }
 
@@ -697,32 +756,7 @@ function setContactActions() {
 
 function bindProfileEdit() {
   document.getElementById("editProfileBtn").addEventListener("click", () => {
-    if (!currentUser) return;
-    const nextParent = prompt("עדכון שם הורה:", currentUser.parentName);
-    if (!nextParent) return;
-    const nextGirl = prompt("עדכון שם ילדה:", currentUser.girlName);
-    if (!nextGirl) return;
-    const nextFamily = prompt("עדכון שם משפחה:", currentUser.familyName || "");
-    if (!nextFamily) return;
-
-    const oldGirl = currentUser.girlName;
-    const oldFamily = currentUser.familyName || "";
-
-    currentUser.parentName = nextParent.trim();
-    currentUser.girlName = nextGirl.trim();
-    currentUser.familyName = nextFamily.trim();
-    saveJson(APP_CONFIG.storage.user, currentUser);
-
-    events.forEach((e) => {
-      if (e.girlName === oldGirl && (e.familyName || "") === oldFamily && e.ownerId === currentUser.id) {
-        e.girlName = currentUser.girlName;
-        e.familyName = currentUser.familyName;
-        e.ownerName = currentUser.parentName;
-      }
-    });
-
-    renderAll();
-    showToast("הפרופיל עודכן");
+    openLoginForProfileEdit();
   });
 }
 
@@ -964,15 +998,21 @@ function canViewRsvpDetails(event) {
 
 function userMatchesCurrentIdentity(user) {
   if (!user || !currentUser) return false;
-  const norm = (s) => String(s || "").trim().toLowerCase();
-  return (
-    norm(user.parentName) === norm(currentUser.parentName) &&
-    userFamilyKeyFromUser(user) === userFamilyKeyFromUser(currentUser)
-  );
+  if (identityMatchesUser(user, currentUser)) return true;
+  if (currentUser.legacyId && String(user.id) === String(currentUser.legacyId)) return true;
+  return false;
 }
 
 function findMyRsvpEntry(event) {
   if (!currentUser || !event?.rsvp) return null;
+  if (currentUser.legacyId && event.rsvp[currentUser.legacyId]) {
+    const leg = event.rsvp[currentUser.legacyId];
+    return {
+      userId: currentUser.legacyId,
+      entry: leg,
+      status: rsvpEntryStatus(leg),
+    };
+  }
   const direct = event.rsvp[currentUser.id];
   if (direct) {
     return { userId: currentUser.id, entry: direct, status: rsvpEntryStatus(direct) };
