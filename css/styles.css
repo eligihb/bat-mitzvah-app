@@ -1163,6 +1163,127 @@ body {
   flex: 1;
 }
 
+.rsvp-open-btn,
+.rsvp-count-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+.rsvp-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #e9d5ff;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.rsvp-count-btn {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.rsvp-count-btn:hover,
+.rsvp-open-btn:hover {
+  opacity: 0.85;
+}
+
+.rsvp-family-notice {
+  direction: rtl;
+}
+
+.rsvp-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0.75rem;
+  background: rgba(8, 4, 18, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.rsvp-screen.hidden {
+  display: none;
+}
+
+.rsvp-screen-inner {
+  width: 100%;
+  max-width: 28rem;
+  max-height: min(82vh, 640px);
+  overflow: auto;
+  border-radius: 1.6rem;
+  padding: 1rem 1.1rem 1.25rem;
+}
+
+.rsvp-screen-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  direction: rtl;
+}
+
+.rsvp-screen-back {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3e8ff;
+}
+
+.rsvp-screen-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin: 0.85rem 0 0.75rem;
+}
+
+.rsvp-screen-tab {
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.45rem 0.25rem;
+}
+
+.rsvp-screen-tab.is-active {
+  background: rgba(168, 85, 247, 0.35);
+  border-color: rgba(216, 180, 254, 0.55);
+  color: #fff;
+}
+
+.rsvp-screen-list {
+  direction: rtl;
+}
+
+.rsvp-list-row {
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.65rem 0.8rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.rsvp-list-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.85rem;
+  padding: 1.5rem 0.5rem;
+}
+
+.app-main.rsvp-screen-open {
+  overflow: hidden;
+}
+
 /* מסך פתיחה */
 .splash-screen {
   position: fixed;

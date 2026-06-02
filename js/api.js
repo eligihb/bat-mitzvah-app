@@ -141,8 +141,13 @@ const Api = {
     (rsvpsRaw || []).forEach((row) => {
       const rr = normalizeRowKeys(row);
       const eventId = String(readField(rr, ["eventid"]) || "");
+      const userId = String(readField(rr, ["userid"]) || "");
+      if (!eventId || !userId) return;
       if (!rsvpByEvent[eventId]) rsvpByEvent[eventId] = {};
-      rsvpByEvent[eventId][String(readField(rr, ["userid"]) || "")] = readField(rr, ["status"]) || "";
+      rsvpByEvent[eventId][userId] = {
+        status: readField(rr, ["status"]) || "",
+        userName: readField(rr, ["username"]) || "",
+      };
     });
 
     const events = (eventsRaw || []).map((row) => {

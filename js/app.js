@@ -54,6 +54,8 @@ let selectedEventMenuChoice = "";
 let toastTimer = null;
 let globalUploadDepth = 0;
 let globalUploadCreepTimer = null;
+let rsvpScreenEventId = "";
+let rsvpScreenTab = "yes";
 
 function appBootMessage() {
   return APP_CONFIG.bootMessage || "כמה רגעים התוכן יעלה";
@@ -191,6 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindEventImageErrors();
   bindLogout();
   bindProfileEdit();
+  bindRsvpScreen();
 
   if (currentUser) {
     showApp();
@@ -238,7 +241,7 @@ function restoreEventsSnapshot() {
     const parsed = JSON.parse(raw);
     if (!parsed?.events?.length) return false;
     if (Date.now() - (parsed.at || 0) > 86400000) return false;
-    events = parsed.events.map((e) => ({ ...e, rsvp: e.rsvp || {} }));
+    events = parsed.events.map((e) => ({ ...e, rsvp: normalizeEventRsvpMap(e.rsvp) }));
     return true;
   } catch (_) {
     return false;
@@ -297,7 +300,7 @@ async function syncFromServer({ silent = false, boot = false } = {}) {
       data.experiences || [],
       data.users || []
     );
-    events = normalized.events;
+    events = normalized.events.map((e) => ({ ...e, rsvp: normalizeEventRsvpMap(e.rsvp) }));
     saveEventsSnapshot();
     applyEventSavePatches();
     messages = normalized.messages;
@@ -371,6 +374,7 @@ function renderAll() {
   if (isExperienceUploading) safe(renderExperiencesListOnly, "experiences-list");
   else safe(renderExperiences, "experiences");
   safe(renderAdminPanel, "admin");
+  if (rsvpScreenEventId) safe(renderRsvpScreen, "rsvp-screen");
   updateAddButton();
 }
 
@@ -831,14 +835,245 @@ function canManageEvent(event) {
   );
 }
 
-// האם זה האירוע של המשתמש עצמו (בלי חריגת מנהל)
+function normalizeFamilyPart(v) {
+  return String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function eventMatchesUserFamily(event, user = currentUser) {
+  if (!event || !user) return false;
+  return (
+    normalizeFamilyPart(event.girlName) === normalizeFamilyPart(user.girlName) &&
+    normalizeFamilyPart(event.familyName) === normalizeFamilyPart(user.familyName)
+  );
+}
+
+// האירוע של המשפחה (בעל/ת) — לא כולל מנהל על אירוע זר
 function isOwnEvent(event) {
   if (!event || !currentUser) return false;
   if (event.ownerId && String(event.ownerId) === String(currentUser.id)) return true;
-  return (
-    event.girlName === currentUser.girlName &&
-    (event.familyName || "") === (currentUser.familyName || "")
-  );
+  return eventMatchesUserFamily(event);
+}
+
+function normalizeEventRsvpMap(rsvp) {
+  const out = {};
+  Object.entries(rsvp || {}).forEach(([userId, entry]) => {
+    if (!userId) return;
+    if (typeof entry === "string") {
+      out[userId] = { status: entry, userName: "" };
+    } else {
+      out[userId] = {
+        status: String(entry?.status || ""),
+        userName: String(entry?.userName || ""),
+      };
+    }
+  });
+  return out;
+}
+
+function rsvpEntryStatus(entry) {
+  if (!entry) return "";
+  if (typeof entry === "string") return entry;
+  return String(entry.status || "");
+}
+
+function findUserById(userId) {
+  return users.find((u) => String(u.id) === String(userId));
+}
+
+function userFamilyKeyFromUser(user) {
+  if (!user) return "";
+  return `${normalizeFamilyPart(user.girlName)}@@${normalizeFamilyPart(user.familyName)}`;
+}
+
+function buildAttendeeDisplayLabel(userId) {
+  const u = findUserById(userId);
+  const role = String(u?.role || "").trim() || "הורה";
+  const child = [String(u?.girlName || "").trim(), String(u?.familyName || "").trim()]
+    .filter(Boolean)
+    .join(" ");
+  if (child) return `${role} של ${child}`;
+  return role;
+}
+
+function getRsvpEntries(event) {
+  return Object.entries(event?.rsvp || {})
+    .map(([userId, entry]) => ({
+      userId,
+      status: rsvpEntryStatus(entry),
+      userName: typeof entry === "object" ? entry.userName : "",
+    }))
+    .filter((e) => e.status);
+}
+
+function countRsvpByStatus(event, status) {
+  return getRsvpEntries(event).filter((e) => e.status === status).length;
+}
+
+function canVoteOnEvent(event) {
+  return !!event && !!currentUser && !isOwnEvent(event);
+}
+
+function canViewRsvpDetails(event) {
+  if (!event || !currentUser) return false;
+  if (currentUser.isAdmin) return true;
+  if (isOwnEvent(event)) return true;
+  return !event.hideGuests;
+}
+
+function getOtherFamilyRsvp(event) {
+  if (!currentUser || isOwnEvent(event)) return null;
+  const myKey = userFamilyKeyFromUser(currentUser);
+  if (!myKey || myKey === "@@") return null;
+  for (const entry of getRsvpEntries(event)) {
+    if (String(entry.userId) === String(currentUser.id)) continue;
+    const u = findUserById(entry.userId);
+    if (userFamilyKeyFromUser(u) === myKey) {
+      return {
+        ...entry,
+        label: buildAttendeeDisplayLabel(entry.userId),
+      };
+    }
+  }
+  return null;
+}
+
+function getMyRsvpStatus(event) {
+  const entry = event?.rsvp?.[currentUser?.id];
+  return rsvpEntryStatus(entry);
+}
+
+function buildRsvpListRows(event, statusFilter) {
+  const entries = getRsvpEntries(event).filter((e) => e.status === statusFilter);
+  const byFamily = new Map();
+  entries.forEach((entry) => {
+    const u = findUserById(entry.userId);
+    const fk = userFamilyKeyFromUser(u) || `uid:${entry.userId}`;
+    if (!byFamily.has(fk)) byFamily.set(fk, []);
+    byFamily.get(fk).push(entry);
+  });
+  const rows = [];
+  byFamily.forEach((list) => {
+    const primary = list[0];
+    let label = buildAttendeeDisplayLabel(primary.userId);
+    if (list.length > 1) {
+      const extras = list
+        .slice(1)
+        .map((e) => buildAttendeeDisplayLabel(e.userId))
+        .join(" • ");
+      label += ` (${extras})`;
+    }
+    rows.push({ label, status: primary.status });
+  });
+  return rows;
+}
+
+function adminConfirm(message) {
+  if (!currentUser?.isAdmin) return true;
+  return confirm(`פעולה כמנהל — לוודא לפני המשך\n\n${message}`);
+}
+
+function openRsvpScreen(eventId, tab = "yes") {
+  const event = events.find((e) => String(e.id) === String(eventId));
+  if (!event || !canViewRsvpDetails(event)) return;
+  rsvpScreenEventId = event.id;
+  rsvpScreenTab = tab;
+  renderRsvpScreen();
+  document.getElementById("rsvpScreen")?.classList.remove("hidden");
+  document.getElementById("appScreen")?.classList.add("rsvp-screen-open");
+}
+
+function closeRsvpScreen() {
+  rsvpScreenEventId = "";
+  document.getElementById("rsvpScreen")?.classList.add("hidden");
+  document.getElementById("appScreen")?.classList.remove("rsvp-screen-open");
+}
+
+function renderRsvpScreen() {
+  const event = events.find((e) => String(e.id) === String(rsvpScreenEventId));
+  const title = document.getElementById("rsvpScreenTitle");
+  const sub = document.getElementById("rsvpScreenSub");
+  const list = document.getElementById("rsvpScreenList");
+  if (!event || !title || !sub || !list) return;
+
+  title.textContent = "אישורי הגעה";
+  sub.textContent = `בת מצווה ל${event.girlName}${event.familyName ? " " + event.familyName : ""} • ${event.date || ""}`;
+
+  document.querySelectorAll(".rsvp-screen-tab").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.rsvpTab === rsvpScreenTab);
+  });
+
+  const rows = buildRsvpListRows(event, rsvpScreenTab);
+  const tabLabels = { yes: "מגיעים", maybe: "אולי", no: "לא מגיעים" };
+  list.innerHTML = rows.length
+    ? rows.map((r) => `<div class="rsvp-list-row">${escapeHtmlAttr(r.label)}</div>`).join("")
+    : `<div class="rsvp-list-empty">אין ${tabLabels[rsvpScreenTab] || ""} עדיין</div>`;
+}
+
+function bindRsvpScreen() {
+  document.getElementById("rsvpScreenBack")?.addEventListener("click", closeRsvpScreen);
+  document.getElementById("rsvpScreen")?.addEventListener("click", (e) => {
+    const tabBtn = e.target.closest("[data-rsvp-tab]");
+    if (tabBtn) {
+      rsvpScreenTab = tabBtn.dataset.rsvpTab || "yes";
+      renderRsvpScreen();
+    }
+  });
+}
+
+function renderEventRsvpSection(event, isPastEvent, canManage) {
+  const canView = canViewRsvpDetails(event);
+  const canVote = canVoteOnEvent(event) && !isPastEvent;
+  const otherFamily = getOtherFamilyRsvp(event);
+  const myVote = getMyRsvpStatus(event);
+  const yes = countRsvpByStatus(event, "yes");
+  const maybe = countRsvpByStatus(event, "maybe");
+  const no = countRsvpByStatus(event, "no");
+
+  let voteHtml = "";
+  if (canVote && otherFamily) {
+    const statusLabel =
+      otherFamily.status === "yes" ? "מגיע" : otherFamily.status === "maybe" ? "אולי" : "לא מגיע";
+    voteHtml = `<div class="rsvp-family-notice rounded-2xl border border-purple-400/35 bg-purple-500/10 p-3 text-sm text-purple-100">
+      אושרה הגעה על ידי ההורה השני (${escapeHtmlAttr(otherFamily.label)}) — ${statusLabel}
+    </div>`;
+  } else if (canVote) {
+    voteHtml = `<div class="grid grid-cols-3 gap-2 mt-4">
+      <button type="button" class="rsvp-btn ${rsvpClass(myVote, "yes")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="yes">מגיע 👍</button>
+      <button type="button" class="rsvp-btn ${rsvpClass(myVote, "maybe")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="maybe">אולי 🤔</button>
+      <button type="button" class="rsvp-btn ${rsvpClass(myVote, "no")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="no">לא מגיע 👎</button>
+    </div>`;
+  }
+
+  const summaryInner = canView
+    ? `<button type="button" class="rsvp-open-btn" data-open-rsvp-id="${event.id}"><i class="fa-solid fa-users"></i> אישורי הגעה</button>
+      <div class="flex gap-4 flex-wrap rsvp-summary-counts">
+        <button type="button" class="rsvp-count-btn text-green-300" data-open-rsvp-id="${event.id}" data-rsvp-tab="yes">מגיעים: ${yes}</button>
+        <button type="button" class="rsvp-count-btn text-yellow-300" data-open-rsvp-id="${event.id}" data-rsvp-tab="maybe">אולי: ${maybe}</button>
+        <button type="button" class="rsvp-count-btn text-red-300" data-open-rsvp-id="${event.id}" data-rsvp-tab="no">לא מגיעים: ${no}</button>
+      </div>`
+    : `<div class="text-white/40 text-sm">אישורי ההגעה מוסתרים 🔒</div>`;
+
+  const hideBtn =
+    canManage && !currentUser?.isAdmin
+      ? `<button type="button" class="hide-rsvp-btn" data-toggle-hide-id="${event.id}" title="הסתר ממשתמשים אחרים" aria-label="הסתר ממשתמשים אחרים">
+          <i class="fa-solid fa-eye-slash"></i>
+        </button>`
+      : canManage && currentUser?.isAdmin
+        ? `<span class="text-[10px] text-white/40">מנהל רואה תמיד</span>`
+        : "";
+
+  return `<div class="mt-4 pt-4 border-t border-white/10">
+    ${voteHtml}
+    <div class="rsvp-summary-row text-sm ${voteHtml ? "mt-4" : ""}">
+      ${summaryInner}
+      ${hideBtn}
+    </div>
+    ${
+      canManage && event.hideGuests
+        ? `<div class="text-[12px] text-purple-200/85 mt-2">תוכן זה מוסתר ממשתמשים אחרים</div>`
+        : ""
+    }
+  </div>`;
 }
 
 function creditBlockMessage(icon, text) {
@@ -1193,7 +1428,10 @@ function bindEventForm() {
 async function deleteEventById(eventId) {
   const event = events.find((e) => e.id === eventId);
   if (!event || !canManageEvent(event)) return;
-  if (!confirm(`למחוק את האירוע של ${event.girlName}?`)) return;
+  const msg = `למחוק את האירוע של ${event.girlName}?`;
+  if (currentUser?.isAdmin) {
+    if (!adminConfirm(msg)) return;
+  } else if (!confirm(msg)) return;
 
   try {
     setSyncStatus("מוחק אירוע...");
@@ -1259,7 +1497,7 @@ async function adminClearLocalAndResync() {
 // מחיקה מהירה של גיליון שלם עם נפילה חזרה למחיקה פר-פריט
 async function adminClearTarget(target, label, localScope, perItemFallback) {
   if (!currentUser?.isAdmin) return;
-  if (!confirm(`למחוק ${label}?`)) return;
+  if (!adminConfirm(`למחוק ${label}?`)) return;
   try {
     await Api.clearSheet(target);
     if (localScope) clearLocalCaches(localScope);
@@ -1324,7 +1562,7 @@ async function adminDeleteAllRsvps() {
 async function adminDeleteAllCredits() {
   // קרדיטים = פרגונים ונותני שירות (לא המלצות בעלי אירוע)
   if (!currentUser?.isAdmin) return;
-  if (!confirm("למחוק את כל הקרדיטים?")) return;
+  if (!adminConfirm("למחוק את כל הקרדיטים?")) return;
   const list = (credits || []).filter((c) => !isOwnerRecommendation(c));
   await deletePerItem(
     list,
@@ -1336,7 +1574,7 @@ async function adminDeleteAllCredits() {
 
 async function adminDeleteAllRecommendations() {
   if (!currentUser?.isAdmin) return;
-  if (!confirm("למחוק את כל ההמלצות?")) return;
+  if (!adminConfirm("למחוק את כל ההמלצות?")) return;
   const list = (credits || []).filter((c) => isOwnerRecommendation(c));
   await deletePerItem(
     list,
@@ -1568,7 +1806,8 @@ async function deleteExperienceById(experienceId) {
 
 async function toggleEventGuestsVisibility(eventId) {
   const event = events.find((e) => e.id === eventId);
-  if (!event || !canManageEvent(event)) return;
+  if (!event || !isOwnEvent(event)) return;
+  if (currentUser?.isAdmin && !adminConfirm("לשנות נראות אישורי הגעה לאירוע זה?")) return;
 
   const nextHide = !event.hideGuests;
   event.hideGuests = nextHide;
@@ -1782,13 +2021,8 @@ function renderEvents() {
   }
 
   events.forEach((event) => {
-    const isFamily = canManageEvent(event);
-    const isOwnerEvent = String(event.ownerId || "") === String(currentUser?.id || "");
-    const rsvp = event.rsvp || {};
-    const myVote = rsvp[currentUser?.id];
-    const yes = Object.values(rsvp).filter((v) => v === "yes").length;
-    const maybe = Object.values(rsvp).filter((v) => v === "maybe").length;
-    const no = Object.values(rsvp).filter((v) => v === "no").length;
+    const canManage = canManageEvent(event);
+    const isOwnerEvent = isOwnEvent(event);
 
     const d = parseEventDateTime(event.date, event.time);
     const now = new Date();
@@ -1822,7 +2056,7 @@ function renderEvents() {
         ${isTomorrowEvent ? '<div class="my-event-title" style="background:rgba(244,63,94,.22);border-color:rgba(251,113,133,.7);color:#ffe4e6;">האירוע מתקיים בעוד יום</div>' : ""}
         ${isOwnerEvent ? '<div class="my-event-title">האירוע שלי</div>' : ""}
         ${
-          isFamily
+          canManage
             ? `
         <div class="event-actions event-actions-top-left">
           <button type="button" class="event-action-btn compact edit" data-edit-id="${event.id}" aria-label="עריכה">
@@ -1860,46 +2094,7 @@ function renderEvents() {
           </div>
           ${event.eventNote ? `<div class="text-purple-200/90 text-xs mt-1">💡 ${escapeHtmlAttr(event.eventNote)}</div>` : ""}
         </div>
-        ${
-          !isFamily && !isPastEvent
-            ? `
-        <div class="grid grid-cols-3 gap-2 mt-4">
-          <button type="button" class="rsvp-btn ${rsvpClass(myVote, "yes")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="yes">מגיע 👍</button>
-          <button type="button" class="rsvp-btn ${rsvpClass(myVote, "maybe")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="maybe">אולי 🤔</button>
-          <button type="button" class="rsvp-btn ${rsvpClass(myVote, "no")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="no">לא מגיע 👎</button>
-        </div>`
-            : ""
-        }
-        ${
-          !isPastEvent
-            ? `<div class="mt-4 pt-4 border-t border-white/10">
-          ${
-            event.hideGuests && !isFamily
-              ? `<div class="text-white/40 text-sm">אישורי ההגעה מוסתרים 🔒</div>`
-              : `
-          <div class="rsvp-summary-row text-sm">
-            <div class="flex gap-4 flex-wrap rsvp-summary-counts">
-            <div class="text-green-300">מגיעים: ${yes}</div>
-            <div class="text-yellow-300">אולי: ${maybe}</div>
-            <div class="text-red-300">לא מגיעים: ${no}</div>
-            </div>
-            ${
-              isFamily
-                ? `<button type="button" class="hide-rsvp-btn" data-toggle-hide-id="${event.id}" title="הסתר ממשתמשים אחרים" aria-label="הסתר תוכן ממשתמשים אחרים">
-                    <i class="fa-solid fa-eye-slash"></i>
-                  </button>`
-                : ""
-            }
-          </div>`
-          }
-          ${
-            isFamily && event.hideGuests
-              ? `<div class="text-[12px] text-purple-200/85 mt-2">תוכן זה יוסתר ממשתמשים אחרים</div>`
-              : ""
-          }
-        </div>`
-            : ""
-        }
+        ${renderEventRsvpSection(event, isPastEvent, canManage && isOwnerEvent)}
         ${
           !isOwnerEvent && isPastEvent
             ? `<button type="button" class="w-full mt-3 rounded-xl bg-white/10 p-2 text-sm font-bold" data-quick-credit-event="${event.id}">הוספת קרדיט לאירוע זה</button>`
@@ -1935,11 +2130,16 @@ function rsvpClass(myVote, status) {
 
 async function vote(eventId, status) {
   const event = events.find((e) => e.id === eventId);
-  if (!event) return;
+  if (!event || !canVoteOnEvent(event)) return;
+  if (getOtherFamilyRsvp(event)) {
+    showToast("אושרה הגעה על ידי ההורה השני");
+    return;
+  }
 
   if (!event.rsvp) event.rsvp = {};
-  event.rsvp[currentUser.id] = status;
+  event.rsvp[currentUser.id] = { status, userName: currentUser.parentName || "" };
   renderEvents();
+  if (rsvpScreenEventId === eventId) renderRsvpScreen();
 
   try {
     await Api.vote({
@@ -1948,11 +2148,13 @@ async function vote(eventId, status) {
       userName: currentUser.parentName,
       status,
     });
-    await syncFromServer();
+    await syncFromServer({ silent: true });
+    paintAppAfterSync();
   } catch (err) {
     console.error(err);
     delete event.rsvp[currentUser.id];
     renderEvents();
+    if (rsvpScreenEventId === eventId) renderRsvpScreen();
     alert("לא הצלחנו לשמור את התשובה. נסו שוב.");
   }
 }
@@ -4396,6 +4598,12 @@ function bindNavigation() {
       return;
     }
 
+    const openRsvpBtn = e.target.closest("[data-open-rsvp-id]");
+    if (openRsvpBtn) {
+      openRsvpScreen(openRsvpBtn.dataset.openRsvpId, openRsvpBtn.dataset.rsvpTab || "yes");
+      return;
+    }
+
     const btn = e.target.closest(".rsvp-btn");
     if (btn) {
       vote(btn.dataset.eventId, btn.dataset.vote);
@@ -4552,6 +4760,7 @@ function switchTab(tab, shouldSync = true) {
 
   if (!map[tab]) return;
 
+  closeRsvpScreen();
   activeTab = tab;
   sessionStorage.setItem("bm_active_tab", tab);
 
