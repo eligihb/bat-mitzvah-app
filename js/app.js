@@ -2526,7 +2526,7 @@ function renderGuestCreditsForm() {
   tab.innerHTML = creditsScreenWrap(
     "guest",
     `
-    <div class="glass rounded-[28px] p-4 space-y-2">
+    <div id="guestCreditForm" class="glass rounded-[28px] p-4 space-y-2">
       ${pastHint}
       <select id="creditEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm text-white">
         ${options}
@@ -2534,7 +2534,7 @@ function renderGuestCreditsForm() {
       </select>
       <div id="creditOwnEventHint" class="credit-info-hint credit-info-hint-warn hidden" role="status"></div>
       <input id="creditManualEvent" class="hidden w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם אירוע חיצוני" />
-      <div class="text-xs text-white/70">דרג/י לפי סוג שירות — גם בלי שם נותן ספציפי</div>
+      <div class="guest-credit-hint-line text-xs text-white/70">דרג/י לפי סוג שירות — גם בלי שם נותן ספציפי</div>
       <div id="guestProvidersWrap" class="space-y-2"></div>
       <div id="guestGeneralPraiseSection" class="border-t border-white/10 pt-3 mt-2">
         <div class="text-sm font-black text-center mb-2">✨ פרגון כללי על האירוע ✨</div>
@@ -2706,7 +2706,20 @@ function praiseableGuestEvents() {
 
 function guestPastEventsHintHtml() {
   if (praiseableGuestEvents().length) return "";
+  const hasOwnPast = ownEventsForCurrentUser().some((e) => isEventPastByDate(e.date));
+  if (hasOwnPast) return "";
   return `<div class="credit-info-hint credit-info-hint-warn" role="status"><i class="fa-solid fa-circle-exclamation shrink-0 mt-0.5"></i><span>אין אירועים שהתקיימו עדיין</span></div>`;
+}
+
+function setGuestCreditFormLocked(locked) {
+  const form = document.getElementById("guestCreditForm");
+  if (!form) return;
+  form.classList.toggle("guest-credit-locked", locked);
+  form.querySelectorAll("input, textarea, button").forEach((el) => {
+    if (el.id === "creditEventId") return;
+    el.disabled = !!locked;
+  });
+  setGuestPublishEnabled(!locked && !!getCreditEventIdFromForm());
 }
 
 function updateGuestOwnEventHint() {
@@ -2714,12 +2727,17 @@ function updateGuestOwnEventHint() {
   const select = document.getElementById("creditEventId");
   if (!hint || !select) return;
   const event = events.find((e) => String(e.id) === String(select.value));
-  if (event && isOwnEvent(event)) {
-    hint.textContent = "לא ניתן לפרגן לאירוע שלכם — השתמשו בהמלצת בעל/ת אירוע.";
+  const isOwn = !!(event && isOwnEvent(event));
+  if (isOwn) {
+    hint.innerHTML = `<span>אינך יכול לפרגן לאירוע של עצמך 🙃</span>`;
     hint.classList.remove("hidden");
+    select.classList.add("is-own-event-selected");
+    setGuestCreditFormLocked(true);
   } else {
     hint.classList.add("hidden");
-    hint.textContent = "";
+    hint.innerHTML = "";
+    select.classList.remove("is-own-event-selected");
+    setGuestCreditFormLocked(false);
   }
 }
 
@@ -2876,14 +2894,21 @@ function buildPastEventSelectOptionsForProvider(name, category) {
 }
 
 function buildCreditEventSelectOptions() {
-  const past = praiseableGuestEvents();
+  const past = pastEventsSortedDesc();
   const upcoming = events
-    .filter((e) => !isEventPastByDate(e.date) && !isOwnEvent(e))
+    .filter((e) => !isEventPastByDate(e.date))
     .sort((a, b) => new Date(`${a.date}T${a.time || "00:00"}`) - new Date(`${b.date}T${b.time || "00:00"}`));
   let html = `<option value="">בחר אירוע</option>`;
-  html += past.map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`).join("");
-  html += upcoming.map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`).join("");
+  html += past.map((e) => creditEventOptionHtml(e)).join("");
+  html += upcoming.map((e) => creditEventOptionHtml(e)).join("");
   return html;
+}
+
+function creditEventOptionHtml(event) {
+  const own = isOwnEvent(event);
+  const cls = own ? ' class="credit-event-option-own"' : "";
+  const suffix = own ? " — האירוע שלי" : "";
+  return `<option value="${event.id}"${cls}>${eventOptionLabel(event)}${suffix}</option>`;
 }
 
 function bindBoardPraiseSelects() {
@@ -3263,16 +3288,14 @@ function refreshGuestProviders() {
   if (!eventId) {
     wrap.innerHTML = creditBlockMessage("👆", "בחר/י אירוע (או הזן/י שם ידני) כדי לדרג נותני שירות.");
     if (praiseSection) praiseSection.classList.add("hidden");
+    setGuestCreditFormLocked(false);
     setGuestPublishEnabled(false);
     return;
   }
 
   if (selectedEvent && isOwnEvent(selectedEvent)) {
-    wrap.innerHTML = creditBlockMessage(
-      "🙃",
-      'אינך יכול לפרגן לאירוע שלך — עברו למסך "המלצת בעל אירוע".'
-    );
-    if (praiseSection) praiseSection.classList.add("hidden");
+    wrap.innerHTML = `<div class="text-xs text-white/40 text-center py-3">השדות למטה נעולים — בחר/י אירוע אחר כדי לפרגן</div>`;
+    if (praiseSection) praiseSection.classList.remove("hidden");
     setGuestPublishEnabled(false);
     return;
   }
@@ -3283,6 +3306,7 @@ function refreshGuestProviders() {
     return;
   }
   if (praiseSection) praiseSection.classList.remove("hidden");
+  setGuestCreditFormLocked(false);
   setGuestPublishEnabled(true);
 
   let cardIndex = 0;
