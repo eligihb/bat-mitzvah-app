@@ -1739,10 +1739,11 @@ function renderEvents() {
     const canManage = canManageEvent(event);
     const isOwnerFamily = isOwnEvent(event);
     const isOwnerEvent = isOwnEvent(event);
-    const myVote = event.rsvp[currentUser?.id];
-    const yes = Object.values(event.rsvp).filter((v) => v === "yes").length;
-    const maybe = Object.values(event.rsvp).filter((v) => v === "maybe").length;
-    const no = Object.values(event.rsvp).filter((v) => v === "no").length;
+    const rsvp = event.rsvp || {};
+    const myVote = rsvp[currentUser?.id];
+    const yes = Object.values(rsvp).filter((v) => v === "yes").length;
+    const maybe = Object.values(rsvp).filter((v) => v === "maybe").length;
+    const no = Object.values(rsvp).filter((v) => v === "no").length;
 
     const d = parseEventDateTime(event.date, event.time);
     const now = new Date();
@@ -1891,6 +1892,7 @@ async function vote(eventId, status) {
   const event = events.find((e) => e.id === eventId);
   if (!event) return;
 
+  if (!event.rsvp) event.rsvp = {};
   event.rsvp[currentUser.id] = status;
   renderEvents();
 
