@@ -223,6 +223,7 @@ function saveJson(key, data) {
 }
 
 const EVENTS_SNAPSHOT_KEY = "bm_events_snapshot";
+const USER_PROFILE_KEY = "bm_user_profile";
 
 function saveEventsSnapshot() {
   if (!events.length) return;
@@ -305,6 +306,7 @@ async function syncFromServer({ silent = false, boot = false } = {}) {
     applyEventSavePatches();
     messages = normalized.messages;
     users = normalized.users || [];
+    reconcileCurrentUserWithServer();
     credits = mergePendingCredits(normalized.credits || [], pendingCredits);
     experiences = mergePendingExperiences(normalized.experiences || [], pendingExperiences);
     // מטמון mirror בלבד — מקור האמת הוא השרת
@@ -405,6 +407,51 @@ function maybeNotifyOtherParentEvent() {
   }
 }
 
+// ─── זיהוי משתמש יציב (גם אחרי התנתקות) ─────────────────────
+function saveUserProfile(user) {
+  if (!user?.id) return;
+  saveJson(USER_PROFILE_KEY, {
+    id: user.id,
+    parentName: user.parentName || "",
+    girlName: user.girlName || "",
+    familyName: user.familyName || "",
+    role: user.role || "",
+    phone: user.phone || "",
+  });
+}
+
+function resolveLoginUserId(parentName, girlName, familyName) {
+  const norm = (s) => String(s || "").trim();
+  const matches = (p) =>
+    p?.id &&
+    norm(p.parentName) === norm(parentName) &&
+    norm(p.girlName) === norm(girlName) &&
+    norm(p.familyName) === norm(familyName);
+
+  const session = loadJson(APP_CONFIG.storage.user);
+  if (matches(session)) return session.id;
+
+  const profile = loadJson(USER_PROFILE_KEY);
+  if (matches(profile)) return profile.id;
+
+  return crypto.randomUUID();
+}
+
+function reconcileCurrentUserWithServer() {
+  if (!currentUser || !users?.length) return;
+  const norm = (s) => String(s || "").trim().toLowerCase();
+  const match = users.find(
+    (u) =>
+      norm(u.parentName) === norm(currentUser.parentName) &&
+      norm(u.girlName) === norm(currentUser.girlName) &&
+      norm(u.familyName) === norm(currentUser.familyName)
+  );
+  if (!match?.id || String(match.id) === String(currentUser.id)) return;
+  currentUser.id = match.id;
+  saveJson(APP_CONFIG.storage.user, currentUser);
+  saveUserProfile(currentUser);
+}
+
 // ─── התחברות ───────────────────────────────────────────────
 function bindLogin() {
   document.getElementById("loginForm").addEventListener("submit", (e) => {
@@ -430,15 +477,8 @@ function bindLogin() {
       phone = `${document.getElementById("phonePrefix").value}-${digits}`;
     }
 
-    const saved = loadJson(APP_CONFIG.storage.user);
-    const sameUser =
-      saved &&
-      saved.parentName === parentName &&
-      saved.girlName === girlName &&
-      saved.familyName === familyName;
-
     currentUser = {
-      id: sameUser ? saved.id : crypto.randomUUID(),
+      id: resolveLoginUserId(parentName, girlName, familyName),
       role: selectedRole,
       parentName,
       girlName,
@@ -449,6 +489,7 @@ function bindLogin() {
     };
 
     saveJson(APP_CONFIG.storage.user, currentUser);
+    saveUserProfile(currentUser);
     registerCurrentUser();
     showApp();
   });
@@ -581,6 +622,7 @@ function bindLogout() {
 function logout() {
   stopAutoSync();
   clearCloudDataCache();
+  if (currentUser) saveUserProfile(currentUser);
   localStorage.removeItem(APP_CONFIG.storage.user);
   sessionStorage.removeItem("bm_active_tab");
   currentUser = null;
@@ -920,13 +962,43 @@ function canViewRsvpDetails(event) {
   return !event.hideGuests;
 }
 
+function userMatchesCurrentIdentity(user) {
+  if (!user || !currentUser) return false;
+  const norm = (s) => String(s || "").trim().toLowerCase();
+  return (
+    norm(user.parentName) === norm(currentUser.parentName) &&
+    userFamilyKeyFromUser(user) === userFamilyKeyFromUser(currentUser)
+  );
+}
+
+function findMyRsvpEntry(event) {
+  if (!currentUser || !event?.rsvp) return null;
+  const direct = event.rsvp[currentUser.id];
+  if (direct) {
+    return { userId: currentUser.id, entry: direct, status: rsvpEntryStatus(direct) };
+  }
+  for (const [userId, entry] of Object.entries(event.rsvp)) {
+    if (String(userId) === String(currentUser.id)) continue;
+    const u = findUserById(userId);
+    if (userMatchesCurrentIdentity(u)) {
+      return { userId, entry, status: rsvpEntryStatus(entry) };
+    }
+  }
+  return null;
+}
+
+function getVoteUserId(event) {
+  return findMyRsvpEntry(event)?.userId || currentUser?.id || "";
+}
+
 function getOtherFamilyRsvp(event) {
   if (!currentUser || isOwnEvent(event)) return null;
+  if (findMyRsvpEntry(event)) return null;
   const myKey = userFamilyKeyFromUser(currentUser);
   if (!myKey || myKey === "@@") return null;
   for (const entry of getRsvpEntries(event)) {
-    if (String(entry.userId) === String(currentUser.id)) continue;
     const u = findUserById(entry.userId);
+    if (userMatchesCurrentIdentity(u)) continue;
     if (userFamilyKeyFromUser(u) === myKey) {
       return {
         ...entry,
@@ -938,8 +1010,7 @@ function getOtherFamilyRsvp(event) {
 }
 
 function getMyRsvpStatus(event) {
-  const entry = event?.rsvp?.[currentUser?.id];
-  return rsvpEntryStatus(entry);
+  return findMyRsvpEntry(event)?.status || "";
 }
 
 function buildRsvpListRows(event, statusFilter) {
@@ -2152,23 +2223,29 @@ async function vote(eventId, status) {
     return;
   }
 
+  const voteUserId = getVoteUserId(event);
   if (!event.rsvp) event.rsvp = {};
-  event.rsvp[currentUser.id] = { status, userName: currentUser.parentName || "" };
+  event.rsvp[voteUserId] = { status, userName: currentUser.parentName || "" };
   renderEvents();
   if (rsvpScreenEventId === eventId) renderRsvpScreen();
 
   try {
     await Api.vote({
       eventId,
-      userId: currentUser.id,
+      userId: voteUserId,
       userName: currentUser.parentName,
       status,
     });
+    if (String(voteUserId) !== String(currentUser.id)) {
+      currentUser.id = voteUserId;
+      saveJson(APP_CONFIG.storage.user, currentUser);
+      saveUserProfile(currentUser);
+    }
     await syncFromServer({ silent: true });
     paintAppAfterSync();
   } catch (err) {
     console.error(err);
-    delete event.rsvp[currentUser.id];
+    delete event.rsvp[voteUserId];
     renderEvents();
     if (rsvpScreenEventId === eventId) renderRsvpScreen();
     alert("לא הצלחנו לשמור את התשובה. נסו שוב.");
