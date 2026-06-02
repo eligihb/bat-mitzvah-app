@@ -1008,10 +1008,8 @@ function updateAddButton(tabName = activeTab) {
   }
   const isAdmin = !!currentUser.isAdmin;
   const onAdminTab = tabName === "admin";
-  // כפתור + צף — תמיד למשתמש רגיל (יצירה או עריכת האירוע), בכל לשונית
   const showFab = !isAdmin && !onAdminTab;
   addBtn?.classList.toggle("hidden", !showFab);
-  // כפתור "הוסף" בתפריט התחתון — רק כשאין עדיין אירוע משפחתי
   const showNavAdd = showFab && !userHasFamilyEvent();
   navAdd?.classList.toggle("hidden", !showNavAdd);
 }
@@ -1600,6 +1598,7 @@ function renderAdminPanel() {
         ${kpi("תמונות", photoList.length, "🖼️")}
       </div>
       <div class="admin-toolbar">
+        <button type="button" id="adminAddEventBtn" class="admin-btn admin-btn-primary"><i class="fa-solid fa-plus"></i> הוסף אירוע</button>
         <button type="button" id="adminRefreshBtn" class="admin-btn admin-btn-neutral"><i class="fa-solid fa-rotate"></i> רענון</button>
         <button type="button" id="adminClearLocalBtn" class="admin-btn admin-btn-neutral"><i class="fa-solid fa-broom"></i> ניקוי מטמון</button>
         <button type="button" id="adminExportProvidersBtn" class="admin-btn admin-btn-primary"><i class="fa-solid fa-file-export"></i> ייצוא נותני שירות</button>
@@ -4442,6 +4441,11 @@ function bindNavigation() {
         if (chevron) chevron.classList.toggle("is-open", isOpen);
         btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
       }
+      return;
+    }
+    if (e.target.closest("#adminAddEventBtn")) {
+      switchTab("events", false);
+      openModalForCreate();
       return;
     }
     if (e.target.closest("#adminRefreshBtn")) {

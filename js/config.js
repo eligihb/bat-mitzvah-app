@@ -1,7 +1,7 @@
 /** הגדרות מרכזיות */
 const APP_CONFIG = {
   /** גרסת הפרונט — לעדכן בכל פריסה (יחד עם index.html data-app-version) */
-  appVersion: "118.5",
+  appVersion: "118.7",
   bootMessage: "כמה רגעים התוכן יעלה",
   title: "ישומון אירועי בת מצווה",
   classInfo: "כנפי רוח ו׳-4 • תשפ״ו",
