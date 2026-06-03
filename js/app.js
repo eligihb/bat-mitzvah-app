@@ -996,7 +996,29 @@ function rsvpBelongsToFamily(userId, familyId) {
   return false;
 }
 
-function buildAttendeeDisplayLabel(userId) {
+function isUuidLike(id) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(String(id || ""));
+}
+
+function parseIdentityFromUserId(userId) {
+  const parts = String(userId || "").split("@@").filter(Boolean);
+  if (parts.length === 3) {
+    return { role: parts[0], girlName: parts[1], familyName: parts[2] };
+  }
+  if (parts.length === 2 && !isUuidLike(parts[0])) {
+    return { role: "", girlName: parts[0], familyName: parts[1] };
+  }
+  return null;
+}
+
+function roleFromRsvpUserName(userName) {
+  const s = String(userName || "");
+  if (s.includes("אבא")) return "אבא";
+  if (s.includes("אמא")) return "אמא";
+  return "";
+}
+
+function buildAttendeeDisplayLabel(userId, fallbackUserName = "") {
   const u = findUserById(userId);
   if (u) {
     const role = String(u.role || "").trim() || "הורה";
@@ -1005,13 +1027,72 @@ function buildAttendeeDisplayLabel(userId) {
       .join(" ");
     return child ? `${role} של ${child}` : role;
   }
-  const fam = users.find((x) => getFamilyId(x) === String(userId));
-  if (fam) return buildAttendeeDisplayLabel(fam.id);
-  const roleFromId = String(userId).split("@@")[0];
-  if (currentUser && getFamilyId() === userId) {
-    return userIdentityLabel(currentUser);
+
+  const parsed = parseIdentityFromUserId(userId);
+  if (parsed?.girlName && parsed?.familyName) {
+    const role = String(parsed.role || "").trim() || roleFromRsvpUserName(fallbackUserName) || "הורה";
+    const child = [parsed.girlName, parsed.familyName].filter(Boolean).join(" ");
+    return `${role} של ${child}`;
   }
-  return roleFromId || "הורה";
+
+  const famUser = users.find((x) => getFamilyId(x) === String(userId));
+  if (famUser) return buildAttendeeDisplayLabel(famUser.id);
+
+  if (currentUser && getFamilyId() === userId) return userIdentityLabel(currentUser);
+
+  const role = roleFromRsvpUserName(fallbackUserName);
+  const nameOnly = String(fallbackUserName || "")
+    .replace(/אבא|אמא/g, "")
+    .trim();
+  if (role && nameOnly) {
+    const guess = users.find(
+      (x) =>
+        String(x.role || "") === role &&
+        String(x.parentName || "").trim() === nameOnly
+    );
+    if (guess) return buildAttendeeDisplayLabel(guess.id);
+  }
+
+  if (isUuidLike(userId)) return "";
+  return "הורה";
+}
+
+function familyKeyForRsvpEntry(entry) {
+  const u = findUserById(entry.userId);
+  if (u) {
+    const fk = getFamilyId(u);
+    if (fk) return fk;
+  }
+
+  const parsed = parseIdentityFromUserId(entry.userId);
+  if (parsed?.girlName && parsed?.familyName) {
+    return buildFamilyId(parsed.girlName, parsed.familyName);
+  }
+
+  if (getFamilyId() && rsvpBelongsToFamily(entry.userId, getFamilyId())) {
+    return getFamilyId();
+  }
+
+  const role = roleFromRsvpUserName(entry.userName);
+  const parentGuess = String(entry.userName || "")
+    .replace(/אבא|אמא/g, "")
+    .trim();
+  if (role && parentGuess) {
+    const match = users.find(
+      (x) => String(x.role || "") === role && String(x.parentName || "").trim() === parentGuess
+    );
+    if (match) return getFamilyId(match) || `uid:${entry.userId}`;
+  }
+
+  return `uid:${entry.userId}`;
+}
+
+function pickBestRsvpLabel(entries) {
+  const labels = entries
+    .map((e) => buildAttendeeDisplayLabel(e.userId, e.userName))
+    .filter((l) => l && !isUuidLike(l));
+  const best = labels.find((l) => /של/.test(l) && (l.startsWith("אבא") || l.startsWith("אמא")));
+  return best || labels[0] || "הורה";
 }
 
 function getRsvpEntries(event) {
@@ -1025,7 +1106,7 @@ function getRsvpEntries(event) {
 }
 
 function countRsvpByStatus(event, status) {
-  return getRsvpEntries(event).filter((e) => e.status === status).length;
+  return buildRsvpListRows(event, status).length;
 }
 
 function canVoteOnEvent(event) {
@@ -1108,23 +1189,15 @@ function buildRsvpListRows(event, statusFilter) {
   const entries = getRsvpEntries(event).filter((e) => e.status === statusFilter);
   const byFamily = new Map();
   entries.forEach((entry) => {
-    const u = findUserById(entry.userId);
-    const fk = userFamilyKeyFromUser(u) || `uid:${entry.userId}`;
+    const fk = familyKeyForRsvpEntry(entry);
     if (!byFamily.has(fk)) byFamily.set(fk, []);
     byFamily.get(fk).push(entry);
   });
   const rows = [];
   byFamily.forEach((list) => {
-    const primary = list[0];
-    let label = buildAttendeeDisplayLabel(primary.userId);
-    if (list.length > 1) {
-      const extras = list
-        .slice(1)
-        .map((e) => buildAttendeeDisplayLabel(e.userId))
-        .join(" • ");
-      label += ` (${extras})`;
-    }
-    rows.push({ label, status: primary.status });
+    const label = pickBestRsvpLabel(list);
+    if (!label) return;
+    rows.push({ label, status: list[0].status });
   });
   return rows;
 }
