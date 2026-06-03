@@ -1306,6 +1306,69 @@ body {
   overflow: hidden;
 }
 
+.rsvp-summary-hover-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.rsvp-hover-popover {
+  position: fixed;
+  z-index: 88;
+  max-width: min(20rem, calc(100vw - 1.5rem));
+  max-height: min(16rem, 50vh);
+  overflow: auto;
+  padding: 0.65rem 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(216, 180, 254, 0.45);
+  background: rgba(18, 8, 32, 0.96);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  direction: rtl;
+  pointer-events: auto;
+}
+
+.rsvp-hover-popover.hidden {
+  display: none !important;
+}
+
+.rsvp-hover-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.45rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rsvp-hover-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #f3e8ff;
+}
+
+.rsvp-hover-sub {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.rsvp-hover-list .rsvp-list-row {
+  padding: 0.45rem 0.55rem;
+  font-size: 0.8rem;
+}
+
+.rsvp-hover-hint {
+  margin-top: 0.45rem;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.38);
+  text-align: center;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .rsvp-hover-popover {
+    display: none !important;
+  }
+}
+
 /* מסך פתיחה */
 .splash-screen {
   position: fixed;

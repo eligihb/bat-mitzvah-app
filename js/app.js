@@ -195,6 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindLogout();
   bindProfileEdit();
   bindRsvpScreen();
+  bindRsvpHover();
 
   if (currentUser) {
     currentUser = applyStableUserId(currentUser);
@@ -1219,8 +1220,18 @@ function openRsvpScreen(eventId, tab = "yes") {
 
 function closeRsvpScreen() {
   rsvpScreenEventId = "";
+  hideRsvpHoverPopover(0);
   document.getElementById("rsvpScreen")?.classList.add("hidden");
   document.getElementById("appScreen")?.classList.remove("rsvp-screen-open");
+}
+
+const RSVP_TAB_LABELS = { yes: "מגיעים", maybe: "אולי", no: "לא מגיעים" };
+
+function renderRsvpListHtml(event, tab) {
+  const rows = buildRsvpListRows(event, tab);
+  return rows.length
+    ? rows.map((r) => `<div class="rsvp-list-row">${escapeHtmlAttr(r.label)}</div>`).join("")
+    : `<div class="rsvp-list-empty">אין ${RSVP_TAB_LABELS[tab] || ""} עדיין</div>`;
 }
 
 function renderRsvpScreen() {
@@ -1237,11 +1248,82 @@ function renderRsvpScreen() {
     btn.classList.toggle("is-active", btn.dataset.rsvpTab === rsvpScreenTab);
   });
 
-  const rows = buildRsvpListRows(event, rsvpScreenTab);
-  const tabLabels = { yes: "מגיעים", maybe: "אולי", no: "לא מגיעים" };
-  list.innerHTML = rows.length
-    ? rows.map((r) => `<div class="rsvp-list-row">${escapeHtmlAttr(r.label)}</div>`).join("")
-    : `<div class="rsvp-list-empty">אין ${tabLabels[rsvpScreenTab] || ""} עדיין</div>`;
+  list.innerHTML = renderRsvpListHtml(event, rsvpScreenTab);
+}
+
+let rsvpHoverShowTimer = null;
+let rsvpHoverHideTimer = null;
+
+function canUseRsvpHover() {
+  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
+function showRsvpHoverPopover(eventId, tab, anchorEl) {
+  const event = events.find((e) => String(e.id) === String(eventId));
+  const pop = document.getElementById("rsvpHoverPopover");
+  if (!event || !pop || !canViewRsvpDetails(event) || !anchorEl) return;
+
+  const t = RSVP_TAB_LABELS[tab] || RSVP_TAB_LABELS.yes;
+  pop.innerHTML = `
+    <div class="rsvp-hover-head">
+      <span class="rsvp-hover-title">${escapeHtmlAttr(t)}</span>
+      <span class="rsvp-hover-sub">בת מצווה ל${escapeHtmlAttr(event.girlName || "")}</span>
+    </div>
+    <div class="rsvp-hover-list">${renderRsvpListHtml(event, tab)}</div>
+    <div class="rsvp-hover-hint">לחיצה לרשימה מלאה</div>`;
+  pop.classList.remove("hidden");
+  pop.setAttribute("aria-hidden", "false");
+
+  const rect = anchorEl.getBoundingClientRect();
+  pop.style.visibility = "hidden";
+  pop.style.display = "block";
+  const popRect = pop.getBoundingClientRect();
+  let top = rect.bottom + 8;
+  let left = rect.right - popRect.width;
+  left = Math.max(12, Math.min(left, window.innerWidth - popRect.width - 12));
+  if (top + popRect.height > window.innerHeight - 8) {
+    top = Math.max(8, rect.top - popRect.height - 8);
+  }
+  pop.style.top = `${top}px`;
+  pop.style.left = `${left}px`;
+  pop.style.visibility = "visible";
+}
+
+function hideRsvpHoverPopover(delayMs = 120) {
+  clearTimeout(rsvpHoverHideTimer);
+  rsvpHoverHideTimer = setTimeout(() => {
+    const pop = document.getElementById("rsvpHoverPopover");
+    if (!pop) return;
+    pop.classList.add("hidden");
+    pop.setAttribute("aria-hidden", "true");
+  }, delayMs);
+}
+
+function bindRsvpHover() {
+  const zone = document.getElementById("eventsTab");
+  const pop = document.getElementById("rsvpHoverPopover");
+  if (!zone || !pop) return;
+
+  zone.addEventListener("mouseover", (e) => {
+    if (!canUseRsvpHover()) return;
+    const el = e.target.closest("[data-open-rsvp-id]");
+    if (!el) return;
+    clearTimeout(rsvpHoverShowTimer);
+    clearTimeout(rsvpHoverHideTimer);
+    const eventId = el.dataset.openRsvpId;
+    const tab = el.dataset.rsvpTab || "yes";
+    rsvpHoverShowTimer = setTimeout(() => showRsvpHoverPopover(eventId, tab, el), 280);
+  });
+
+  zone.addEventListener("mouseout", (e) => {
+    if (!canUseRsvpHover()) return;
+    const from = e.target.closest("[data-open-rsvp-id]");
+    const to = e.relatedTarget?.closest?.("[data-open-rsvp-id], #rsvpHoverPopover");
+    if (from && !to) hideRsvpHoverPopover(80);
+  });
+
+  pop.addEventListener("mouseenter", () => clearTimeout(rsvpHoverHideTimer));
+  pop.addEventListener("mouseleave", () => hideRsvpHoverPopover(80));
 }
 
 function bindRsvpScreen() {
@@ -1280,11 +1362,13 @@ function renderEventRsvpSection(event, isPastEvent, canManage) {
   }
 
   const summaryInner = canView
-    ? `<button type="button" class="rsvp-open-btn" data-open-rsvp-id="${event.id}"><i class="fa-solid fa-users"></i> אישורי הגעה</button>
-      <div class="flex gap-4 flex-wrap rsvp-summary-counts">
-        <button type="button" class="rsvp-count-btn text-green-300" data-open-rsvp-id="${event.id}" data-rsvp-tab="yes">מגיעים: ${yes}</button>
-        <button type="button" class="rsvp-count-btn text-yellow-300" data-open-rsvp-id="${event.id}" data-rsvp-tab="maybe">אולי: ${maybe}</button>
-        <button type="button" class="rsvp-count-btn text-red-300" data-open-rsvp-id="${event.id}" data-rsvp-tab="no">לא מגיעים: ${no}</button>
+    ? `<div class="rsvp-summary-hover-zone min-w-0 flex-1">
+        <button type="button" class="rsvp-open-btn" data-open-rsvp-id="${event.id}" data-rsvp-tab="yes" title="מעבר עכבר או לחיצה לרשימה"><i class="fa-solid fa-users"></i> אישורי הגעה</button>
+        <div class="flex gap-4 flex-wrap rsvp-summary-counts">
+          <button type="button" class="rsvp-count-btn text-green-300" data-open-rsvp-id="${event.id}" data-rsvp-tab="yes" title="מגיעים">מגיעים: ${yes}</button>
+          <button type="button" class="rsvp-count-btn text-yellow-300" data-open-rsvp-id="${event.id}" data-rsvp-tab="maybe" title="אולי">אולי: ${maybe}</button>
+          <button type="button" class="rsvp-count-btn text-red-300" data-open-rsvp-id="${event.id}" data-rsvp-tab="no" title="לא מגיעים">לא מגיעים: ${no}</button>
+        </div>
       </div>`
     : `<div class="text-white/40 text-sm">אישורי ההגעה מוסתרים 🔒</div>`;
 
