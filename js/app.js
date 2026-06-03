@@ -201,6 +201,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindEventImageErrors();
   bindLogout();
   bindGuestLogin();
+  bindLoginGuestExit();
   bindProfileEdit();
   bindRsvpScreen();
   bindRsvpHover();
@@ -359,14 +360,56 @@ function isGuestViewer() {
   return !currentUser;
 }
 
-function openLoginScreen() {
+let loginScreenPushedHistory = false;
+
+function updateLoginScreenChrome() {
+  const showGuestExit = !loginEditMode;
+  document.getElementById("loginGuestActions")?.classList.toggle("hidden", !showGuestExit);
+  document.getElementById("continueAsGuestBtn")?.classList.toggle("hidden", !showGuestExit);
+}
+
+function openLoginScreen({ keepEditMode = false } = {}) {
+  const fromApp = isAppScreenVisible();
+  if (!keepEditMode) loginEditMode = false;
   stopAutoSync();
   document.getElementById("loginScreen").classList.remove("hidden");
   document.getElementById("appScreen").classList.add("hidden");
   document.getElementById("bottomNav").classList.add("hidden");
-  loginEditMode = false;
   const submitBtn = document.querySelector("#loginForm .login-submit");
-  if (submitBtn) submitBtn.textContent = "כניסה לישומון";
+  if (submitBtn) submitBtn.textContent = loginEditMode ? "שמירת פרטים" : "כניסה לישומון";
+  updateLoginScreenChrome();
+  if (!loginEditMode && fromApp && !loginScreenPushedHistory) {
+    history.pushState({ bm: "login" }, "");
+    loginScreenPushedHistory = true;
+  }
+}
+
+function returnFromLoginScreen() {
+  loginScreenPushedHistory = false;
+  document.getElementById("loginScreen").classList.add("hidden");
+  document.getElementById("appScreen").classList.remove("hidden");
+  document.getElementById("bottomNav").classList.remove("hidden");
+  if (loginEditMode && currentUser) {
+    loginEditMode = false;
+    updateLoginScreenChrome();
+    startAutoSync();
+    renderAll();
+    updateGuestUiState();
+    return;
+  }
+  loginEditMode = false;
+  updateLoginScreenChrome();
+  renderAll();
+  updateGuestUiState();
+  startAutoSync();
+}
+
+function continueAsGuestFromLogin() {
+  if (loginScreenPushedHistory && history.state?.bm === "login") {
+    history.back();
+    return;
+  }
+  returnFromLoginScreen();
 }
 
 function promptLogin(reason = "לפעולה זו") {
@@ -562,9 +605,7 @@ function openLoginForProfileEdit() {
   if (!currentUser) return;
   loginEditMode = true;
   fillLoginFormFromUser(currentUser);
-  document.getElementById("appScreen").classList.add("hidden");
-  document.getElementById("bottomNav").classList.add("hidden");
-  document.getElementById("loginScreen").classList.remove("hidden");
+  openLoginScreen({ keepEditMode: true });
 }
 
 // ─── התחברות ───────────────────────────────────────────────
@@ -718,7 +759,15 @@ function updateAdminFieldVisibility() {
 }
 
 // ─── מסכים ──────────────────────────────────────────────────
+function clearLoginHistoryState() {
+  loginScreenPushedHistory = false;
+  if (history.state?.bm === "login") {
+    history.replaceState(null, "");
+  }
+}
+
 async function showApp() {
+  clearLoginHistoryState();
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("appScreen").classList.remove("hidden");
   document.getElementById("bottomNav").classList.remove("hidden");
@@ -738,6 +787,7 @@ async function showApp() {
 }
 
 async function showGuestApp() {
+  clearLoginHistoryState();
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("appScreen").classList.remove("hidden");
   document.getElementById("bottomNav").classList.remove("hidden");
@@ -757,6 +807,17 @@ async function showGuestApp() {
 
 function bindGuestLogin() {
   document.getElementById("guestLoginBtn")?.addEventListener("click", () => openLoginScreen());
+}
+
+function bindLoginGuestExit() {
+  document.getElementById("continueAsGuestBtn")?.addEventListener("click", continueAsGuestFromLogin);
+  document.getElementById("loginBackBtn")?.addEventListener("click", continueAsGuestFromLogin);
+  window.addEventListener("popstate", () => {
+    const loginEl = document.getElementById("loginScreen");
+    if (!loginEl || loginEl.classList.contains("hidden")) return;
+    if (history.state?.bm === "login") return;
+    returnFromLoginScreen();
+  });
 }
 
 function bindLogout() {
