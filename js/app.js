@@ -41,7 +41,12 @@ let hideGuests = false;
 let syncTimer = null;
 let isSyncing = false;
 let isExperienceUploading = false;
-let activeTab = sessionStorage.getItem("bm_active_tab") || "events";
+const HOME_TAB_MIGRATION = "121.3";
+if (sessionStorage.getItem("bm_home_tab_migrated") !== HOME_TAB_MIGRATION) {
+  sessionStorage.setItem("bm_active_tab", "calendar");
+  sessionStorage.setItem("bm_home_tab_migrated", HOME_TAB_MIGRATION);
+}
+let activeTab = sessionStorage.getItem("bm_active_tab") || "calendar";
 let editingEventId = null;
 let editingEventImage = "";
 let removeEventImage = false;
@@ -770,7 +775,7 @@ function logout() {
   currentUser = null;
   events = [];
   messages = [];
-  activeTab = "events";
+  activeTab = "calendar";
   closeModal();
   setSyncStatus("");
   document.getElementById("loginForm").reset();
@@ -940,7 +945,7 @@ function bindEventImageErrors() {
 }
 
 function bindGlobalNav() {
-  document.getElementById("homeBtn")?.addEventListener("click", () => switchTab("events"));
+  document.getElementById("homeBtn")?.addEventListener("click", () => switchTab("calendar"));
 }
 
 function bindModal() {
@@ -986,8 +991,9 @@ function setEventMenuValue(value) {
 }
 
 function canManageEvent(event) {
-  if (currentUser?.isAdmin) return true;
-  if (event.ownerId && currentUser?.id && String(event.ownerId) === String(currentUser.id)) return true;
+  if (!currentUser) return false;
+  if (currentUser.isAdmin) return true;
+  if (event.ownerId && currentUser.id && String(event.ownerId) === String(currentUser.id)) return true;
   return (
     event.girlName === currentUser.girlName &&
     (event.familyName || "") === (currentUser.familyName || "")
@@ -5424,7 +5430,7 @@ function bindNavigation() {
 
 function switchTab(tab, shouldSync = true) {
   if (tab === "admin" && !currentUser?.isAdmin) {
-    tab = "events";
+    tab = "calendar";
   }
 
   const map = {
