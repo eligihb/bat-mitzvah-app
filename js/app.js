@@ -29,6 +29,8 @@ let guestCreditFreshLoad = true;
 let boardPraiseKey = "";
 const boardPraiseState = {};
 let creditBoardView = "latest";
+let boardSortBy = "date";
+let boardExpandedEventId = "";
 let isAppBootLoading = false;
 const CREDIT_SERVICE_TYPES = ["צילום", "מקום אירוע", "מצגת/סרטון", "אוכל", "עיצוב", "הפעלה"];
 // נותני שירות שרלוונטי להמליץ עליהם גם לפני האירוע (צלמת, מצגת/עורך וידאו)
@@ -193,6 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindLightbox();
   bindEventImageErrors();
   bindLogout();
+  bindGuestLogin();
   bindProfileEdit();
   bindRsvpScreen();
   bindRsvpHover();
@@ -201,6 +204,8 @@ document.addEventListener("DOMContentLoaded", () => {
     currentUser = applyStableUserId(currentUser);
     saveJson(APP_CONFIG.storage.user, currentUser);
     showApp();
+  } else {
+    showGuestApp();
   }
 
   hideSplashAfterDelay();
@@ -342,7 +347,26 @@ async function syncFromServer({ silent = false, boot = false } = {}) {
 
 function isAppScreenVisible() {
   const app = document.getElementById("appScreen");
-  return !!(currentUser && app && !app.classList.contains("hidden"));
+  return !!(app && !app.classList.contains("hidden"));
+}
+
+function isGuestViewer() {
+  return !currentUser;
+}
+
+function openLoginScreen() {
+  stopAutoSync();
+  document.getElementById("loginScreen").classList.remove("hidden");
+  document.getElementById("appScreen").classList.add("hidden");
+  document.getElementById("bottomNav").classList.add("hidden");
+  loginEditMode = false;
+  const submitBtn = document.querySelector("#loginForm .login-submit");
+  if (submitBtn) submitBtn.textContent = "כניסה לישומון";
+}
+
+function promptLogin(reason = "לפעולה זו") {
+  showToast(`${reason} — התחברו`);
+  openLoginScreen();
 }
 
 function paintAppAfterSync() {
@@ -382,6 +406,16 @@ function renderAll() {
   safe(renderAdminPanel, "admin");
   if (rsvpScreenEventId) safe(renderRsvpScreen, "rsvp-screen");
   updateAddButton();
+  updateGuestUiState();
+}
+
+function updateGuestUiState() {
+  const guest = isGuestViewer();
+  document.getElementById("logoutBtn")?.classList.toggle("hidden", guest);
+  document.getElementById("guestLoginBtn")?.classList.toggle("hidden", !guest);
+  document.getElementById("editProfileBtn")?.classList.toggle("hidden", guest);
+  const msgBox = document.getElementById("messageInput")?.closest(".glass");
+  if (msgBox) msgBox.classList.toggle("hidden", guest);
 }
 
 function showToast(text) {
@@ -698,6 +732,28 @@ async function showApp() {
   startAutoSync();
 }
 
+async function showGuestApp() {
+  document.getElementById("loginScreen").classList.add("hidden");
+  document.getElementById("appScreen").classList.remove("hidden");
+  document.getElementById("bottomNav").classList.remove("hidden");
+  document.getElementById("navAdmin").classList.add("hidden");
+  guestCreditFreshLoad = true;
+
+  clearCloudDataCache();
+  cancelGlobalUpload();
+  restoreEventsSnapshot();
+  setAppBootLoading(true, appBootMessage());
+  switchTab(activeTab, false);
+  renderAll();
+  await syncFromServer({ silent: false, boot: true });
+  updateAddButton();
+  startAutoSync();
+}
+
+function bindGuestLogin() {
+  document.getElementById("guestLoginBtn")?.addEventListener("click", () => openLoginScreen());
+}
+
 function bindLogout() {
   document.getElementById("logoutBtn").addEventListener("click", () => {
     if (!confirm("להתנתק מהישומון?")) return;
@@ -717,30 +773,28 @@ function logout() {
   activeTab = "events";
   closeModal();
   setSyncStatus("");
-
-  document.getElementById("appScreen").classList.add("hidden");
-  document.getElementById("bottomNav").classList.add("hidden");
-  document.getElementById("loginScreen").classList.remove("hidden");
   document.getElementById("loginForm").reset();
   selectedRole = APP_CONFIG.defaultRole;
   updateRoleButtonStyles(selectedRole);
-
   document.getElementById("twinName").value = "";
   setTwinFieldOpen(false);
   document.getElementById("familyName").value = "";
   document.getElementById("adminPass").value = "";
   updateAdminFieldVisibility();
-
-  document.getElementById("addBtn").classList.add("hidden");
-  document.getElementById("navAdmin").classList.add("hidden");
-
-  switchTab("events", false);
+  showGuestApp();
 }
 
 // ─── כותרת ─────────────────────────────────────────────────
 function renderHeader() {
   const hour = new Date().getHours();
   const greet = hour < 12 ? "בוקר טוב" : hour < 18 ? "צהריים טובים" : "ערב טוב";
+  if (isGuestViewer()) {
+    document.getElementById("headerGreeting").textContent = "צפייה כאורח";
+    document.getElementById("headerRole").textContent = `${greet} • להוספת אירוע — התחברו`;
+    document.getElementById("callBtn")?.classList.add("hidden");
+    document.getElementById("waBtn")?.classList.add("hidden");
+    return;
+  }
   const identity = userIdentityLabel();
   document.getElementById("headerGreeting").textContent = identity;
   if (currentUser.isAdmin) {
@@ -803,6 +857,7 @@ function renderUpcoming() {
     .slice(0, 3);
 
   if (!upcoming.length) {
+    bar.classList.remove("upcoming-bar-link");
     bar.innerHTML = "אין אירועים קרובים";
     bar.onclick = null;
     return;
@@ -823,6 +878,8 @@ function renderUpcoming() {
     return d >= now && d <= monthAhead;
   }).length;
 
+  bar.classList.add("upcoming-bar-link");
+  bar.title = "לחיצה או מעבר עכבר — מעבר ללוח האירועים";
   bar.innerHTML = `
     <div class="space-y-1.5">
       <div class="text-xs opacity-90 mb-1">אירועים קרובים</div>
@@ -837,14 +894,15 @@ function renderUpcoming() {
     </div>
   `;
 
-  bar.onclick = () => {
-    switchTab("events", false);
-    document.getElementById("eventsTab").scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  bar.onclick = () => switchTab("calendar", false);
 }
 
 // ─── הוספת / עריכת אירוע ───────────────────────────────────
 function openFamilyEventModal() {
+  if (isGuestViewer()) {
+    promptLogin("להוספת אירוע");
+    return;
+  }
   if (currentUser?.isAdmin) {
     openModalForCreate();
     return;
@@ -1115,7 +1173,8 @@ function canVoteOnEvent(event) {
 }
 
 function canViewRsvpDetails(event) {
-  if (!event || !currentUser) return false;
+  if (!event) return false;
+  if (!currentUser) return !event.hideGuests;
   if (currentUser.isAdmin) return true;
   if (isOwnEvent(event)) return true;
   return !event.hideGuests;
@@ -1529,6 +1588,10 @@ function resetEventForm() {
 }
 
 function openModalForCreate() {
+  if (isGuestViewer()) {
+    promptLogin("להוספת אירוע");
+    return;
+  }
   resetEventForm();
   const modal = document.getElementById("eventModal");
   modal.classList.remove("hidden");
@@ -2388,7 +2451,7 @@ function renderEvents() {
       "beforeend",
       `
       <div class="event-card event-card-shell glass rounded-[34px] p-5 ${isOwnerEvent ? "my-event-card" : ""} ${isPastEvent ? "past-event-card" : ""}">
-        ${isTomorrowEvent ? '<div class="my-event-title" style="background:rgba(244,63,94,.22);border-color:rgba(251,113,133,.7);color:#ffe4e6;">האירוע מתקיים בעוד יום</div>' : ""}
+        ${isTomorrowEvent ? '<div class="my-event-title" style="background:rgba(244,63,94,.22);border-color:rgba(251,113,133,.7);color:#ffe4e6;">האירוע מתקיים מחר</div>' : ""}
         ${isOwnerEvent ? '<div class="my-event-title">האירוע שלי</div>' : ""}
         ${
           canManage
@@ -2405,7 +2468,7 @@ function renderEvents() {
         }
         <div class="flex gap-3 items-start">
           <div class="flex gap-4 flex-1 min-w-0">
-            <img src="${img}" data-event-img class="w-20 h-20 shrink-0 rounded-full object-cover border-4 border-white/10" alt="" referrerpolicy="no-referrer" loading="lazy" />
+            <img src="${img}" data-event-img class="event-img-zoom w-20 h-20 shrink-0 rounded-full object-cover border-4 border-white/10 cursor-pointer" alt="" referrerpolicy="no-referrer" loading="lazy" title="לחיצה להגדלה" />
             <div class="flex-1 min-w-0">
               <h3 class="font-black text-lg">בת מצווה ל${event.girlName} ✨</h3>
               <div class="text-white/50 text-sm mt-1">תאריך: ${formattedDate} • שעה: ${formattedTime}</div>
@@ -2432,7 +2495,7 @@ function renderEvents() {
         ${renderEventRsvpSection(event, isPastEvent, canManage && isOwnerEvent)}
         ${
           !isOwnerEvent && isPastEvent
-            ? `<button type="button" class="w-full mt-3 rounded-xl bg-white/10 p-2 text-sm font-bold" data-quick-credit-event="${event.id}">הוספת קרדיט לאירוע זה</button>`
+            ? `<button type="button" class="w-full mt-3 rounded-xl bg-white/10 p-2 text-sm font-bold" data-quick-credit-event="${event.id}">${isGuestViewer() ? "התחברות לפרגון" : "הוספת קרדיט לאירוע זה"}</button>`
             : ""
         }
         ${
@@ -2505,6 +2568,11 @@ function renderCalendar() {
   const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
   const days = new Date(year, month + 1, 0).getDate();
   const weekdays = ["א", "ב", "ג", "ד", "ה", "ו", "ש"];
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const leadingBlanks = Array.from(
+    { length: firstWeekday },
+    () => `<div class="calendar-day calendar-day-empty" aria-hidden="true"></div>`
+  ).join("");
 
   const cells = Array.from({ length: days }, (_, i) => {
     const day = i + 1;
@@ -2545,7 +2613,7 @@ function renderCalendar() {
     <div class="grid grid-cols-7 gap-2 text-center text-xs mb-3">
       ${weekdays.map((d) => `<div>${d}</div>`).join("")}
     </div>
-    <div class="grid grid-cols-7 gap-2">${cells}</div>`;
+    <div class="grid grid-cols-7 gap-2">${leadingBlanks}${cells}</div>`;
 }
 
 function calendarGirlColorClass(girlName) {
@@ -2562,6 +2630,10 @@ function bindMessages() {
 }
 
 async function publishMessage() {
+  if (isGuestViewer()) {
+    promptLogin("לפרסום הודעה");
+    return;
+  }
   const input = document.getElementById("messageInput");
   const text = input.value.trim();
   if (!text) return;
@@ -2623,7 +2695,24 @@ function bindCredits() {
 
     const screenBtn = e.target.closest("[data-credit-screen]");
     if (screenBtn) {
-      creditScreen = screenBtn.dataset.creditScreen;
+      const next = screenBtn.dataset.creditScreen || "home";
+      if (next !== "board" && isGuestViewer()) {
+        promptLogin(next === "owner" ? "להמלצת בעל אירוע" : "לפרגון לאירוע");
+        return;
+      }
+      creditScreen = next;
+      renderCredits();
+      return;
+    }
+    if (e.target.closest("[data-board-sort]")) {
+      boardSortBy = e.target.closest("[data-board-sort]").value || "date";
+      renderCredits();
+      return;
+    }
+    const boardEventToggle = e.target.closest("[data-board-event-toggle]");
+    if (boardEventToggle) {
+      const eventId = boardEventToggle.dataset.boardEventToggle || "";
+      boardExpandedEventId = boardExpandedEventId === eventId ? "" : eventId;
       renderCredits();
       return;
     }
@@ -2775,6 +2864,10 @@ function bindCredits() {
     }
     const boardPraiseToggle = e.target.closest("[data-board-praise-toggle]");
     if (boardPraiseToggle) {
+      if (isGuestViewer()) {
+        promptLogin("לפרגון");
+        return;
+      }
       const key = boardPraiseToggle.dataset.boardPraiseToggle || "";
       if (boardPraiseToggle.classList.contains("is-active")) {
         const creditId = boardPraiseToggle.dataset.praiseCreditId || "";
@@ -2963,6 +3056,9 @@ function renderOwnerCreditsForm() {
         <button type="button" data-owner-quick-close class="screen-exit-btn screen-exit-in-modal" aria-label="סגירה בלי שמירה"><i class="fa-solid fa-xmark"></i></button>
         <div id="ownerQuickAddTitle" class="font-black text-sm pt-1">הוספת נותן שירות — <span id="ownerQuickAddCategoryLabel"></span></div>
         <input id="ownerQuickAddCategory" type="hidden" />
+        <select id="ownerQuickAddPick" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
+          <option value="">בחר/י מרשימת נותנים קיימים או הקלד/י חדש</option>
+        </select>
         <input id="ownerQuickAddName" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="שם נותן השירות *" />
         <input id="ownerQuickAddPhone" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder="טלפון" />
         <input id="ownerQuickAddEmail" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm" placeholder='דוא"ל' />
@@ -3005,23 +3101,130 @@ function renderCreditsBoard() {
   const viewTabs = `
     <div class="board-view-tabs">
       <button type="button" class="board-view-tab ${creditBoardView === "latest" ? "is-active" : ""}" data-board-view="latest">🕐 אחרונים</button>
-      <button type="button" class="board-view-tab ${creditBoardView === "event" ? "is-active" : ""}" data-board-view="event">📅 לפי אירוע</button>
+      <button type="button" class="board-view-tab ${creditBoardView === "event" ? "is-active" : ""}" data-board-view="event">📅 פרגון לפי אירוע</button>
       <button type="button" class="board-view-tab ${creditBoardView === "category" ? "is-active" : ""}" data-board-view="category">🏷️ לפי קטגוריה</button>
+    </div>`;
+  const sortBar = `
+    <div class="board-sort-bar" dir="rtl">
+      <label class="text-[11px] text-white/55">מיין לפי</label>
+      <select data-board-sort class="board-sort-select rounded-xl bg-white/10 border border-white/10 p-2 text-xs">
+        <option value="date" ${boardSortBy === "date" ? "selected" : ""}>תאריך פרגון</option>
+        <option value="event" ${boardSortBy === "event" ? "selected" : ""}>אירוע</option>
+        <option value="provider" ${boardSortBy === "provider" ? "selected" : ""}>נותן שירות</option>
+        <option value="category" ${boardSortBy === "category" ? "selected" : ""}>סוג נותן שירות</option>
+        <option value="venue" ${boardSortBy === "venue" ? "selected" : ""}>אולם / מקום</option>
+      </select>
     </div>`;
   let feed = "";
   if (creditBoardView === "latest") feed = renderBoardLatestView();
   else if (creditBoardView === "event") feed = renderBoardEventView();
   else feed = renderBoardCategoryView();
   const summary = boardFeedSummaryHtml();
+  const providerDir = creditBoardView === "latest" ? renderProvidersDirectory() : "";
   tab.innerHTML = creditsScreenWrap(
     "board",
-    `${viewTabs}${summary}<div class="board-feed space-y-2">${feed}</div>${renderProvidersDirectory()}${renderCreditsAdminManager()}`
+    `${viewTabs}${sortBar}${summary}<div class="board-feed space-y-2">${feed}</div>${providerDir}${renderCreditsAdminManager()}`
   );
   bindBoardPraiseSelects();
 }
 
 function getBoardDisplayCredits() {
-  return dedupeBoardCredits((credits || []).filter((c) => !isProviderEntry(c)));
+  return sortBoardCredits(dedupeBoardCredits((credits || []).filter((c) => !isProviderEntry(c))));
+}
+
+function boardEventMeta(eventId) {
+  return events.find((e) => String(e.id) === String(eventId)) || null;
+}
+
+function boardVenueLabel(eventId) {
+  const event = boardEventMeta(eventId);
+  return String(event?.location || event?.address || "").trim() || "ללא מקום";
+}
+
+function sortBoardCredits(list) {
+  const sorted = [...list];
+  if (boardSortBy === "event") {
+    return sorted.sort((a, b) => {
+      const ae = boardEventMeta(a.eventId);
+      const be = boardEventMeta(b.eventId);
+      const an = ae ? `${ae.girlName} ${ae.familyName || ""}` : manualEventLabelFromCredit(a);
+      const bn = be ? `${be.girlName} ${be.familyName || ""}` : manualEventLabelFromCredit(b);
+      return an.localeCompare(bn, "he");
+    });
+  }
+  if (boardSortBy === "provider") {
+    return sorted.sort((a, b) =>
+      String(a.professionalName || "").localeCompare(String(b.professionalName || ""), "he")
+    );
+  }
+  if (boardSortBy === "category") {
+    return sorted.sort((a, b) => String(a.category || "").localeCompare(String(b.category || ""), "he"));
+  }
+  if (boardSortBy === "venue") {
+    return sorted.sort((a, b) => boardVenueLabel(a.eventId).localeCompare(boardVenueLabel(b.eventId), "he"));
+  }
+  return sorted;
+}
+
+function countUniqueVotersForCredits(items) {
+  const voters = new Set();
+  (items || []).forEach((c) => {
+    if (c.ownerUserId) voters.add(String(c.ownerUserId));
+    Object.entries(c.ratings || {}).forEach(([uid, val]) => {
+      const n = Number(val);
+      if (!Number.isFinite(n) || n <= 0) return;
+      voters.add(String(uid).replace(/_event$/, ""));
+    });
+  });
+  return voters.size;
+}
+
+function avgEventRatingForCredits(items) {
+  const scores = [];
+  (items || []).forEach((c) => {
+    Object.entries(c.ratings || {}).forEach(([uid, val]) => {
+      if (!String(uid).endsWith("_event")) return;
+      const n = Number(val);
+      if (Number.isFinite(n) && n > 0) scores.push(n);
+    });
+  });
+  if (!scores.length) return null;
+  return (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+}
+
+function countRatedProvidersForCredits(items) {
+  const providers = new Set();
+  (items || []).forEach((c) => {
+    if (c.professionalName) providers.add(`${c.category || ""}@@${String(c.professionalName).trim()}`);
+  });
+  return providers.size;
+}
+
+function summarizeEventBoardCredits(eventId, items) {
+  const event = boardEventMeta(eventId);
+  const title = event ? `האירוע של ${event.girlName}` : manualEventLabelFromCredit({ eventId });
+  const avgEvent = avgEventRatingForCredits(items);
+  const voters = countUniqueVotersForCredits(items);
+  const providers = countRatedProvidersForCredits(items);
+  return { title, avgEvent, voters, providers, praiseCount: items.length };
+}
+
+function renderBoardEventDetailItems(items) {
+  const byCat = new Map();
+  items.forEach((c) => {
+    const key = c.category || "כללי";
+    if (!byCat.has(key)) byCat.set(key, []);
+    byCat.get(key).push(c);
+  });
+  return Array.from(byCat.entries())
+    .map(
+      ([category, catItems]) => `
+      <div class="board-event-detail-group">
+        <div class="text-[11px] text-white/55 mb-1">${serviceIcon(category)} ${category}</div>
+        ${catItems.map(creditFeedCard).join("")}
+      </div>`
+    )
+    .join("");
 }
 
 function dedupeBoardCredits(list) {
@@ -3178,7 +3381,7 @@ function renderBoardLatestView() {
 }
 
 function renderBoardEventView() {
-  const list = getBoardDisplayCredits();
+  const list = dedupeBoardCredits((credits || []).filter((c) => !isProviderEntry(c)));
   if (!list.length) return boardFeedEmptyHtml();
   const byEvent = new Map();
   list.forEach((c) => {
@@ -3186,14 +3389,38 @@ function renderBoardEventView() {
     if (!byEvent.has(key)) byEvent.set(key, []);
     byEvent.get(key).push(c);
   });
-  return Array.from(byEvent.entries())
+  const entries = Array.from(byEvent.entries()).sort((a, b) => {
+    const sa = summarizeEventBoardCredits(a[0], a[1]);
+    const sb = summarizeEventBoardCredits(b[0], b[1]);
+    if (boardSortBy === "event") return sa.title.localeCompare(sb.title, "he");
+    if (boardSortBy === "venue") {
+      return boardVenueLabel(a[0]).localeCompare(boardVenueLabel(b[0]), "he");
+    }
+    const latestA = Math.max(...a[1].map((c) => new Date(c.createdAt || 0).getTime()));
+    const latestB = Math.max(...b[1].map((c) => new Date(c.createdAt || 0).getTime()));
+    return latestB - latestA;
+  });
+  return entries
     .map(([eventId, items]) => {
-      const event = events.find((e) => String(e.id) === eventId);
-      const title = event ? `האירוע של ${event.girlName}` : manualEventLabelFromCredit({ eventId });
+      const stats = summarizeEventBoardCredits(eventId, items);
+      const expanded = boardExpandedEventId === eventId;
+      const avgText = stats.avgEvent ? `★ ${stats.avgEvent}` : "ללא דירוג אירוע";
       return `
-        <div class="glass rounded-2xl p-3">
-          <div class="board-group-title">${title} (${items.length})</div>
-          ${items.map(creditFeedCard).join("")}
+        <div class="board-event-summary-wrap">
+          <button type="button" class="board-event-summary-card w-full text-right" data-board-event-toggle="${escapeHtmlAttr(eventId)}" title="לחיצה לפירוט">
+            <div class="font-black text-sm">${stats.title}</div>
+            <div class="board-event-stats text-[11px] text-white/65 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+              <span>${stats.providers} נותני שירות שדורגו</span>
+              <span>דירוג אירוע: ${avgText}</span>
+              <span>${stats.voters} מדרגים</span>
+              <span>${stats.praiseCount} פרגונים</span>
+            </div>
+          </button>
+          ${
+            expanded
+              ? `<div class="board-event-detail glass rounded-2xl p-3 mt-2 space-y-2">${renderBoardEventDetailItems(sortBoardCredits(items))}</div>`
+              : ""
+          }
         </div>`;
     })
     .join("");
@@ -3211,10 +3438,11 @@ function renderBoardCategoryView() {
   return Array.from(byCat.entries())
     .sort((a, b) => b[1].length - a[1].length)
     .map(([category, items]) => {
+      const sortedItems = sortBoardCredits(items);
       return `
         <div class="glass rounded-2xl p-3">
-          <div class="board-group-title">${serviceIcon(category)} ${category} (${items.length})</div>
-          ${items.map(creditFeedCard).join("")}
+          <div class="board-group-title">${serviceIcon(category)} ${category} (${sortedItems.length})</div>
+          ${sortedItems.map(creditFeedCard).join("")}
         </div>`;
     })
     .join("");
@@ -3345,6 +3573,10 @@ function renderProvidersDirectory() {
 }
 
 async function submitBoardPraise(key, providerName, category) {
+  if (isGuestViewer()) {
+    promptLogin("לפרגון");
+    return;
+  }
   const st = boardPraiseState[key] || { eventId: "", score: 0 };
   const select = document.querySelector(`[data-board-praise-event="${CSS.escape(key)}"]`);
   const eventId = select?.value || st.eventId;
@@ -3817,6 +4049,33 @@ function parseProviderDetails(note) {
   return withoutCity;
 }
 
+function fillOwnerQuickAddProviderPick(category) {
+  const pick = document.getElementById("ownerQuickAddPick");
+  if (!pick) return;
+  const providers = aggregateAllProviders().filter((p) => !category || p.category === category);
+  pick.innerHTML =
+    `<option value="">בחר/י מרשימת נותנים קיימים או הקלד/י חדש</option>` +
+    providers
+      .map((p) => {
+        const label = `${p.name} • ${p.category || "כללי"} (${p.eventCount} אירועים)`;
+        return `<option value="${escapeHtmlAttr(`${p.name}@@${p.category}`)}">${escapeHtmlAttr(label)}</option>`;
+      })
+      .join("");
+  pick.onchange = () => {
+    const val = pick.value || "";
+    if (!val) return;
+    const [name, cat] = val.split("@@");
+    const match = aggregateAllProviders().find((p) => p.name === name && p.category === cat);
+    if (!match) return;
+    document.getElementById("ownerQuickAddName").value = match.name || "";
+    document.getElementById("ownerQuickAddPhone").value = match.phone || "";
+    if (cat && !document.getElementById("ownerQuickAddCategory").value) {
+      document.getElementById("ownerQuickAddCategory").value = cat;
+      document.getElementById("ownerQuickAddCategoryLabel").textContent = cat;
+    }
+  };
+}
+
 function openOwnerQuickAddModal(category) {
   editingProviderCreditId = null;
   const modal = document.getElementById("ownerQuickAddModal");
@@ -3827,6 +4086,7 @@ function openOwnerQuickAddModal(category) {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
+  fillOwnerQuickAddProviderPick(category);
   const saveBtn = document.querySelector("[data-owner-quick-save]");
   if (saveBtn) {
     saveBtn.disabled = false;
@@ -3849,6 +4109,7 @@ function openOwnerQuickAddModalForEdit(creditId) {
   document.getElementById("ownerQuickAddEmail").value = credit.link || "";
   document.getElementById("ownerQuickAddCity").value = parseProviderCity(credit.note);
   document.getElementById("ownerQuickAddDetails").value = parseProviderDetails(credit.note);
+  fillOwnerQuickAddProviderPick(credit.category || "");
   modal.classList.remove("hidden");
   modal.classList.add("flex");
 }
@@ -3971,6 +4232,10 @@ async function rateProviderCredit(creditId, score, btnEl) {
 }
 
 async function publishGuestCredits() {
+  if (isGuestViewer()) {
+    promptLogin("לפרגון");
+    return;
+  }
   if (isPublishingGuest) return;
   const selectedEventId = document.getElementById("creditEventId").value;
   const manualEvent = document.getElementById("creditManualEvent").value.trim();
@@ -4563,6 +4828,25 @@ function openLightbox(index) {
   renderLightboxSlide();
   document.getElementById("mediaLightbox")?.classList.remove("hidden");
   document.body.classList.add("lightbox-open");
+  updateLightboxNavVisibility();
+}
+
+function openEventImageLightbox(src) {
+  const url = String(src || "").trim();
+  if (!url || url.includes("placeholder")) return;
+  lightboxItems = [{ imageUrl: url, text: "image" }];
+  lightboxIndex = 0;
+  renderLightboxSlide();
+  document.getElementById("mediaLightbox")?.classList.remove("hidden");
+  document.body.classList.add("lightbox-open");
+  updateLightboxNavVisibility();
+}
+
+function updateLightboxNavVisibility() {
+  const single = lightboxItems.length <= 1;
+  document.getElementById("lightboxPrev")?.classList.toggle("hidden", single);
+  document.getElementById("lightboxNext")?.classList.toggle("hidden", single);
+  document.getElementById("lightboxCounter")?.classList.toggle("hidden", single);
 }
 
 function closeLightbox() {
@@ -4704,10 +4988,10 @@ function renderExperiences() {
     .map((e) => `<option value="${e.id}">${eventOptionLabel(e)}</option>`)
     .join("");
 
-  tab.innerHTML = `
-    <div class="glass rounded-[28px] p-4">
-      <div class="font-black mb-3">אלבום משותף — תמונות וסרטונים</div>
-      <select id="expEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
+  const guestView = isGuestViewer();
+  const uploadBlock = guestView
+    ? `<div class="rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-white/70 text-center">צפייה באלבום בלבד — <button type="button" class="text-purple-200 font-bold underline" data-guest-login-inline>התחברות</button> להעלאה</div>`
+    : `<select id="expEventId" class="w-full rounded-xl bg-white/10 border border-white/10 p-2 text-sm">
         <option value="">בחר/י אירוע</option>
         ${eventOptions}
         <option value="__external__">אירוע אחר / חיצוני</option>
@@ -4722,7 +5006,12 @@ function renderExperiences() {
           <span id="expProgressPct">0%</span>
         </div>
         <div class="upload-progress-track"><div id="expProgressBar" class="upload-progress-bar" style="width:0%"></div></div>
-      </div>
+      </div>`;
+
+  tab.innerHTML = `
+    <div class="glass rounded-[28px] p-4">
+      <div class="font-black mb-3">אלבום משותף — תמונות וסרטונים</div>
+      ${uploadBlock}
     </div>
 
     <div class="glass rounded-2xl p-3">
@@ -4740,14 +5029,17 @@ function renderExperiences() {
     <div id="experiencesList" class="space-y-4"></div>
   `;
 
+  tab.querySelector("[data-guest-login-inline]")?.addEventListener("click", () => openLoginScreen());
   const select = document.getElementById("expEventId");
-  if (experiencesSelectedEventId) select.value = experiencesSelectedEventId;
-  select.onchange = () => {
-    experiencesSelectedEventId = select.value;
-    document.getElementById("expEventManual").classList.toggle("hidden", select.value !== "__external__");
-  };
-  document.getElementById("expEventManual").classList.toggle("hidden", select.value !== "__external__");
-  document.getElementById("addExperienceBtn").onclick = addExperienceFromForm;
+  if (select) {
+    if (experiencesSelectedEventId) select.value = experiencesSelectedEventId;
+    select.onchange = () => {
+      experiencesSelectedEventId = select.value;
+      document.getElementById("expEventManual")?.classList.toggle("hidden", select.value !== "__external__");
+    };
+    document.getElementById("expEventManual")?.classList.toggle("hidden", select.value !== "__external__");
+    document.getElementById("addExperienceBtn").onclick = addExperienceFromForm;
+  }
 
   const filterSelect = document.getElementById("expFilterEventId");
   filterSelect.value = experiencesFilterEventId;
@@ -4804,6 +5096,10 @@ function downloadSelectedExperiences() {
 }
 
 async function addExperienceFromForm() {
+  if (isGuestViewer()) {
+    promptLogin("להעלאה לאלבום");
+    return;
+  }
   if (isExperienceUploading) return;
   const selected = document.getElementById("expEventId").value;
   const manualEvent = document.getElementById("expEventManual").value.trim();
@@ -4941,6 +5237,12 @@ function bindNavigation() {
   });
 
   document.getElementById("eventsTab").addEventListener("click", (e) => {
+    const eventImg = e.target.closest("[data-event-img]");
+    if (eventImg) {
+      openEventImageLightbox(eventImg.src);
+      return;
+    }
+
     const editBtn = e.target.closest("[data-edit-id]");
     if (editBtn) {
       openModalForEdit(editBtn.dataset.editId);
@@ -4961,6 +5263,10 @@ function bindNavigation() {
 
     const quickCreditBtn = e.target.closest("[data-quick-credit-event]");
     if (quickCreditBtn) {
+      if (isGuestViewer()) {
+        promptLogin("לפרגון");
+        return;
+      }
       pendingCreditEventId = quickCreditBtn.dataset.quickCreditEvent || "";
       switchTab("credits", false);
       return;
@@ -4974,6 +5280,10 @@ function bindNavigation() {
 
     const btn = e.target.closest(".rsvp-btn");
     if (btn) {
+      if (isGuestViewer()) {
+        promptLogin("לאישור הגעה");
+        return;
+      }
       vote(btn.dataset.eventId, btn.dataset.vote);
       return;
     }
@@ -5203,7 +5513,7 @@ function relativeDaysLabel(dateObj, now = new Date()) {
   const diffDays = Math.round((target - today) / 86400000);
   if (diffDays < 0) return "התקיים";
   if (diffDays === 0) return "היום";
-  if (diffDays === 1) return "בעוד יום";
+  if (diffDays === 1) return "מחר";
   if (diffDays === 2) return "בעוד יומיים";
   if (diffDays === 7) return "בעוד שבוע";
   if (diffDays === 14) return "בעוד שבועיים";

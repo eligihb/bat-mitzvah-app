@@ -2297,3 +2297,63 @@ body.lightbox-open {
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
 }
+
+.calendar-day-empty {
+  min-height: 4.5rem;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#upcomingBar.upcoming-bar-link {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#upcomingBar.upcoming-bar-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(168, 85, 247, 0.35);
+}
+
+.board-sort-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.board-sort-select {
+  min-width: 9.5rem;
+  color: #fff;
+}
+
+.board-event-summary-card {
+  display: block;
+  width: 100%;
+  text-align: right;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.board-event-summary-card:hover {
+  border-color: rgba(244, 114, 182, 0.55);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.board-event-stats {
+  line-height: 1.45;
+}
+
+.board-event-detail-group + .board-event-detail-group {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.event-img-zoom:active {
+  transform: scale(0.97);
+}
