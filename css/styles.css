@@ -2357,3 +2357,19 @@ body.lightbox-open {
 .event-img-zoom:active {
   transform: scale(0.97);
 }
+
+.event-card.is-highlighted {
+  box-shadow: 0 0 0 2px rgba(244, 114, 182, 0.85), 0 0 24px rgba(244, 114, 182, 0.28);
+}
+
+.event-schedule-primary {
+  line-height: 1.35;
+}
+
+.calendar-event-chip {
+  cursor: pointer;
+}
+
+.calendar-month-details {
+  padding-bottom: 0.5rem;
+}

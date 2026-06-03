@@ -1364,11 +1364,8 @@ function hideRsvpHoverPopover(delayMs = 120) {
   }, delayMs);
 }
 
-function bindRsvpHover() {
-  const zone = document.getElementById("eventsTab");
-  const pop = document.getElementById("rsvpHoverPopover");
-  if (!zone || !pop) return;
-
+function bindRsvpHoverOnZone(zone) {
+  if (!zone) return;
   zone.addEventListener("mouseover", (e) => {
     if (!canUseRsvpHover()) return;
     const el = e.target.closest("[data-open-rsvp-id]");
@@ -1386,7 +1383,13 @@ function bindRsvpHover() {
     const to = e.relatedTarget?.closest?.("[data-open-rsvp-id], #rsvpHoverPopover");
     if (from && !to) hideRsvpHoverPopover(80);
   });
+}
 
+function bindRsvpHover() {
+  const pop = document.getElementById("rsvpHoverPopover");
+  if (!pop) return;
+  bindRsvpHoverOnZone(document.getElementById("eventsTab"));
+  bindRsvpHoverOnZone(document.getElementById("calendarTab"));
   pop.addEventListener("mouseenter", () => clearTimeout(rsvpHoverHideTimer));
   pop.addEventListener("mouseleave", () => hideRsvpHoverPopover(80));
 }
@@ -1423,6 +1426,10 @@ function renderEventRsvpSection(event, isPastEvent, canManage) {
       <button type="button" class="rsvp-btn ${rsvpClass(myVote, "yes")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="yes">מגיע 👍</button>
       <button type="button" class="rsvp-btn ${rsvpClass(myVote, "maybe")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="maybe">אולי 🤔</button>
       <button type="button" class="rsvp-btn ${rsvpClass(myVote, "no")} rounded-2xl p-3 font-bold" data-event-id="${event.id}" data-vote="no">לא מגיע 👎</button>
+    </div>`;
+  } else if (isGuestViewer() && !isPastEvent) {
+    voteHtml = `<div class="rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-white/75 text-center">
+      לעדכון אישור הגעה — <button type="button" class="text-purple-200 font-bold underline" data-guest-login-inline>התחברות</button>
     </div>`;
   }
 
@@ -2414,50 +2421,60 @@ function sortEventsForDisplay(list) {
 }
 
 // ─── רשימת אירועים ─────────────────────────────────────────
-function renderEvents() {
-  const container = document.getElementById("eventsTab");
-  container.innerHTML = "";
+function getEventTimingMeta(event) {
+  const d = parseEventDateTime(event.date, event.time);
+  const now = new Date();
+  const dayStartNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayStartEvent = d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()) : null;
+  const dayDiff = dayStartEvent ? Math.ceil((dayStartEvent - dayStartNow) / 86400000) : null;
+  const isPastEvent = typeof dayDiff === "number" ? dayDiff < 0 : false;
+  const isTomorrowEvent = dayDiff === 1;
+  const countdownLabel = isPastEvent
+    ? "האירוע התקיים"
+    : dayDiff === 0
+      ? "האירוע היום"
+      : typeof dayDiff === "number"
+        ? `עוד ${dayDiff} ימים`
+        : "תאריך לא זמין";
+  const formattedDate = d
+    ? d.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    : event.date || "—";
+  const formattedTime =
+    d && event.time ? d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }) : event.time || "—";
+  const scheduleShort = d
+    ? `${d.toLocaleDateString("he-IL", { day: "numeric", month: "short" })}${formattedTime !== "—" ? ` • ${formattedTime}` : ""}`
+    : String(event.date || "").slice(0, 10);
+  return {
+    d,
+    isPastEvent,
+    isTomorrowEvent,
+    countdownLabel,
+    formattedDate,
+    formattedTime,
+    scheduleShort,
+    relativeLabel: d ? relativeDaysLabel(d) : "",
+  };
+}
 
-  if (!events.length) {
-    container.innerHTML =
-      '<div class="glass rounded-[28px] p-6 text-center text-white/50 text-sm">עדיין אין אירועים — הוסיפו את הראשון 🎉</div>';
-    return;
-  }
+function formatEventTimeShort(time) {
+  const raw = String(time || "").trim();
+  if (!raw) return "";
+  const m = /^(\d{1,2}):(\d{2})/.exec(raw);
+  return m ? `${m[1].padStart(2, "0")}:${m[2]}` : raw.slice(0, 5);
+}
 
-  sortEventsForDisplay(events).forEach((event) => {
-    const canManage = canManageEvent(event);
-    const isOwnerEvent = isOwnEvent(event);
+function buildEventCardHtml(event) {
+  const canManage = canManageEvent(event);
+  const isOwnerEvent = isOwnEvent(event);
+  const meta = getEventTimingMeta(event);
+  const img = sanitizeEventImage(event.image);
+  const eventRecommendations = credits
+    .filter((c) => !isProviderEntry(c) && String(c.eventId || "") === String(event.id))
+    .slice(0, 4);
 
-    const d = parseEventDateTime(event.date, event.time);
-    const now = new Date();
-    const dayStartNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dayStartEvent = d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()) : null;
-    const dayDiff = dayStartEvent ? Math.ceil((dayStartEvent - dayStartNow) / 86400000) : null;
-    const isPastEvent = typeof dayDiff === "number" ? dayDiff < 0 : false;
-    const isTomorrowEvent = dayDiff === 1;
-    const countdownLabel = isPastEvent
-      ? "האירוע התקיים"
-      : dayDiff === 0
-        ? "האירוע היום"
-        : typeof dayDiff === "number"
-          ? `עוד ${dayDiff} ימים`
-          : "תאריך לא זמין";
-    const formattedDate = d ? d.toLocaleDateString("he-IL") : event.date || "—";
-    const formattedTime =
-      d && event.time
-        ? d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })
-        : event.time || "—";
-
-    const img = sanitizeEventImage(event.image);
-    const eventRecommendations = credits
-      .filter((c) => !isProviderEntry(c) && String(c.eventId || "") === String(event.id))
-      .slice(0, 4);
-
-    container.insertAdjacentHTML(
-      "beforeend",
-      `
-      <div class="event-card event-card-shell glass rounded-[34px] p-5 ${isOwnerEvent ? "my-event-card" : ""} ${isPastEvent ? "past-event-card" : ""}">
-        ${isTomorrowEvent ? '<div class="my-event-title" style="background:rgba(244,63,94,.22);border-color:rgba(251,113,133,.7);color:#ffe4e6;">האירוע מתקיים מחר</div>' : ""}
+  return `
+      <div class="event-card event-card-shell glass rounded-[34px] p-5 ${isOwnerEvent ? "my-event-card" : ""} ${meta.isPastEvent ? "past-event-card" : ""}" data-event-id="${event.id}">
+        ${meta.isTomorrowEvent ? '<div class="my-event-title" style="background:rgba(244,63,94,.22);border-color:rgba(251,113,133,.7);color:#ffe4e6;">האירוע מתקיים מחר</div>' : ""}
         ${isOwnerEvent ? '<div class="my-event-title">האירוע שלי</div>' : ""}
         ${
           canManage
@@ -2476,17 +2493,19 @@ function renderEvents() {
           <div class="flex gap-4 flex-1 min-w-0">
             <img src="${img}" data-event-img class="event-img-zoom w-20 h-20 shrink-0 rounded-full object-cover border-4 border-white/10 cursor-pointer" alt="" referrerpolicy="no-referrer" loading="lazy" title="לחיצה להגדלה" />
             <div class="flex-1 min-w-0">
-              <h3 class="font-black text-lg">בת מצווה ל${event.girlName} ✨</h3>
-              <div class="text-white/50 text-sm mt-1">תאריך: ${formattedDate} • שעה: ${formattedTime}</div>
-              <div class="event-countdown mt-2"><i class="fa-regular fa-clock"></i> ${countdownLabel}</div>
-              <div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">${event.menu}</div>
+              <h3 class="font-black text-lg">בת מצווה ל${escapeHtmlAttr(event.girlName)} ✨</h3>
+              <div class="event-schedule-primary text-sm mt-2 font-bold text-purple-100">${meta.formattedDate}</div>
+              <div class="text-white/70 text-sm mt-1">🕐 שעה: ${meta.formattedTime}${meta.relativeLabel && !meta.isPastEvent ? ` • ${meta.relativeLabel}` : ""}</div>
+              <div class="event-countdown mt-2"><i class="fa-regular fa-clock"></i> ${meta.countdownLabel}</div>
+              ${event.menu ? `<div class="bg-white/10 px-3 py-1 rounded-full text-xs inline-block mt-2">🍽️ ${escapeHtmlAttr(event.menu)}</div>` : ""}
+              ${event.familyName ? `<div class="text-[11px] text-white/45 mt-1">משפחת ${escapeHtmlAttr(event.familyName)}</div>` : ""}
             </div>
           </div>
         </div>
         <div class="bg-white/5 rounded-2xl p-4 mt-4 text-sm space-y-2">
-          <div>📍 ${event.location}</div>
+          <div>📍 ${escapeHtmlAttr(event.location || "—")}</div>
           <div class="flex items-center justify-between gap-2 flex-wrap">
-            <span>🗺️ ${event.address}</span>
+            <span>🗺️ ${escapeHtmlAttr(event.address || "—")}</span>
             ${
               event.address
                 ? `<button type="button" class="waze-live-btn" data-waze-address="${encodeURIComponent(event.address)}" aria-label="ניווט ב-Waze">
@@ -2498,29 +2517,53 @@ function renderEvents() {
           </div>
           ${event.eventNote ? `<div class="text-purple-200/90 text-xs mt-1">💡 ${escapeHtmlAttr(event.eventNote)}</div>` : ""}
         </div>
-        ${renderEventRsvpSection(event, isPastEvent, canManage && isOwnerEvent)}
+        ${renderEventRsvpSection(event, meta.isPastEvent, canManage && isOwnerEvent)}
         ${
-          !isOwnerEvent && isPastEvent
+          !isOwnerEvent && meta.isPastEvent
             ? `<button type="button" class="w-full mt-3 rounded-xl bg-white/10 p-2 text-sm font-bold" data-quick-credit-event="${event.id}">${isGuestViewer() ? "התחברות לפרגון" : "הוספת קרדיט לאירוע זה"}</button>`
             : ""
         }
         ${
-          isPastEvent
+          meta.isPastEvent
             ? `<div class="mt-3 rounded-xl bg-white/5 border border-white/10 p-2">
                 <div class="text-xs text-white/70 mb-1">קרדיטים לאירוע שהתקיים</div>
                 ${
                   eventRecommendations.length
                     ? eventRecommendations
-                        .map((c) => `<div class="text-xs text-white/85">${c.professionalName || "ספק"} • ${c.note || "ללא הערה"}</div>`)
+                        .map((c) => `<div class="text-xs text-white/85">${escapeHtmlAttr(c.professionalName || "ספק")} • ${escapeHtmlAttr(c.note || "ללא הערה")}</div>`)
                         .join("")
                     : '<div class="text-xs text-white/50">עדיין אין קרדיטים לאירוע זה</div>'
                 }
               </div>`
             : ""
         }
-      </div>`
-    );
-  });
+      </div>`;
+}
+
+function renderEvents() {
+  const container = document.getElementById("eventsTab");
+  if (!events.length) {
+    container.innerHTML =
+      '<div class="glass rounded-[28px] p-6 text-center text-white/50 text-sm">עדיין אין אירועים — הוסיפו את הראשון 🎉</div>';
+    return;
+  }
+  container.innerHTML = sortEventsForDisplay(events).map(buildEventCardHtml).join("");
+}
+
+function eventsInCalendarMonth(year, month) {
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+  return sortEventsForDisplay(events.filter((e) => String(e.date || "").startsWith(monthPrefix)));
+}
+
+function highlightEventCard(eventId) {
+  document.querySelectorAll(".event-card.is-highlighted").forEach((c) => c.classList.remove("is-highlighted"));
+  const card =
+    document.querySelector(`#calendarTab [data-event-id="${eventId}"]`) ||
+    document.querySelector(`#eventsTab [data-event-id="${eventId}"]`);
+  if (!card) return;
+  card.classList.add("is-highlighted");
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  setTimeout(() => card.classList.remove("is-highlighted"), 2200);
 }
 
 function rsvpClass(myVote, status) {
@@ -2590,17 +2633,25 @@ function renderCalendar() {
         ${
           dayEvents.length
             ? dayEvents
-                .map(
-                  (e) =>
-                    `<button type="button" class="rounded-xl p-1 text-[9px] mb-1 w-full text-right whitespace-normal break-words leading-tight ${calendarGirlColorClass(
-                      e.girlName
-                    )}" data-calendar-event-id="${e.id}">${e.girlName}</button>`
-                )
+                .map((e) => {
+                  const timeShort = formatEventTimeShort(e.time);
+                  return `<button type="button" class="calendar-event-chip rounded-xl p-1 text-[9px] mb-1 w-full text-right whitespace-normal break-words leading-tight ${calendarGirlColorClass(
+                    e.girlName
+                  )}" data-calendar-event-id="${e.id}" title="לחיצה לפרטי האירוע">
+                    <span class="font-bold block">${escapeHtmlAttr(e.girlName)}</span>
+                    ${timeShort ? `<span class="block opacity-85">${timeShort}</span>` : ""}
+                  </button>`;
+                })
                 .join("")
             : `<div class="calendar-no-event">אין אירועים</div>`
         }
       </div>`;
   }).join("");
+
+  const monthEvents = eventsInCalendarMonth(year, month);
+  const monthDetailsHtml = monthEvents.length
+    ? `<div class="space-y-4">${monthEvents.map(buildEventCardHtml).join("")}</div>`
+    : '<div class="glass rounded-2xl p-4 text-center text-sm text-white/50">אין אירועים בחודש זה</div>';
 
   document.getElementById("calendarTab").innerHTML = `
     <div class="glass rounded-2xl p-2 mb-3">
@@ -2619,7 +2670,12 @@ function renderCalendar() {
     <div class="grid grid-cols-7 gap-2 text-center text-xs mb-3">
       ${weekdays.map((d) => `<div>${d}</div>`).join("")}
     </div>
-    <div class="grid grid-cols-7 gap-2">${leadingBlanks}${cells}</div>`;
+    <div class="grid grid-cols-7 gap-2">${leadingBlanks}${cells}</div>
+    <div class="calendar-month-details mt-5" dir="rtl">
+      <h3 class="text-sm font-black text-purple-100 mb-1">פרטי האירועים — ${monthNames[month]} ${year}</h3>
+      <p class="text-[11px] text-white/50 mb-3">כל המידע להורים ולאורחים — תאריך, שעה, מקום ותפריט</p>
+      ${monthDetailsHtml}
+    </div>`;
 }
 
 function calendarGirlColorClass(girlName) {
@@ -5243,6 +5299,10 @@ function bindNavigation() {
   });
 
   document.getElementById("eventsTab").addEventListener("click", (e) => {
+    if (e.target.closest("[data-guest-login-inline]")) {
+      openLoginScreen();
+      return;
+    }
     const eventImg = e.target.closest("[data-event-img]");
     if (eventImg) {
       openEventImageLightbox(eventImg.src);
@@ -5311,19 +5371,38 @@ function bindNavigation() {
       renderCalendar();
       return;
     }
+    if (e.target.closest("[data-guest-login-inline]")) {
+      openLoginScreen();
+      return;
+    }
+    const eventImg = e.target.closest("[data-event-img]");
+    if (eventImg) {
+      openEventImageLightbox(eventImg.src);
+      return;
+    }
+    const openRsvpBtn = e.target.closest("[data-open-rsvp-id]");
+    if (openRsvpBtn) {
+      openRsvpScreen(openRsvpBtn.dataset.openRsvpId, openRsvpBtn.dataset.rsvpTab || "yes");
+      return;
+    }
+    const wazeBtn = e.target.closest("[data-waze-address]");
+    if (wazeBtn) {
+      window.open(`https://waze.com/ul?q=${wazeBtn.dataset.wazeAddress}&navigate=yes`, "_blank");
+      return;
+    }
+    const quickCreditBtn = e.target.closest("[data-quick-credit-event]");
+    if (quickCreditBtn) {
+      if (isGuestViewer()) {
+        promptLogin("לפרגון");
+        return;
+      }
+      pendingCreditEventId = quickCreditBtn.dataset.quickCreditEvent || "";
+      switchTab("credits", false);
+      return;
+    }
     const eventBtn = e.target.closest("[data-calendar-event-id]");
     if (!eventBtn) return;
-    const eventId = eventBtn.dataset.calendarEventId;
-    switchTab("events", false);
-    const cardBtn = document.querySelector(`[data-edit-id="${eventId}"], [data-event-id="${eventId}"]`);
-    const card = cardBtn ? cardBtn.closest(".event-card") : null;
-    if (card) {
-      card.scrollIntoView({ behavior: "smooth", block: "center" });
-      card.style.boxShadow = "0 0 0 2px rgba(244,114,182,.8), 0 0 22px rgba(244,114,182,.3)";
-      setTimeout(() => {
-        card.style.boxShadow = "";
-      }, 1500);
-    }
+    highlightEventCard(eventBtn.dataset.calendarEventId);
   });
 
   document.getElementById("adminTab").addEventListener("click", async (e) => {
